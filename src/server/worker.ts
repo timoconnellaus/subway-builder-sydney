@@ -10,6 +10,7 @@ export interface Env {
 const TICK_MS = 250;
 const SAVE_EVERY_MS = 10_000;
 const IDLE_STOP_MS = 120_000;
+const FORGET_AFTER_MS = 7 * 24 * 60 * 60 * 1000; // rooms nobody has touched for a week are deleted
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -158,5 +159,16 @@ export class GameRoom extends DurableObject<Env> {
     this.ctx.storage.put(entries).catch(() => {
       if (this.core) this.core.dirty = true;
     });
+    void this.ctx.storage.setAlarm(Date.now() + FORGET_AFTER_MS);
+  }
+
+  /** A week with no activity: forget the room entirely. */
+  async alarm() {
+    if (this.sockets.size > 0) {
+      await this.ctx.storage.setAlarm(Date.now() + FORGET_AFTER_MS);
+      return;
+    }
+    await this.ctx.storage.deleteAll();
+    this.core = null;
   }
 }
