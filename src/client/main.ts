@@ -87,6 +87,12 @@ function achievementsHtml(): string {
     <div class="badges">${ACHIEVEMENTS.map((a) => `<div class="ach ${have.has(a.id) ? "on" : ""}" title="${esc(a.name)}: ${esc(a.how)}"><span class="e">${have.has(a.id) ? a.emoji : "🔒"}</span><span class="n">${esc(a.name)}</span><span class="h">${esc(a.how)}</span></div>`).join("")}</div></section>`;
 }
 
+/** Your starting hub (and colour) on a map; the bots take the other seats. */
+function seatOptions(mapId: string, current: number): string {
+  const map = MAPS[mapId] ?? MAPS.sydney;
+  return SLOTS.map((slot, i) => `<option value="${i}" ${i === current ? "selected" : ""}>${esc(stationName(map, map.hubs[i]))} (${COLOR_NAMES[slot.color]})</option>`).join("");
+}
+
 function mapOptions(current: string): string {
   return (["Australia", "World"] as const)
     .map(
@@ -152,6 +158,9 @@ function menu() {
         <label class="field inline"><span>Map</span>
           <select id="map">${mapOptions(storage("map", "sydney"))}</select>
         </label>
+        <label class="field inline"><span>Start at</span>
+          <select id="seat">${seatOptions(storage("map", "sydney"), Number(storage("seat", "0")) || 0)}</select>
+        </label>
         <label class="field inline"><span>Round length</span>
           <select id="round">${[300, 600, 900, 1200].map((m) => `<option value="${m}" ${String(m) === minutes ? "selected" : ""}>${m / 60} minutes</option>`).join("")}</select>
         </label>
@@ -179,6 +188,11 @@ function menu() {
   app.append(el);
   const nameIn = el.querySelector<HTMLInputElement>("#name")!;
   // the rules to remember; bot skill only once picked, so the easy-until-you-win default can move up
+  // the hub list follows the map
+  const seatSel = el.querySelector<HTMLSelectElement>("#seat")!;
+  el.querySelector<HTMLSelectElement>("#map")!.addEventListener("change", (e) => {
+    seatSel.innerHTML = seatOptions((e.target as HTMLSelectElement).value, Number(seatSel.value) || 0);
+  });
   let skillPicked = loadRules().botSkill !== undefined;
   el.querySelector('select[data-rule="botSkill"]')!.addEventListener("change", () => (skillPicked = true));
   const chosenRules = (): HouseRules => {
@@ -220,6 +234,7 @@ function menu() {
     setStorage("bots", (chosen.length ? chosen : ["builder"]).join(","));
     setStorage("round", el.querySelector<HTMLSelectElement>("#round")!.value);
     setStorage("map", el.querySelector<HTMLSelectElement>("#map")!.value);
+    setStorage("seat", el.querySelector<HTMLSelectElement>("#seat")!.value);
     setStorage("rules", JSON.stringify(chosenRules()));
     startFresh("menu");
   });
@@ -305,7 +320,8 @@ function menuOptions(): LocalOptions {
     bots: bots.slice(0, 3),
     roundMinutes: Number(storage("round", "900")) || 900,
     rules: effectiveRules(),
-    map: storage("map", "sydney")
+    map: storage("map", "sydney"),
+    slot: Number(storage("seat", "0")) || 0
   };
 }
 
