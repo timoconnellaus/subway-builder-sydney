@@ -127,6 +127,12 @@ export class GameScreen {
     this.handleEvents(s);
     if (first || (this.map.hintSections.length && s.players.find((p) => p.id === this.you)?.owned)) this.updateHighlight();
     const me = s.players.find((p) => p.id === this.you);
+    if (me && me.money < 0 && !this.warnedBroke) {
+      this.warnedBroke = true;
+      this.toastText("Your money has run out. Remove empty trains or raise fares to recover.", "bad");
+      sound.play("warn");
+    }
+    if (me && me.money > 200) this.warnedBroke = false;
     if (me) {
       this.incomeLog.push({ t: s.time, v: me.income });
       while (this.incomeLog.length > 2 && s.time - this.incomeLog[0].t > 20) this.incomeLog.shift();
@@ -600,6 +606,16 @@ export class GameScreen {
     setTimeout(() => t.remove(), cls.includes("big") ? 5600 : 3800);
   }
 
+  private warnedBroke = false;
+
+  private toastText(text: string, cls = "") {
+    const t = h("div", { class: `toast ${cls}` });
+    t.textContent = text;
+    this.toasts.prepend(t);
+    setTimeout(() => t.classList.add("out"), 4000);
+    setTimeout(() => t.remove(), 4600);
+  }
+
   private showEmote(from: string, e: string) {
     const s = this.snap;
     const p = s?.players.find((x) => x.id === from);
@@ -761,7 +777,8 @@ export class GameScreen {
     const mine = s.lines.filter((l) => l.owner === me.id);
     const owned = me.owned;
     let tip = "";
-    if (owned === 0) tip = `Tap a <b>dotted section</b> next to your hub, <b>${esc(this.stationName(me.hub))}</b>, then press <b>Open</b>.`;
+    if (me.money < 0) tip = `<b>You're spending more than you earn.</b> Take trains off quiet lines (look for low "seats full"), shorten long trains, or raise fares where nobody competes with you.`;
+    else if (owned === 0) tip = `Tap a <b>dotted section</b> next to your hub, <b>${esc(this.stationName(me.hub))}</b>, then press <b>Open</b>.`;
     else if (!mine.length) tip = `Now press <b>New line</b> and tap the stations along your track to start running trains.`;
     else if (s.time < 120) tip = `Open more track and extend your lines. Busy lines need more trains.`;
     else tip = `Run a line onto a rival's track, then cut your fare and add trains to win their passengers.`;
