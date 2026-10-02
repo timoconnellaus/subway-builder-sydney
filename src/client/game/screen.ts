@@ -1,15 +1,17 @@
-import { byStanding, MAPS, type Snapshot, type StationId, type LineView, type PlayerView, type SectionId } from "../../sim";
-import { ruleLabel, type GameEvent } from "../../sim/types";
+import { MAPS, type Snapshot, type StationId, type LineView, type PlayerView, type SectionId } from "../../sim";
+import type { GameEvent } from "../../sim/types";
 import type { GameConn } from "../conn";
 import { COLORS, CSS_COLORS, esc, fare, h, isNarrow, isTablet, money, patch, readRecord, remaining, setStorage, storage } from "../util";
-import { BOT_TIPS, EMOTES } from "../../shared/protocol";
+import { EMOTES } from "../../shared/protocol";
 import { MapView, type Pick } from "./map";
 import { sound } from "../sound";
 import { STEPS } from "./tutorial";
 import { checkAchievements } from "../achievements";
-import { STAR_MINUTES, starText, stopName, TOUR, tourProgress, tourStarsFor, tourWon } from "../tour";
-import { boardHtml, submitScore } from "../daily";
-import { dailyChallenge, dailyDateLabel, dailyLabel, dailyScore, mmss } from "../../shared/daily";
+import { tourProgress, tourStarsFor, tourWon } from "../tour";
+import { dailyScore } from "../../shared/daily";
+import { compact, dots, HELP_HTML, lineTrainCost, maxToasts, openCost, pushToast, trainCost } from "./helpers";
+import { welcomeHtml, dailyIntroHtml, tourIntroHtml } from "./intros";
+import { endHtml, sendDaily } from "./end";
 
 type Mode = { kind: "idle" } | { kind: "build"; stations: StationId[] } | { kind: "extend"; line: string; end: "start" | "end" };
 
@@ -17,16 +19,6 @@ type Sel = Pick | { kind: "line"; id: string };
 
 /** Money sitting above this gets a "spend it" nudge. */
 const RICH = 3500;
-
-const maxToasts = () => (isNarrow() ? 2 : 3);
-
-/** Show a toast at the top of a stack, keep at most `max`, and fade it out after `ms`. */
-function pushToast(stack: HTMLElement, t: HTMLElement, max: number, ms: number) {
-  stack.prepend(t);
-  while (stack.children.length > max) stack.lastChild?.remove();
-  setTimeout(() => t.classList.add("out"), ms);
-  setTimeout(() => t.remove(), ms + 600);
-}
 
 export interface GameScreenHooks {
   onExit(): void;
@@ -127,15 +119,7 @@ export class GameScreen {
 
   private showIntro(me: PlayerView) {
     const hub = this.map.net.station[me.hub]?.name ?? me.hub;
-    this.openIntroCard(`
-        <img class="end-badge" src="/sprites/badge-${me.color}.webp" alt="">
-        <h2>Welcome to Metro Empire</h2>
-        <p>You run a train company starting at <b>${esc(hub)}</b>. Three steps to get going:</p>
-        <ol class="how">
-          <li><b>Open track.</b> Tap a pulsing section next to ${esc(hub)} and press <b>Open</b>.</li>
-          <li><b>Run a line.</b> Press <b>New line</b> and tap stations along your track. Passengers start riding.</li>
-          <li><b>Steal track.</b> Run your trains onto a rival's line, charge less and add trains. When nobody boards their train ${this.snap?.settings.emptyToCapture ?? 3} times in a row, it's yours.</li>
-        </ol>`, "welcome");
+    this.openIntroCard(welcomeHtml(me, hub, this.snap?.settings.emptyToCapture ?? 3), "welcome");
   }
   private introPaused = false;
 
@@ -149,30 +133,12 @@ export class GameScreen {
 
   /** Today's challenge: the twist, the rivals and how the leaderboard ranks you. */
   private showDailyIntro(date: string) {
-    const s = this.snap!;
-    const c = dailyChallenge(date);
-    const rivals = s.players.filter((p) => p.isBot);
-    this.openIntroCard(
-      `
-        <h2>📅 Daily challenge</h2>
-        <p class="twist"><b>${esc(c.twist)}</b></p>
-        <ul class="rivals">${rivals.map((p) => `<li><img src="/sprites/badge-${p.color}.webp" alt=""><b>${esc(p.name)}</b> at ${esc(this.stationName(p.hub))}</li>`).join("")}</ul>
-        <p>Everyone gets the same start today. Win as fast as you can: the fastest win tops the leaderboard (if nobody wins, the most track does).</p>`,
-      "info"
-    );
+    this.openIntroCard(dailyIntroHtml(this.snap!, date, (id) => this.stationName(id)), "info");
   }
 
   /** Arriving in a World Tour city: who you're up against, before the clock starts. */
   private showTourIntro(stop: number) {
-    const s = this.snap!;
-    const rivals = s.players.filter((p) => p.isBot);
-    this.openIntroCard(`
-        <h2>✈️ Welcome to ${esc(stopName(stop))}</h2>
-        <p>World Tour, city ${stop + 1} of ${TOUR.length} · ${esc(ruleLabel("botSkill", s.settings.botSkill))} bots</p>
-        <ul class="rivals">${rivals
-          .map((p) => `<li><img src="/sprites/badge-${p.color}.webp" alt=""><b>${esc(p.name)}</b> at ${esc(this.stationName(p.hub))}${p.botStyle ? ` <span class="muted">· ${esc(BOT_TIPS[p.botStyle])}</span>` : ""}</li>`)
-          .join("")}</ul>
-        <p>Own ${Math.round(s.settings.winShare * 100)}% of the track to win, or own the most when the ${Math.round(s.settings.roundMinutes / 60)} minutes are up.</p>`, "info");
+    this.openIntroCard(tourIntroHtml(this.snap!, stop, (id) => this.stationName(id)), "info");
   }
 
   private layoutInsets() {
@@ -871,9 +837,7 @@ export class GameScreen {
 
   private showEnd(s: Snapshot) {
     this.recordResult(s);
-    const winner = s.players.find((p) => p.id === s.winner);
     const reason = s.events.find((e) => e.kind === "win");
-    const ranked = [...s.players].sort(byStanding);
     const youWon = s.winner === this.you;
     // World Tour: a win unlocks the next city (remember whether it was already unlocked)
     const tourStop = this.conn.tour;
@@ -884,77 +848,15 @@ export class GameScreen {
     const host = this.hooks.isHost?.() ?? false;
     const me = s.players.find((p) => p.id === this.you);
     this.overlay.hidden = false;
-    this.overlay.innerHTML = `
-      <div class="card end">
-        ${winner ? `<img class="end-badge" src="/sprites/badge-${winner.color}.webp" alt="">` : ""}
-        <h2>${youWon ? "You win!" : winner ? `${esc(winner.name)} wins` : "Round over"}</h2>
-        ${
-          !youWon && me && winner && winner.owned - me.owned <= 1
-            ? `<p class="so-close">${winner.owned === me.owned ? "So close! Level on track, beaten on passengers." : "So close! You lost by just 1 section."}</p>`
-            : ""
-        }
-        <p class="muted">${reason && reason.kind === "win" && reason.reason === "share" ? `${youWon ? "You own" : "They own"} ${Math.round(s.settings.winShare * 100)}% of ${esc(MAPS[s.mapId]?.name ?? "the")}'s network.` : "Most track when the clock ran out (passengers break a tie)."}</p>
-        ${historyChart(s)}
-        ${me && this.conn.tour !== undefined ? this.tourEnd(this.conn.tour, youWon, replay, stars) : ""}
-        ${me && this.conn.local && !(this.conn.tour !== undefined && youWon) ? `<p class="end-tip">💡 ${this.endTip(s, me, youWon)}</p>` : ""}
-        <table class="ranks">
-          <thead><tr><th></th><th>Company</th><th>Track</th><th>Passengers</th><th>Money</th></tr></thead>
-          <tbody>${ranked
-            .map(
-              (p) =>
-                `<tr><td><span class="chip" style="--c:${CSS_COLORS[p.color]}"></span></td><td>${esc(p.name)}${p.id === this.you && p.name !== "You" ? " (you)" : ""}</td><td class="num">${p.owned}</td><td class="num">${p.carried.toLocaleString("en-AU")}</td><td class="num">${money(p.money)}</td></tr>`
-            )
-            .join("")}</tbody>
-        </table>
-        <div class="row">
-          ${this.conn.local ? `<button class="btn primary" data-act="restart">Play again</button>` : host ? `<button class="btn primary" data-act="rematch">Back to the lobby</button>` : `<span class="muted">Waiting for the host…</span>`}
-          <button class="btn" data-act="exit">Main menu</button>
-          <button class="btn ghost" data-act="close-overlay">Look at the map</button>
-        </div>
-        ${this.conn.daily && me ? `<div class="daily-end"><h3>Daily challenge · ${esc(dailyDateLabel(this.conn.daily))}</h3><div id="daily-board"><p class="muted">Saving your score…</p></div></div>` : ""}
-      </div>`;
+    this.overlay.innerHTML = endHtml(s, { you: this.you, local: this.conn.local, host, tour: this.conn.tour, daily: this.conn.daily, replay, stars });
     if (this.conn.daily && me) this.sendDaily(this.conn.daily, me.name, dailyScore(youWon, s.time, me.owned / s.totalSections));
   }
 
-  /** World Tour result: unlock the next city on a win. */
-  private tourEnd(stop: number, won: boolean, replay: boolean, stars: number): string {
-    const next = stop + 1 < TOUR.length ? stopName(stop + 1) : "";
-    if (!won)
-      return `<div class="tour-end"><b>World Tour: ${esc(stopName(stop))}</b><p>${
-        replay ? "You've beaten this city before. Press Play again for a rematch." : `Win here to unlock ${next ? esc(next) : "the title"}. Press Play again to have another go.`
-      }</p></div>`;
-    const how =
-      stars < 2
-        ? `Own ${Math.round((this.snap?.settings.winShare ?? 0.6) * 100)}% of the track before time runs out for ★★.`
-        : stars < 3
-          ? `Do it before ${mmss(STAR_MINUTES)} on the clock for ★★★.`
-          : "Perfect!";
-    return `<div class="tour-end won"><b>🎉 ${esc(stopName(stop))} won!</b><div class="stars" aria-label="${stars} of 3 stars">${starText(stars)}</div><p class="muted small">${how}</p>${
-      next ? `<p>Next stop: ${esc(next)}</p><button class="btn primary" data-act="tour-next">Fly to ${esc(next)} ✈️</button>` : "<p>You've won every city on the World Tour. World champion! 🏆</p>"
-    }</div>`;
-  }
-
-  /** One piece of advice for next time, based on how the round went. */
-  private endTip(s: Snapshot, me: PlayerView, won: boolean): string {
-    const mine = s.lines.filter((l) => l.owner === me.id);
-    const trains = mine.reduce((a, l) => a + l.trains, 0);
-    const skill = s.settings.botSkill;
-    if (won) return skill < 3 ? `Great win! Try ${ruleLabel("botSkill", skill + 1)} bots next time.` : "You beat the hard bots. Try the daily challenge, or a world city!";
-    if (me.money > 3000) return `You finished with ${money(me.money)} unspent. Money in the bank doesn't win passengers: buy more trains and open more track.`;
-    if (me.owned < 4) return "Open track early. Every section you own earns you fees when rivals use it, and counts towards the win.";
-    if (mine.length && trains / mine.length < 2.5) return "Your lines had few trains, so rivals could win your passengers. Two or three trains per line keeps them loyal.";
-    return "When a 'Nobody boarded your train' warning pops up, tap it and defend: lower that line's fare or add trains.";
-  }
-
   private dailySent = false;
-  private async sendDaily(date: string, name: string, score: number) {
+  private sendDaily(date: string, name: string, score: number) {
     if (this.dailySent) return;
     this.dailySent = true;
-    const board = await submitScore(date, name, score);
-    const host = this.overlay.querySelector("#daily-board");
-    if (!host || this.destroyed) return;
-    const head = `<p><b>Your score: ${esc(dailyLabel(score))}</b>${board && typeof board !== "string" && board.rank ? ` · rank ${board.rank}` : ""}</p>`;
-    host.innerHTML = head + (typeof board === "string" ? `<p class="muted">${esc(board)}</p>` : boardHtml(board));
+    void sendDaily(this.overlay, date, name, score, () => this.destroyed);
   }
 
   private showHelp() {
@@ -1363,59 +1265,3 @@ export class GameScreen {
     this.el.remove();
   }
 }
-
-/** Track owned over the round, one line per company, drawn to scale. */
-function historyChart(s: Snapshot): string {
-  const h = s.history;
-  if (!h || h.length < 2) return "";
-  // labels sit outside the plot so lines never cross them: title above, "win" to the right
-  const W = 460, H = 160, L = 30, B = 22, T = 22, R = 34;
-  const tMax = h[h.length - 1].t || 1;
-  const need = Math.ceil(s.totalSections * s.settings.winShare);
-  const yMax = Math.max(4, need, ...h.flatMap((x) => x.owned));
-  const X = (t: number) => L + (t / tMax) * (W - L - R);
-  const Y = (v: number) => T + (1 - v / yMax) * (H - T - B);
-  let out = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Track owned by each company over the round">`;
-  for (const v of [0, Math.round(yMax / 2), yMax]) out += `<line x1="${L}" x2="${W - R}" y1="${Y(v)}" y2="${Y(v)}" stroke="#d9d5cc"/><text x="${L - 6}" y="${Y(v) + 4}" text-anchor="end">${v}</text>`;
-  out += `<line x1="${L}" x2="${W - R}" y1="${Y(need)}" y2="${Y(need)}" stroke="#1e2430" stroke-dasharray="4 4"/><text x="${W - R + 4}" y="${Y(need) + 4}" text-anchor="start">win</text>`;
-  out += `<text x="${(L + W - R) / 2}" y="${H - 4}" text-anchor="middle">time →</text><text x="${L}" y="12" text-anchor="start">track owned</text>`;
-  s.players.forEach((p, i) => {
-    const d = h.map((x, k) => `${k ? "L" : "M"}${X(x.t).toFixed(1)},${Y(x.owned[i] ?? 0).toFixed(1)}`).join("");
-    out += `<path d="${d}" fill="none" stroke="${CSS_COLORS[p.color]}" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>`;
-  });
-  return out + "</svg>";
-}
-
-/** Cost of one more train on a line (its cars and speed). */
-function lineTrainCost(s: Snapshot, l: LineView) {
-  return trainCost(s, l.cars) + (l.speed - 1) * s.settings.speedCost;
-}
-
-function trainCost(s: Snapshot, cars: number) {
-  return s.settings.trainBaseCost + s.settings.carCost * cars;
-}
-function openCost(s: Snapshot, minutes: number, owned = 0) {
-  return Math.round(s.settings.openBaseCost + s.settings.openCostPerMinute * minutes + s.settings.openCostPerOwned * owned);
-}
-function dots(run: number, need: number, color: string) {
-  let out = '<span class="dots">';
-  for (let i = 0; i < need; i++) out += `<i class="${i < run ? "on" : ""}" style="--c:${color}"></i>`;
-  return out + "</span>";
-}
-function compact(n: number) {
-  return n >= 10000 ? `${Math.round(n / 1000)}k` : n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
-}
-
-export const HELP_HTML = `
-  <h2>How to play</h2>
-  <ol class="how">
-    <li><b>Open track.</b> Tap a dotted section next to your hub and press Open. It's yours.</li>
-    <li><b>Run trains.</b> Press New line and tap stations along opened track. Passengers start riding and paying fares.</li>
-    <li><b>Grow.</b> Open more track, extend your lines, and add trains where they're full.</li>
-    <li><b>Fight.</b> You can run trains on a rival's track (you pay them a small fee). Passengers wait for a cheaper train if it's coming soon and has room: <b>1 minute for every 50 cents</b> they save.</li>
-    <li><b>Capture.</b> When nobody boards the owner's train on a section 3 times in a row (because they all took yours), the section is yours.</li>
-    <li><b>Win.</b> Own 60% of the network, or own the most track when time runs out.</li>
-    <li><b>Home hubs.</b> Only you can open the track touching your hub, and you can always start a line there, even if rivals have taken all your track.</li>
-  </ol>
-  <p class="muted small">Passengers pick routes by fare plus time (50 cents a minute), and changing trains costs them 4 minutes.</p>
-  <p class="muted small">Keys: <b>N</b> new line · <b>Space</b> pause · <b>1 2 3</b> speed · <b>+ −</b> zoom · arrows move · <b>H</b> home · <b>Esc</b> cancel</p>`;

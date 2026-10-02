@@ -9,7 +9,8 @@ import { ACHIEVEMENTS, unlocked } from "./achievements";
 import { boardHtml, fetchBoard, localBest } from "./daily";
 import { starText, stopName, TOUR, TOUR_MINUTES, tourBest, tourCity, tourProgress, tourStars } from "./tour";
 import { dailyChallenge, dailyDateLabel, dailyLabel, mmss, sydneyDate, type DailyChallenge } from "../shared/daily";
-import { GameScreen, HELP_HTML } from "./game/screen";
+import { GameScreen } from "./game/screen";
+import { HELP_HTML } from "./game/helpers";
 import { COLOR_BLIND, COLOR_NAMES, CSS_COLORS, esc, patch, readRecord, setStorage, storage, token } from "./util";
 
 const app = document.getElementById("app")!;
