@@ -47,3 +47,8 @@ Overnight build, started 2026-10-02 20:30 AEST.
 - "Can a kid win?" test: a scripted tutorial-level player won 2/12 on Easy and often lost while
   owning the most track. Changed the clock rule to most track (passengers break ties) and made
   Easy bots gentler; now 4/6. Hub bonuses retuned for the new rule.
+- Offline play (service worker), landmark icons for world cities, optional music, trams for
+  one-car trains, choose your starting hub.
+- iPad playtest: portrait bottom-sheet layout, bigger touch targets, arrival card for tour cities,
+  'spend your money' nudge, smarter label placement (your neighbourhood first, other sides tried).
+- Two more correctness reviews and three more /simplify passes; e2e smoke now covers the tour and daily.
