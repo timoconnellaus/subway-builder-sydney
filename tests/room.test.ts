@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SLOTS, type ServerMsg } from "../src/shared/protocol";
+import { SLOTS, startRound, type ServerMsg } from "../src/shared/protocol";
 import { RoomCore } from "../src/shared/room";
 
 function client(room: RoomCore, id: string) {
@@ -218,6 +218,11 @@ describe("hardening", () => {
     expect(a.last("lobby")!.lobby.options.roundMinutes).toBe(600);
     room.message("c1", { t: "setOptions", options: { roundMinutes: 300 } }); // still the host's choice
     expect(a.last("lobby")!.lobby.options.roundMinutes).toBe(300);
+  });
+
+  it("starts a round with players in the order given (seeded daily games depend on it)", () => {
+    const s = startRound("sydney", [{ id: "P1", name: "You", slot: 2 }, { id: "P2", name: "Bot", slot: 0, botStyle: "builder" }], {}, 600, 7);
+    expect(s.state.players.map((p) => [p.id, p.hub, !!p.isBot])).toEqual([["P1", "airport", false], ["P2", "central", true]]);
   });
 
   it("puts a bot in the seat the host picked", () => {

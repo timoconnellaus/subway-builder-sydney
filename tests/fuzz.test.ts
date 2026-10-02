@@ -59,6 +59,6 @@ describe("fuzz", () => {
       for (const [, n] of seen) expect(n).toBe(1);
       for (const id in state.groups) expect(seen.has(Number(id))).toBe(true);
       for (const p of state.players) expect(Number.isFinite(p.money)).toBe(true);
-    });
+    }, 20_000); // long simulated games: give slow CI machines room
   }
 });

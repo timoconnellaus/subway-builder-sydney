@@ -346,7 +346,8 @@ export class RoomCore {
   }
 
   private startGame() {
-    const session = startRound(this.options.map, this.members, this.options.rules, this.options.roundMinutes);
+    const bySeat = [...this.members].sort((a, b) => a.slot - b.slot);
+    const session = startRound(this.options.map, bySeat, this.options.rules, this.options.roundMinutes);
     this.session = session;
     for (const p of session.state.players) p.connected = p.isBot || this.members.find((m) => m.id === p.id)!.connected;
     this.phase = "game";

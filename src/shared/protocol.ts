@@ -59,7 +59,6 @@ export type ServerMsg =
 // Seat i plays colour SLOTS[i] and starts at the map's hubs[i].
 export const SLOTS: { color: Color }[] = [{ color: "red" }, { color: "blue" }, { color: "gold" }, { color: "green" }];
 
-/** The seats bots take when you sit in `slot` (-1 for none): the others, in order. */
 /** Round lengths a game can be set to, in game minutes. */
 export const ROUND_CHOICES = [300, 600, 900, 1200] as const;
 /** Five minutes is only enough for a real fight on the small Sydney map. */
@@ -76,17 +75,19 @@ export interface RoundSeat {
 }
 
 /** Start a round: seats become colours and hubs on the map, house rules are cleaned. Used by
- * single player and online rooms alike. */
+ * single player and online rooms alike. Players keep the order given (it decides bot turn order,
+ * so a seeded daily challenge must always pass them the same way). */
 export function startRound(mapId: string, seats: RoundSeat[], rules: HouseRules, roundMinutes: number, seed?: number): Session {
   const map = MAPS[mapId] ?? MAPS.sydney;
   return Session.create(
     map,
-    [...seats].sort((a, b) => a.slot - b.slot).map((m) => ({ id: m.id, name: m.name, ...seat(map.id, m.slot), isBot: !!m.botStyle, botStyle: m.botStyle })),
+    seats.map((m) => ({ id: m.id, name: m.name, ...seat(map.id, m.slot), isBot: !!m.botStyle, botStyle: m.botStyle })),
     { ...cleanRules(rules), roundMinutes },
     seed
   );
 }
 
+/** The seats bots take when you sit in `slot` (-1 for none): the others, in order. */
 export function botSeats(slot: number, count: number): number[] {
   return SLOTS.map((_, i) => i).filter((i) => i !== slot).slice(0, count);
 }
