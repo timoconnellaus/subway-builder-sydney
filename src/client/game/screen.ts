@@ -244,8 +244,8 @@ export class GameScreen {
       // tapping it shows the cheapest track you could open right now
       const next = this.cheapestOpen(s, me);
       const t = h("div", { class: "toast good", ...(next ? { "data-act": "select-section", "data-arg": next, role: "button" } : {}) });
-      t.textContent = `You have ${money(me.money)} in the bank. Spend it: open more track or add trains!${next ? " Tap for track you can open." : ""}`;
-      pushToast(this.toasts, t, maxToasts(), 6000);
+      t.textContent = `${money(me.money)} to spend!${next ? " Tap here to open more track." : " Open track or add trains."}`;
+      pushToast(this.toasts, t, maxToasts(), 12000);
     }
     if (me) {
       this.incomeLog.push({ t: s.time, v: me.income });
@@ -456,7 +456,9 @@ export class GameScreen {
     } else if (this.mode.kind === "idle" && s) {
       const me = s.players.find((p) => p.id === this.you);
       if (me && me.owned === 0) {
-        this.map.hintSections = this.map.net.adj[me.hub].filter((e) => !s.sections[e.section].owner).map((e) => e.section);
+        this.map.hintSections = this.map.net.adj[me.hub]
+          .filter((e) => !s.sections[e.section].owner && !s.players.some((p) => p.hub === e.to))
+          .map((e) => e.section);
       }
     }
   }
@@ -1130,7 +1132,13 @@ export class GameScreen {
       tip = `Your trains are earning. Press <b>2×</b> or <b>3×</b> to speed up while you save for more track.`;
     else if (s.time < 120) tip = `Open more track and extend your lines. Busy lines need more trains.`;
     else if (me.money > RICH) tip = `You have <b>${money(me.money)}</b> to spend. Open more track and add trains: money in the bank doesn't win.`;
-    else tip = `Run a line onto a rival's track, then cut your fare and add trains to win their passengers.`;
+    else {
+      const net = this.network(s, me);
+      const rivalNear = this.map.net.sections.some((x) => s.sections[x.id].owner && s.sections[x.id].owner !== me.id && (net.has(x.a) || net.has(x.b)));
+      tip = rivalNear
+        ? `Run a line onto a rival's track, then cut your fare and add trains to win their passengers.`
+        : `Keep opening track outward and extending your lines. When you reach a rival's track, run a line onto it and undercut them.`;
+    }
     return `
       <h3>Your lines</h3>
       ${this.step < 0 ? `<div class="tip">${tip}</div>` : ""}
@@ -1219,7 +1227,11 @@ export class GameScreen {
       const cost = openCost(s, sec.minutes, me.owned);
       const mine = this.network(s, me);
       const adjacent = mine.has(sec.a) || mine.has(sec.b);
-      action = adjacent
+      // the sim only lets a hub's owner open track at it: say so before the tap
+      const hubOwner = s.players.find((p) => p.id !== me.id && (p.hub === sec.a || p.hub === sec.b));
+      action = adjacent && hubOwner
+        ? `<p class="muted">Only ${esc(hubOwner.name)} can open track at their home hub. You can still win it later by taking its passengers.</p>`
+        : adjacent
         ? `<button class="btn primary wide" data-act="open" data-arg="${id}" ${me.money < cost ? "disabled" : ""}>Open this section · ${money(cost)}</button>${me.money < cost ? `<p class="muted small">You need ${money(cost - me.money)} more.</p>` : ""}`
         : `<p class="muted">You can only open track that touches your own network.</p>`;
     } else if (ss.owner && ss.owner !== this.you && me) {
