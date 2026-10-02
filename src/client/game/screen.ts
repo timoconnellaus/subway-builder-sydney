@@ -5,6 +5,7 @@ import { COLORS, CSS_COLORS, esc, fare, h, money, patch, remaining, setStorage, 
 import { EMOTES } from "../../shared/protocol";
 import { MapView, type Pick } from "./map";
 import { sound } from "../sound";
+import { STEPS } from "./tutorial";
 
 type Mode = { kind: "idle" } | { kind: "build"; stations: StationId[] } | { kind: "extend"; line: string; end: "start" | "end" };
 
@@ -25,6 +26,8 @@ export class GameScreen {
   private toasts: HTMLElement;
   private overlay: HTMLElement;
   private tip: HTMLElement;
+  private coach: HTMLElement;
+  private step = -1; // tutorial step, -1 when not a tutorial
   private map: MapView;
   private snap: Snapshot | null = null;
   private sel: Sel = null;
@@ -48,7 +51,9 @@ export class GameScreen {
     this.toasts = h("div", { class: "toasts", "aria-live": "polite" });
     this.overlay = h("div", { class: "overlay", hidden: true });
     this.tip = h("div", { class: "maptip", hidden: true });
-    this.el.append(this.mapHost, this.tip, this.hud, this.board, this.panel, this.toasts, this.overlay);
+    this.coach = h("div", { class: "coach", hidden: true, "aria-live": "polite" });
+    if ((conn as { tutorial?: boolean }).tutorial) this.step = 0;
+    this.el.append(this.mapHost, this.tip, this.hud, this.board, this.coach, this.panel, this.toasts, this.overlay);
     this.map = new MapView(this.mapHost, MAPS.sydney);
     this.map.you = conn.you;
     if (!conn.local) this.map.delay = 300;
@@ -82,7 +87,7 @@ export class GameScreen {
     this.focused = true;
     const me = this.snap.players.find((p) => p.id === this.you);
     if (me) this.map.focus(me.hub, window.innerWidth <= 760 ? 3 : 1.7);
-    if (me && storage("seen-intro") !== "1") this.showIntro(me);
+    if (me && storage("seen-intro") !== "1" && this.step < 0) this.showIntro(me);
   }
 
   private showIntro(me: PlayerView) {
@@ -276,7 +281,9 @@ export class GameScreen {
     }
     // first steps: pulse the track you can open from your hub
     this.map.hintSections = [];
-    if (this.mode.kind === "idle" && s) {
+    if (this.step >= 0) {
+      this.map.hintSections = STEPS[this.step]?.hint ?? [];
+    } else if (this.mode.kind === "idle" && s) {
       const me = s.players.find((p) => p.id === this.you);
       if (me && me.owned === 0) {
         this.map.hintSections = this.map.net.adj[me.hub].filter((e) => !s.sections[e.section].owner).map((e) => e.section);
@@ -697,6 +704,7 @@ export class GameScreen {
     const me = s.players.find((p) => p.id === this.you);
     this.renderHud(s, me);
     this.renderBoard(s);
+    this.renderCoach(s);
     this.el.classList.toggle("panel-closed", !this.panelOpen);
     patch(this.panel, this.panelHtml(s, me));
     if (this.mode.kind !== "idle") this.updateHighlight();
@@ -734,6 +742,23 @@ export class GameScreen {
         <button class="hud-btn" data-act="help" aria-label="How to play">?</button>
       </div>`;
     patch(this.hud, html + (this.conn.paused && s.phase === "running" ? `<div class="paused-banner">Paused${this.conn.local || this.conn.canPause?.() ? "" : " by the host"}</div>` : ""));
+  }
+
+  private renderCoach(s: Snapshot) {
+    if (this.step < 0) return;
+    const before = this.step;
+    while (this.step < STEPS.length - 1 && STEPS[this.step].done(s, this.you)) this.step++;
+    if (this.step !== before) {
+      sound.play("good");
+      this.updateHighlight();
+    }
+    const st = STEPS[this.step];
+    this.coach.hidden = false;
+    patch(
+      this.coach,
+      `<div class="coach-step">Step ${Math.min(this.step + 1, STEPS.length)} of ${STEPS.length}</div><h3>${st.title}</h3><p>${st.text}</p>` +
+        (this.step === STEPS.length - 1 ? `<div class="row"><button class="btn primary" data-act="exit">Back to the menu</button></div>` : "")
+    );
   }
 
   private renderBoard(s: Snapshot) {

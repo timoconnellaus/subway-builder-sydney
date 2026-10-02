@@ -18,6 +18,7 @@ function route() {
   const hash = location.hash.replace(/^#\/?/, "");
   const [page, arg] = hash.split("/");
   if (page === "play") return playLocal(arg === "continue");
+  if (page === "tutorial") return playTutorial();
   if (page === "room" && arg && isRoomCode(arg.toUpperCase())) return online(arg.toUpperCase());
   return menu();
 }
@@ -126,7 +127,7 @@ function menu() {
       </section>
 
       ${storage("last-room") ? `<button class="btn" id="rejoin">Rejoin room ${esc(storage("last-room"))}</button>` : ""}
-      <button class="link" id="how">How to play</button>
+      <div class="row center"><button class="btn" id="tutorial">Learn to play (2 minutes)</button><button class="link" id="how">How to play</button></div>
     </div>`;
   app.append(el);
   const nameIn = el.querySelector<HTMLInputElement>("#name")!;
@@ -169,6 +170,11 @@ function menu() {
   el.querySelector("#join")!.addEventListener("click", join);
   codeIn.addEventListener("keydown", (e) => e.key === "Enter" && join());
   el.querySelector("#rejoin")?.addEventListener("click", () => go(`#/room/${storage("last-room")}`));
+  el.querySelector("#tutorial")!.addEventListener("click", () => {
+    saveName();
+    setStorage("seen-intro", "1");
+    go("#/tutorial");
+  });
   el.querySelector("#how")!.addEventListener("click", () => {
     const ov = document.createElement("div");
     ov.className = "overlay";
@@ -188,6 +194,16 @@ function playLocal(resume = false) {
     roundMinutes: Number(storage("round", "900")) || 900,
     rules: loadRules()
   });
+  const screen = new GameScreen(conn, { onExit: () => go("#/") });
+  app.append(screen.el);
+  cleanup = () => {
+    screen.destroy();
+    conn.close();
+  };
+}
+
+function playTutorial() {
+  const conn = new LocalGame({ name: storage("me-name", "") || "You", bots: [], roundMinutes: 3600, rules: {}, tutorial: true });
   const screen = new GameScreen(conn, { onExit: () => go("#/") });
   app.append(screen.el);
   cleanup = () => {

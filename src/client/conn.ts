@@ -44,6 +44,7 @@ export interface LocalOptions {
   bots: BotStyle[];
   roundMinutes: number;
   rules: HouseRules;
+  tutorial?: boolean;
 }
 
 export class LocalGame implements GameConn {
@@ -71,6 +72,7 @@ export class LocalGame implements GameConn {
   /** Save the game so it can be continued after closing the tab. */
   save = () => {
     try {
+      if (this.opts.tutorial) return;
       if (this.session.state.phase !== "running") return clearLocalSave();
       setStorage(SAVE_KEY, JSON.stringify({ opts: this.opts, state: this.session.state }));
     } catch {
@@ -78,7 +80,12 @@ export class LocalGame implements GameConn {
     }
   };
 
+  get tutorial() {
+    return !!this.opts.tutorial;
+  }
+
   restart() {
+    if (this.opts.tutorial) return this.startTutorial();
     const players = [
       { id: "P1", name: this.opts.name || "You", color: SLOTS[0].color, hub: SLOTS[0].hub },
       ...this.opts.bots.map((style, i) => ({
@@ -91,6 +98,31 @@ export class LocalGame implements GameConn {
       }))
     ];
     this.session = Session.create(MAPS.sydney, players, { ...cleanRules(this.opts.rules), roundMinutes: this.opts.roundMinutes });
+    this.paused = false;
+    if (!this.timer) {
+      this.last = performance.now();
+      this.timer = setInterval(() => this.loop(), 100);
+    }
+    this.emit();
+  }
+
+  /** A calm practice game: one sleepy rival that never changes its line. */
+  private startTutorial() {
+    this.session = Session.create(
+      MAPS.sydney,
+      [
+        { id: "P1", name: this.opts.name || "You", color: SLOTS[0].color, hub: SLOTS[0].hub },
+        { id: "P2", name: "Western Rail", color: SLOTS[1].color, hub: SLOTS[1].hub }
+      ],
+      { roundMinutes: 3600, events: 0, winShare: 1 }
+    );
+    const st = this.session.state;
+    for (const sec of ["granville~parramatta", "granville~lidcombe", "lidcombe~strathfield", "ashfield~strathfield"]) st.sections[sec].owner = "P2";
+    st.netVersion++;
+    st.players[1].money = 100000;
+    this.session.command("P2", { type: "createLine", stations: ["parramatta", "granville", "lidcombe", "strathfield", "ashfield"] });
+    const line = st.lines[0];
+    this.session.command("P2", { type: "setTrains", line: line.id, trains: 2 });
     this.paused = false;
     if (!this.timer) {
       this.last = performance.now();
