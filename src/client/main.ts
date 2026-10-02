@@ -37,6 +37,11 @@ function route() {
 }
 window.addEventListener("hashchange", route);
 
+// offline play once loaded (production builds only; the dev server serves files fresh)
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => {}));
+}
+
 function loadRules(): HouseRules {
   try {
     return JSON.parse(storage("rules", "{}")) as HouseRules;

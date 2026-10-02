@@ -25,6 +25,7 @@ the network, or own the most track when the clock runs out (passengers carried b
 - **Online:** create a room, share the link or the four-letter code, and add bots to any empty seats.
   Close the tab and come back: you rejoin as the same player.
 
+Install it from the browser (Add to Home Screen) and single-player games keep working offline.
 Works with a mouse or touch: drag to pan, scroll or pinch to zoom, tap stations and sections.
 
 ## Rules in numbers
