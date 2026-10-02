@@ -14,12 +14,15 @@ Overnight build, started 2026-10-02 20:30 AEST.
 - [x] Polish: sounds, welcome card, hints, hover tooltips, capture flash, head-to-head panel, line names
 - [x] Deploy config (wrangler.toml, GitHub Actions), README, CLAUDE.md
 - [x] Code review pass: fixed ghost trains, refunds, input validation, host edge cases
+- [x] Guided tutorial (9 steps with a coach and pulsing hints) and 12 achievements
+- [x] Greater Sydney map (Gosford, Wollongong, Katoomba, Richmond, Leppington, Olympic Park)
+- [x] "Watch the bots" mode, installable PWA (icons + manifest), phone layout
+- [x] Line renaming/trimming, station destinations panel, online rooms keep score across rounds
 
 ## Ideas for later
 - Interchanges between rival networks (from the design doc's version 1.5)
 - Express trains that skip stations
 - More stations (CBD split into Central / Town Hall / Wynyard, Metro City line)
-- Achievements and a tutorial mission
 
 ## Log
 - Sim core: network + gravity demand model, route choice (fare + 50c/min + 4 min per change),
