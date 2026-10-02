@@ -1,6 +1,6 @@
 import { MAPS, Session } from "../src/sim";
-const s = Session.create(MAPS.sydney, ["builder", "raider", "banker", "builder"].map((b, i) => ({
-  id: `P${i + 1}`, name: b, color: (["red", "blue", "gold", "green"] as const)[i], hub: MAPS.sydney.hubs[i], isBot: true, botStyle: b as any
+const s = Session.create(MAPS[process.argv[2] ?? "sydney"], ["builder", "raider", "banker", "builder"].map((b, i) => ({
+  id: `P${i + 1}`, name: b, color: (["red", "blue", "gold", "green"] as const)[i], hub: MAPS[process.argv[2] ?? "sydney"].hubs[i], isBot: true, botStyle: b as any
 })), { winShare: 2 });
 let worst = 0, total = 0, n = 0, maxSnap = 0;
 for (let t = 0; t < 900; t += 0.25) {
