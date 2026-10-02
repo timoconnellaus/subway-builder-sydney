@@ -113,7 +113,7 @@ export const HOUSE_RULES = {
   winShare: { label: "Track needed to win", values: [0.5, 0.6, 0.75], format: "percent" },
   startMoney: { label: "Starting money", values: [2000, 3000, 5000], format: "money" },
   trackFee: { label: "Fee for using rival track", values: [0, 4, 10], format: "money" },
-  demandPerMinute: { label: "How busy Sydney is", values: [100, 140, 200], names: ["Quiet", "Normal", "Rush hour"] },
+  demandPerMinute: { label: "How busy the city is", values: [100, 140, 200], names: ["Quiet", "Normal", "Rush hour"] },
   botSkill: { label: "Bot skill", values: [1, 2, 3], names: ["Easy", "Normal", "Hard"] },
   events: { label: "Big events", values: [0, 1], names: ["Off", "On"] }
 } as const;

@@ -104,7 +104,7 @@ export class GameScreen {
     this.focused = true;
     const me = this.snap.players.find((p) => p.id === this.you);
     if (me) this.map.focus(me.hub, window.innerWidth <= 760 ? 3 : 1.7);
-    if (me && storage("seen-intro") !== "1" && this.step < 0) this.showIntro(me);
+    if (me && this.conn.local && storage("seen-intro") !== "1" && this.step < 0) this.showIntro(me);
   }
 
   private showIntro(me: PlayerView) {
@@ -770,7 +770,6 @@ export class GameScreen {
         <p class="muted">${reason && reason.kind === "win" && reason.reason === "share" ? `${youWon ? "You own" : "They own"} ${Math.round(s.settings.winShare * 100)}% of ${esc(MAPS[s.mapId]?.name ?? "the")}'s network.` : "Most passengers carried when the clock ran out."}</p>
         ${historyChart(s)}
         ${me && this.conn.local ? `<p class="end-tip">💡 ${this.endTip(s, me, youWon)}</p>` : ""}
-        ${this.conn.daily && me ? `<div class="daily-end"><h3>Daily challenge · ${esc(this.conn.daily)}</h3><div id="daily-board"><p class="muted">Saving your score…</p></div></div>` : ""}
         <table class="ranks">
           <thead><tr><th></th><th>Company</th><th>Track</th><th>Passengers</th><th>Money</th></tr></thead>
           <tbody>${ranked
@@ -785,6 +784,7 @@ export class GameScreen {
           <button class="btn" data-act="exit">Main menu</button>
           <button class="btn ghost" data-act="close-overlay">Look at the map</button>
         </div>
+        ${this.conn.daily && me ? `<div class="daily-end"><h3>Daily challenge · ${esc(this.conn.daily)}</h3><div id="daily-board"><p class="muted">Saving your score…</p></div></div>` : ""}
       </div>`;
     if (this.conn.daily && me) this.sendDaily(this.conn.daily, me.name, dailyScore(youWon, s.time, me.owned / s.totalSections));
   }

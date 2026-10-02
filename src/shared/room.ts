@@ -30,6 +30,7 @@ interface Saved {
   code: string;
   members: Member[];
   host: PlayerId | null;
+  owner?: PlayerId | null;
   options: RoomOptions;
   phase: LobbyState["phase"];
   game: GameState | null;
@@ -55,6 +56,8 @@ export function checkMessage(raw: unknown): ClientMsg | null {
       return str(m.id, 20) ? (m as ClientMsg) : null;
     case "setSlot":
       return typeof m.slot === "number" ? (m as ClientMsg) : null;
+    case "setName":
+      return str(m.name, 64) ? (m as ClientMsg) : null;
     case "setOptions":
       return m.options && typeof m.options === "object" ? (m as ClientMsg) : null;
     case "start":
@@ -76,6 +79,8 @@ export function checkMessage(raw: unknown): ClientMsg | null {
 export class RoomCore {
   private members: Member[] = [];
   private host: PlayerId | null = null;
+  // whoever made the room: hosting passes to someone else while they're away, and back when they return
+  private owner: PlayerId | null = null;
   private options: RoomOptions = { roundMinutes: 900, rules: {}, map: "sydney" };
   private phase: LobbyState["phase"] = "lobby";
   private session: Session | null = null;
@@ -94,6 +99,7 @@ export class RoomCore {
     const r = new RoomCore(s.code);
     r.members = s.members.map((m) => ({ ...m, connected: m.isBot }));
     r.host = s.host;
+    r.owner = s.owner ?? s.host;
     r.options = { roundMinutes: s.options.roundMinutes ?? 900, rules: s.options.rules ?? {}, map: s.options.map ?? "sydney" };
     r.phase = s.phase;
     r.nextPlayer = s.nextPlayer;
@@ -113,6 +119,7 @@ export class RoomCore {
       code: this.code,
       members: this.members,
       host: this.host,
+      owner: this.owner,
       options: this.options,
       phase: this.phase,
       game: this.session ? this.session.state : null,
@@ -215,6 +222,14 @@ export class RoomCore {
         });
         break;
       }
+      case "setName": {
+        if (this.phase !== "lobby") return;
+        const m = this.members.find((x) => x.id === me);
+        const name = cleanPlayerName(msg.name);
+        if (!m || !name) return;
+        m.name = name;
+        break;
+      }
       case "removePlayer": {
         if (!isHost || this.phase !== "lobby" || msg.id === me) return;
         this.members = this.members.filter((m) => m.id !== msg.id);
@@ -295,7 +310,8 @@ export class RoomCore {
       c.player = m.id;
       const gp = this.session?.state.players.find((p) => p.id === m!.id);
       if (gp) gp.connected = true;
-      if (!this.host || !this.live(this.host)) this.host = m.id;
+      this.owner ??= m.id;
+      if (!this.host || !this.live(this.host) || m.id === this.owner) this.host = m.id;
     }
     c.conn.send({ t: "welcome", you: c.player ?? "spectator", room: this.code });
     if (!m && this.phase === "lobby") c.conn.send({ t: "error", message: "This room is full. You're watching." });
@@ -349,6 +365,7 @@ export class RoomCore {
     if (!gone.length) return;
     this.members = this.members.filter((m) => !gone.includes(m));
     if (this.host && !this.members.some((m) => m.id === this.host)) this.host = this.members.find((m) => !m.isBot && this.live(m.id))?.id ?? null;
+    if (this.owner && !this.members.some((m) => m.id === this.owner)) this.owner = this.host;
     this.dirty = true;
     this.broadcastLobby();
   }

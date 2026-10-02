@@ -170,7 +170,10 @@ function menu() {
     if (!nameIn.value.trim()) {
       // the leaderboard needs a name
       nameIn.classList.add("need");
-      nameIn.placeholder = "Type your name for the leaderboard";
+      nameIn.placeholder = "Your name";
+      const err = el.querySelector<HTMLElement>("#daily-err")!;
+      err.hidden = false;
+      err.textContent = "Type your name at the top first, so you can go on the leaderboard.";
       nameIn.scrollIntoView({ block: "center", behavior: "smooth" });
       nameIn.focus();
       return;
@@ -257,6 +260,7 @@ function dailyHtml(c: DailyChallenge): string {
     <p class="muted">You start at <b>${esc(hub)}</b> against ${c.bots.map((b) => BOT_NAMES[b]).join(", ")} on the ${esc(MAPS[c.map].name)} map. ${c.roundMinutes / 60} minutes. Win as fast as you can!</p>
     ${best !== null ? `<p>Your best today: <b>${esc(dailyLabel(best))}</b></p>` : ""}
     <div id="daily-top"></div>
+    <p class="error" id="daily-err" hidden></p>
     <button class="btn primary big" id="daily">Play today's challenge</button>
   </section>`;
 }
@@ -383,6 +387,7 @@ function online(code: string) {
         <div class="share"><input readonly value="${esc(link)}" aria-label="Invite link"><button class="btn" data-act="copy">Copy link</button></div></div>
       </div>
       <div class="slots">${slots}</div>
+      ${l.players.some((p) => p.id === room.you) ? `<label class="field inline"><span>Your name</span><input id="lobby-name" maxlength="16" placeholder="Type your name" value="${esc(l.players.find((p) => p.id === room.you)!.name)}" autocomplete="nickname"></label>` : ""}
       <label class="field inline"><span>Map</span>
         <select id="map" ${isHost ? "" : "disabled"}>${mapOptions(l.options.map ?? "sydney")}</select>
       </label>
@@ -432,6 +437,10 @@ function online(code: string) {
   }
   wrap.addEventListener("change", (e) => {
     const t = e.target as HTMLSelectElement;
+    if (t.id === "lobby-name" && t.value.trim()) {
+      setStorage("me-name", t.value.trim());
+      room.send({ t: "setName", name: t.value.trim() });
+    }
     if (t.id === "round") room.send({ t: "setOptions", options: { roundMinutes: Number(t.value) } });
     if (t.id === "map") {
       setStorage("map", t.value);

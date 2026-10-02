@@ -202,7 +202,7 @@ describe("daily challenge", () => {
     for (const d of days) expect(new Set(d.bots).size).toBe(d.bots.length);
     expect(dailyScore(true, 300, 0.6)).toBeGreaterThan(dailyScore(true, 400, 0.7));
     expect(dailyScore(true, 900, 0.6)).toBeGreaterThan(dailyScore(false, 900, 0.59));
-    expect(dailyLabel(dailyScore(true, 412, 0.6))).toBe("Won in 412 min");
+    expect(dailyLabel(dailyScore(true, 412, 0.6))).toBe("Won in 6:52");
     expect(dailyLabel(dailyScore(false, 600, 0.38))).toBe("Owned 38%");
     expect(validScore(dailyScore(true, 412, 0.6))).toBe(true);
     expect(validScore(3000)).toBe(false);

@@ -95,7 +95,9 @@ export function dailyScore(won: boolean, minutes: number, share: number): number
 const isWin = (score: number) => score > LOSS_MAX;
 
 export function dailyLabel(score: number): string {
-  return isWin(score) ? `Won in ${WIN_BASE - score} min` : `Owned ${Math.round((score / LOSS_MAX) * 100)}%`;
+  // game minutes pass at one a second, so show them the way the in-game clock does (m:ss)
+  const t = WIN_BASE - score;
+  return isWin(score) ? `Won in ${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}` : `Owned ${Math.round((score / LOSS_MAX) * 100)}%`;
 }
 
 export function validScore(score: unknown): score is number {

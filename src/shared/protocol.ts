@@ -37,6 +37,7 @@ export type ClientMsg =
   | { t: "addBot"; style: BotStyle }
   | { t: "removePlayer"; id: PlayerId }
   | { t: "setSlot"; slot: number }
+  | { t: "setName"; name: string }
   | { t: "setOptions"; options: Partial<RoomOptions> }
   | { t: "start" }
   | { t: "rematch" }

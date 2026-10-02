@@ -302,3 +302,11 @@ input.need { border-color: var(--bad); box-shadow: 0 0 0 3px rgba(214, 40, 57, 0
   .pill .rate { display: none; }
 }
 .end-tip { margin: 6px 0; padding: 8px 12px; background: #fff7e3; border-radius: 10px; font-size: 15px; }
+@media (max-width: 480px) {
+  .share-wrap { grid-template-columns: 1fr; justify-items: center; }
+  .share-wrap .qr { width: 112px; }
+  .share { width: 100%; }
+}
+@media (max-width: 760px) {
+  .paused-banner { top: calc(env(safe-area-inset-top, 0px) + 150px); font-size: 14px; padding: 6px 12px; white-space: nowrap; }
+}
