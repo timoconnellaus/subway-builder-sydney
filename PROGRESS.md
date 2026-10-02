@@ -17,7 +17,7 @@ Overnight build, started 2026-10-02 20:30 AEST.
 - [x] Guided tutorial (9 steps with a coach and pulsing hints) and 14 achievements
 - [x] Greater Sydney map (Gosford, Wollongong, Katoomba, Richmond, Leppington, Olympic Park)
 - [x] "Watch the bots" mode, installable PWA (icons + manifest), phone layout
-- [x] World cities: London, New York, Tokyo, Paris (each with hubs, events, rivers; tested for connectivity)
+- [x] World cities: London, New York, Tokyo, Paris, Berlin, Hong Kong, Singapore, plus Melbourne (each with hubs, events, rivers; tested for connectivity)
 - [x] Daily challenge with a seeded sim and a leaderboard (one Durable Object per day)
 - [x] Line renaming/trimming, station destinations panel, online rooms keep score across rounds
 
