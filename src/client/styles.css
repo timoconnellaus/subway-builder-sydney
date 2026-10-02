@@ -186,6 +186,11 @@ details.rules summary { font-family: var(--display); font-weight: 800; cursor: p
 .step:hover:not([disabled]) { background: #fff; }
 .step[disabled] { opacity: 0.3; cursor: not-allowed; }
 .small-row { justify-content: space-between; }
+.h2h { width: 100%; border-collapse: collapse; font-size: 14px; }
+.h2h th, .h2h td { padding: 5px 4px; border-bottom: 1px solid var(--rule); text-align: left; }
+.h2h th { font-family: var(--display); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+.h2h .num { text-align: right; font-family: var(--mono); }
+.h2h td .chip { vertical-align: -2px; }
 
 .toasts { position: absolute; top: 70px; left: 50%; transform: translateX(-50%); display: grid; gap: 8px; justify-items: center; pointer-events: none; width: min(560px, calc(100% - 24px)); }
 .toast {

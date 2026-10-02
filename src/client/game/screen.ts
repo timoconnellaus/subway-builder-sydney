@@ -835,7 +835,7 @@ export class GameScreen {
         ? `<div class="tip">To take it, win the passengers here: when nobody boards ${esc(owner?.name ?? "the owner")}'s train ${need} times in a row, it's yours. Charge less, and run enough trains with room for everyone.</div>`
         : `<div class="tip">Run one of your lines over this section, then undercut ${esc(owner?.name ?? "the owner")}'s fare to win their passengers. You'll pay them ${money(s.settings.trackFee)} each time your train uses it.</div>`;
     } else if (ss.owner === this.you && ss.emptyRun > 0) {
-      action = `<div class="tip bad">Nobody boarded your last ${ss.emptyRun} of ${need} trains here. Lower your fare or add trains, fast!</div>`;
+      action = `<div class="tip bad">Nobody boarded ${ss.emptyRun === 1 ? "your last train" : `your last ${ss.emptyRun} trains`} here. At ${need} in a row you lose this track. Lower your fare or add trains, fast!</div>`;
     } else if (ss.owner === this.you && !users.some((l) => l.owner === this.you)) {
       action = `<div class="tip">You own this track but none of your trains run on it yet.</div><button class="btn primary wide" data-act="new-line" data-arg="${sec.a},${sec.b}">Run a line here · ${money(trainCost(s, 2))}</button>`;
     }
@@ -850,8 +850,30 @@ export class GameScreen {
         <div><span class="v">${dots(ss.emptyRun, need, owner ? CSS_COLORS[owner.color] : "#888")}</span><span class="k">empty trains</span></div>
       </div>
       ${action}
+      ${this.headToHead(s, users)}
       ${users.length ? `<h4>Lines on this track</h4><div class="lines">${users.map((l) => this.lineRow(s, l)).join("")}</div>` : ""}
       <div class="row small-row"><button class="link" data-act="select-station" data-arg="${sec.a}">${esc(this.stationName(sec.a))}</button><button class="link" data-act="select-station" data-arg="${sec.b}">${esc(this.stationName(sec.b))}</button></div>`;
+  }
+
+  /** When two or more companies run here, compare them the way a passenger would. */
+  private headToHead(s: Snapshot, users: LineView[]): string {
+    const owners = new Set(users.map((l) => l.owner));
+    if (owners.size < 2) return "";
+    const rows = [...users].sort((a, b) => a.fare - b.fare);
+    const cheap = rows[0];
+    const dear = rows[rows.length - 1];
+    const wait = (dear.fare - cheap.fare) / s.settings.valueOfTime;
+    const cheapOwner = s.players.find((p) => p.id === cheap.owner);
+    return `<h4>Head to head</h4>
+      <table class="h2h"><thead><tr><th></th><th>Fare</th><th>Train every</th><th>Seats</th></tr></thead><tbody>
+      ${rows
+        .map((l) => {
+          const p = s.players.find((x) => x.id === l.owner);
+          return `<tr data-key="${l.id}"><td><span class="chip" style="--c:${p ? CSS_COLORS[p.color] : "#888"}"></span> ${esc(p?.id === this.you ? "You" : p?.name ?? "")}</td><td class="num">${fare(l.fare)}</td><td class="num">${isFinite(l.headway) ? l.headway.toFixed(1) : "–"} min</td><td class="num">${l.cars * s.settings.carSeats}</td></tr>`;
+        })
+        .join("")}
+      </tbody></table>
+      <p class="muted small">${wait > 0 ? `Passengers will wait up to <b>${wait % 1 ? wait.toFixed(1) : wait} min</b> for ${esc(cheapOwner?.id === this.you ? "your" : `${cheapOwner?.name}'s`)} cheaper train, if it has room. Otherwise they take the first train.` : "Same fare, so passengers take whichever train comes first."}</p>`;
   }
 
   private lineHtml(s: Snapshot, id: string, me: PlayerView | undefined): string {
