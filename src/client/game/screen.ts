@@ -802,7 +802,9 @@ export class GameScreen {
 
   private renderHud(s: Snapshot, me: PlayerView | undefined) {
     const need = Math.ceil(s.totalSections * s.settings.winShare);
-    const owned = me?.owned ?? 0;
+    // spectators follow the leader
+    const shown = me ?? [...s.players].sort((a, b) => b.owned - a.owned)[0];
+    const owned = shown?.owned ?? 0;
     const pct = Math.min(100, (owned / need) * 100);
     const left = s.duration - s.time;
     const local = this.conn.local;
@@ -813,8 +815,8 @@ export class GameScreen {
         ${me ? `<div class="pill money ${me.money < 0 ? "neg" : ""}" title="Money, and fares coming in each minute"><img src="/sprites/money.webp" alt="">${money(me.money)}${this.incomeRate() >= 1 ? `<span class="rate">+${money(this.incomeRate())}/min</span>` : ""}</div>` : ""}
       </div>
       <div class="pill goal" title="Own ${need} of ${s.totalSections} sections to win">
-        <span class="lbl">Track</span>
-        <span class="meter"><b style="width:${pct}%;background:${me ? CSS_COLORS[me.color] : "#888"}"></b></span>
+        <span class="lbl">${me ? "Track" : shown ? esc(shown.name) : "Track"}</span>
+        <span class="meter"><b style="width:${pct}%;background:${shown ? CSS_COLORS[shown.color] : "#888"}"></b></span>
         <span class="mono">${owned}/${need}</span>
       </div>
       <div class="hud-r">
@@ -881,7 +883,9 @@ export class GameScreen {
   }
 
   private homeHtml(s: Snapshot, me: PlayerView | undefined): string {
-    if (!me) return `<h3>Watching</h3><p class="muted">The game started before you joined. Enjoy the show.</p>`;
+    if (!me)
+      return `<h3>Watching</h3><p class="muted">${this.conn.local ? "Three bots are fighting over Sydney. Tap stations, track and lines to see what they're doing." : "The game started before you joined. Enjoy the show."}</p>
+        <div class="lines">${s.lines.map((l) => this.lineRow(s, l)).join("")}</div>`;
     const mine = s.lines.filter((l) => l.owner === me.id);
     const owned = me.owned;
     let tip = "";

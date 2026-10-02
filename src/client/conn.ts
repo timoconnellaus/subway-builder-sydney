@@ -47,10 +47,13 @@ export interface LocalOptions {
   rules: HouseRules;
   tutorial?: boolean;
   map?: string;
+  watch?: boolean; // bots only, you just watch
 }
 
 export class LocalGame implements GameConn {
-  readonly you = "P1";
+  get you() {
+    return this.opts.watch ? "spectator" : "P1";
+  }
   readonly local = true;
   speed = 1;
   paused = false;
@@ -74,7 +77,7 @@ export class LocalGame implements GameConn {
   /** Save the game so it can be continued after closing the tab. */
   save = () => {
     try {
-      if (this.opts.tutorial) return;
+      if (this.opts.tutorial || this.opts.watch) return;
       if (this.session.state.phase !== "running") return clearLocalSave();
       setStorage(SAVE_KEY, JSON.stringify({ opts: this.opts, state: this.session.state }));
     } catch {
@@ -91,13 +94,15 @@ export class LocalGame implements GameConn {
 
   restart() {
     if (this.opts.tutorial) return this.startTutorial();
+    const human = this.opts.watch ? [] : [{ id: "P1", name: this.opts.name || "You", color: SLOTS[0].color, hub: SLOTS[0].hub }];
+    const offset = human.length;
     const players = [
-      { id: "P1", name: this.opts.name || "You", color: SLOTS[0].color, hub: SLOTS[0].hub },
+      ...human,
       ...this.opts.bots.map((style, i) => ({
-        id: `P${i + 2}`,
+        id: `P${i + 1 + offset}`,
         name: style === "builder" ? "The Builder" : style === "raider" ? "The Raider" : "The Banker",
-        color: SLOTS[i + 1].color,
-        hub: SLOTS[i + 1].hub,
+        color: SLOTS[i + offset].color,
+        hub: SLOTS[i + offset].hub,
         isBot: true,
         botStyle: style
       }))

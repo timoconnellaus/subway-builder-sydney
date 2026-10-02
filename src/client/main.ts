@@ -25,6 +25,7 @@ function route() {
     return playLocal(arg === "continue" || (!fresh && !!savedLocalGame()));
   }
   if (page === "tutorial") return playTutorial();
+  if (page === "watch") return watchBots();
   if (page === "room" && arg && isRoomCode(arg.toUpperCase())) return online(arg.toUpperCase());
   return menu();
 }
@@ -148,7 +149,7 @@ function menu() {
 
       ${storage("last-room") ? `<button class="btn" id="rejoin">Rejoin room ${esc(storage("last-room"))}</button>` : ""}
       ${achievementsHtml()}
-      <div class="row center"><button class="btn" id="tutorial">Learn to play (2 minutes)</button><button class="link" id="how">How to play</button></div>
+      <div class="row center"><button class="btn" id="tutorial">Learn to play (2 minutes)</button><button class="btn" id="watch">Watch the bots</button><button class="link" id="how">How to play</button></div>
     </div>`;
   app.append(el);
   const nameIn = el.querySelector<HTMLInputElement>("#name")!;
@@ -201,6 +202,7 @@ function menu() {
     go("#/tutorial");
   };
   el.querySelector("#tutorial")!.addEventListener("click", startTutorial);
+  el.querySelector("#watch")!.addEventListener("click", () => go("#/watch"));
   el.querySelector("#tutorial-top")?.addEventListener("click", startTutorial);
   el.querySelector("#how")!.addEventListener("click", () => {
     const ov = document.createElement("div");
@@ -235,6 +237,17 @@ function playLocal(resume = false) {
     app.append(screen.el);
   };
   mount();
+  cleanup = () => {
+    screen.destroy();
+    conn.close();
+  };
+}
+
+function watchBots() {
+  const conn = new LocalGame({ name: "", bots: ["builder", "raider", "banker"], roundMinutes: 900, rules: {}, map: storage("map", "sydney"), watch: true });
+  conn.setSpeed(2);
+  const screen = new GameScreen(conn, { onExit: () => go("#/") });
+  app.append(screen.el);
   cleanup = () => {
     screen.destroy();
     conn.close();
