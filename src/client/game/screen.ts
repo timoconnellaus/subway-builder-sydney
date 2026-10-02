@@ -932,6 +932,7 @@ export class GameScreen {
         <div><span class="v mono">${st.pop}k</span><span class="k">people nearby</span></div>
         <div><span class="v mono">${st.jobs}k</span><span class="k">jobs nearby</span></div>
       </div>
+      ${this.destinationsHtml(s, id)}
       <h4>Track from here</h4>
       <div class="list">${out
         .map((e) => {
@@ -941,6 +942,31 @@ export class GameScreen {
         .join("")}</div>
       ${lines.length ? `<h4>Lines stopping here</h4><div class="lines">${lines.map((l) => this.lineRow(s, l)).join("")}</div>` : ""}
       ${canStart ? `<button class="btn wide" data-act="new-line" data-arg="${id}">Start a new line here</button>` : ""}`;
+  }
+
+  /** Where people starting here want to go, from the demand model, and how many trips start here. */
+  private destinationsHtml(s: Snapshot, id: StationId): string {
+    const net = this.map.net;
+    const n = net.stations.length;
+    const i = net.stationIndex[id];
+    let row = 0;
+    const dests: { id: StationId; w: number }[] = [];
+    for (let j = 0; j < n; j++) {
+      const w = net.od[i * n + j];
+      row += w;
+      if (w > 0) dests.push({ id: net.stations[j].id, w });
+    }
+    if (row <= 0) return "";
+    const perMin = row * s.settings.demandPerMinute;
+    const top = dests.sort((a, b) => b.w - a.w).slice(0, 4);
+    return `<h4>Where people here want to go</h4>
+      <div class="dests">${top
+        .map((d) => {
+          const pct = Math.round((d.w / row) * 100);
+          return `<button class="dest" data-act="select-station" data-arg="${d.id}" data-key="${d.id}"><span>${esc(this.stationName(d.id))}</span><span class="bar"><b style="width:${Math.min(100, pct * 2)}%"></b></span><span class="mono">${pct}%</span></button>`;
+        })
+        .join("")}</div>
+      <p class="muted small">About ${perMin.toFixed(1)} trips a minute start here once there's a way to make them.</p>`;
   }
 
   private sectionHtml(s: Snapshot, id: SectionId, me: PlayerView | undefined): string {

@@ -193,6 +193,11 @@ details.rules summary { font-family: var(--display); font-weight: 800; cursor: p
 .step:hover:not([disabled]) { background: #fff; }
 .step[disabled] { opacity: 0.3; cursor: not-allowed; }
 .small-row { justify-content: space-between; }
+.dests { display: grid; gap: 4px; }
+.dest { display: grid; grid-template-columns: 1fr 80px 40px; gap: 8px; align-items: center; background: none; border: 0; padding: 3px 0; cursor: pointer; text-align: left; font-size: 14px; font-weight: 700; }
+.dest .bar { height: 6px; border-radius: 3px; background: var(--chip); overflow: hidden; }
+.dest .bar b { display: block; height: 100%; background: var(--ink); }
+.dest .mono { text-align: right; font-size: 13px; }
 .rename { display: flex; gap: 6px; }
 .rename input { flex: 1; min-width: 0; font: 600 15px var(--body); padding: 8px 10px; border: 2px solid var(--rule); border-radius: 10px; background: var(--paper); }
 .rename input:focus { border-color: var(--ink); outline: none; }
