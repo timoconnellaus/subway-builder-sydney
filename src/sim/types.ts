@@ -217,6 +217,7 @@ export interface GameState {
   cityEvents: CityEvent[];
   nextEventAt: number;
   history: { t: number; owned: number[]; carried: number[] }[]; // sampled every 30 game minutes
+  rng?: number; // seeded random state, so a daily challenge starts the same for everyone
 }
 
 export type Command =

@@ -1,11 +1,13 @@
 import "./styles.css";
 import { HOUSE_RULES, type BotStyle, type HouseRuleKey, type HouseRules } from "../sim/types";
 import { DEFAULT_SETTINGS } from "../sim/types";
-import { isRoomCode, SLOTS, type LobbyState } from "../shared/protocol";
+import { BOT_NAMES, isRoomCode, SLOTS, type LobbyState } from "../shared/protocol";
 import qrcode from "qrcode-generator";
 import { MAP_CHOICES, MAPS } from "../sim";
 import { clearLocalSave, LocalGame, RemoteRoom, savedLocalGame } from "./conn";
 import { ACHIEVEMENTS, unlocked } from "./achievements";
+import { boardHtml, fetchBoard, localBest, today, todaysChallenge } from "./daily";
+import { dailyLabel } from "../shared/daily";
 import { GameScreen, HELP_HTML } from "./game/screen";
 import { COLOR_NAMES, CSS_COLORS, esc, patch, setStorage, storage, token } from "./util";
 
@@ -26,6 +28,12 @@ function route() {
   }
   if (page === "tutorial") return playTutorial();
   if (page === "watch") return watchBots();
+  if (page === "daily") {
+    const fresh = storage("new-game") === "1";
+    setStorage("new-game", "");
+    const saved = savedLocalGame();
+    return playLocal(!fresh && saved?.opts.daily === today(), { daily: today() });
+  }
   if (page === "room" && arg && isRoomCode(arg.toUpperCase())) return online(arg.toUpperCase());
   return menu();
 }
@@ -113,7 +121,8 @@ function menu() {
       <label class="field"><span>Your name</span><input id="name" maxlength="16" placeholder="Your name" value="${esc(name)}" autocomplete="nickname"></label>
 
       ${storage("tutorial-done") !== "1" ? `<div class="newbie"><span>New to Metro Empire?</span><button class="btn primary" id="tutorial-top">Learn to play (2 minutes)</button></div>` : ""}
-      ${savedLocalGame() ? `<button class="btn primary big" id="continue">Continue your game</button>` : ""}
+      ${savedLocalGame() ? `<button class="btn primary big" id="continue">Continue your ${savedLocalGame()!.opts.daily ? "daily challenge" : "game"}</button>` : ""}
+      ${dailyHtml()}
       <section class="menu-sec">
         <h2>Play against bots</h2>
         <div class="bots">
@@ -155,7 +164,17 @@ function menu() {
   const nameIn = el.querySelector<HTMLInputElement>("#name")!;
   const saveName = () => setStorage("me-name", nameIn.value.trim());
   nameIn.addEventListener("change", saveName);
-  el.querySelector("#continue")?.addEventListener("click", () => go("#/play"));
+  el.querySelector("#continue")?.addEventListener("click", () => go(savedLocalGame()?.opts.daily === today() ? "#/daily" : "#/play"));
+  el.querySelector("#daily")!.addEventListener("click", () => {
+    clearLocalSave();
+    setStorage("new-game", "1");
+    saveName();
+    go("#/daily");
+  });
+  fetchBoard(today()).then((b) => {
+    const host = el.querySelector("#daily-top");
+    if (host && b) host.innerHTML = boardHtml(b, 3);
+  });
   el.querySelector("#play")!.addEventListener("click", () => {
     clearLocalSave();
     setStorage("new-game", "1");
@@ -213,8 +232,22 @@ function menu() {
   });
 }
 
+function dailyHtml(): string {
+  const c = todaysChallenge();
+  const hub = MAPS[c.map].stations.find((s) => s.id === SLOTS[c.slot].hub)?.name ?? SLOTS[c.slot].hub;
+  const best = localBest(c.date);
+  return `<section class="menu-sec daily">
+    <h2>Daily challenge <small class="muted">${new Date(`${c.date}T12:00:00Z`).toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" })}</small></h2>
+    <p class="twist">${esc(c.twist)}</p>
+    <p class="muted">You start at <b>${esc(hub)}</b> against ${c.bots.map((b) => BOT_NAMES[b]).join(", ")} on the ${esc(MAPS[c.map].name)} map. ${c.roundMinutes / 60} minutes. Win as fast as you can!</p>
+    ${best !== null ? `<p>Your best today: <b>${esc(dailyLabel(best))}</b></p>` : ""}
+    <div id="daily-top"></div>
+    <button class="btn primary big" id="daily">Play today's challenge</button>
+  </section>`;
+}
+
 // ---------- single player ----------
-function playLocal(resume = false) {
+function playLocal(resume = false, extra: { daily?: string } = {}) {
   const bots = storage("bots", "builder,raider").split(",").filter(Boolean) as BotStyle[];
   const saved = resume ? savedLocalGame() : null;
   const conn = saved ? new LocalGame(saved.opts, saved.state) : new LocalGame({
@@ -222,7 +255,8 @@ function playLocal(resume = false) {
     bots: bots.slice(0, 3),
     roundMinutes: Number(storage("round", "900")) || 900,
     rules: loadRules(),
-    map: storage("map", "sydney")
+    map: storage("map", "sydney"),
+    ...extra
   });
   let screen: GameScreen;
   const mount = () => {

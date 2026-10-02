@@ -7,6 +7,8 @@ import { MapView, type Pick } from "./map";
 import { sound } from "../sound";
 import { STEPS } from "./tutorial";
 import { checkAchievements } from "../achievements";
+import { boardHtml, submitScore } from "../daily";
+import { dailyLabel, dailyScore } from "../../shared/daily";
 
 type Mode = { kind: "idle" } | { kind: "build"; stations: StationId[] } | { kind: "extend"; line: string; end: "start" | "end" };
 
@@ -568,6 +570,7 @@ export class GameScreen {
           else {
             this.overlay.hidden = true;
             this.recorded = false;
+            this.dailySent = false;
             this.lastSeq = -1;
             this.snap = null;
             this.conn.restart?.();
@@ -758,6 +761,8 @@ export class GameScreen {
     const ranked = [...s.players].sort((a, b) => b.carried - a.carried);
     const youWon = s.winner === this.you;
     const host = this.hooks.isHost?.() ?? false;
+    const me = s.players.find((p) => p.id === this.you);
+    const youPlayed = !!me;
     this.overlay.hidden = false;
     this.overlay.innerHTML = `
       <div class="card end">
@@ -765,6 +770,7 @@ export class GameScreen {
         <h2>${youWon ? "You win!" : winner ? `${esc(winner.name)} wins` : "Round over"}</h2>
         <p class="muted">${reason && reason.kind === "win" && reason.reason === "share" ? `${youWon ? "You own" : "They own"} ${Math.round(s.settings.winShare * 100)}% of Sydney's network.` : "Most passengers carried when the clock ran out."}</p>
         ${historyChart(s)}
+        ${this.conn.daily && youPlayed ? `<div class="daily-end"><h3>Daily challenge · ${esc(this.conn.daily)}</h3><div id="daily-board"><p class="muted">Saving your score…</p></div></div>` : ""}
         <table class="ranks">
           <thead><tr><th></th><th>Company</th><th>Track</th><th>Passengers</th><th>Money</th></tr></thead>
           <tbody>${ranked
@@ -780,6 +786,16 @@ export class GameScreen {
           <button class="btn ghost" data-act="close-overlay">Look at the map</button>
         </div>
       </div>`;
+    if (this.conn.daily && me) this.sendDaily(this.conn.daily, me.name, dailyScore(youWon, s.time, me.owned / s.totalSections));
+  }
+
+  private dailySent = false;
+  private async sendDaily(date: string, name: string, score: number) {
+    if (this.dailySent) return;
+    this.dailySent = true;
+    const board = await submitScore(date, name, score);
+    const host = this.overlay.querySelector("#daily-board");
+    if (host && !this.destroyed) host.innerHTML = `<p><b>Your score: ${esc(dailyLabel(score))}</b>${board?.rank ? ` · rank ${board.rank}` : ""}</p>${boardHtml(board)}`;
   }
 
   private showHelp() {

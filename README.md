@@ -15,6 +15,8 @@ the network, or carry the most passengers before the clock runs out.
 - **Tutorial:** a guided practice game that teaches the whole loop in about two minutes.
 - **Against bots:** pick 1–3 bots (the Builder, the Raider, the Banker) and a round length. Runs
   entirely in the browser, with pause and 1×/2×/3× speed.
+- **Daily challenge:** one setup per Sydney day (your hub, the bots, a twist like "Rush hour" or
+  "Toll roads"), the same random seed for everyone, and a shared leaderboard. Fastest win ranks first.
 - **Online:** create a room, share the link or the four-letter code, and add bots to any empty seats.
   Close the tab and come back: you rejoin as the same player.
 

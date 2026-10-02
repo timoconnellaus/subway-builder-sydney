@@ -10,8 +10,8 @@ export class Session {
     this.game = new Game(state, map);
   }
 
-  static create(map: MapDef, players: PlayerSetup[], settings?: Partial<Settings>): Session {
-    return new Session(map, createGame(map, players, settings));
+  static create(map: MapDef, players: PlayerSetup[], settings?: Partial<Settings>, seed?: number): Session {
+    return new Session(map, createGame(map, players, settings, seed));
   }
 
   get state() {

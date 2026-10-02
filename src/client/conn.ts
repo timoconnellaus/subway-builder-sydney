@@ -1,6 +1,7 @@
 import { cleanRules, MAPS, Session, type BotStyle, type Command, type CommandResult, type HouseRules, type PlayerId, type Snapshot } from "../sim";
 import { SLOTS, type ClientMsg, type LobbyState, type ServerMsg } from "../shared/protocol";
 import type { GameState } from "../sim";
+import { dailyChallenge } from "../shared/daily";
 import { setStorage, storage } from "./util";
 
 const SAVE_KEY = "local-save";
@@ -25,6 +26,7 @@ export interface GameConn {
   readonly you: PlayerId;
   readonly mapId: string;
   readonly local: boolean;
+  readonly daily?: string;
   onSnapshot(cb: (s: Snapshot) => void): () => void;
   command(cmd: Command): Promise<CommandResult>;
   close(): void;
@@ -48,6 +50,7 @@ export interface LocalOptions {
   tutorial?: boolean;
   map?: string;
   watch?: boolean; // bots only, you just watch
+  daily?: string; // date of the daily challenge being played
 }
 
 export class LocalGame implements GameConn {
@@ -88,12 +91,17 @@ export class LocalGame implements GameConn {
   get tutorial() {
     return !!this.opts.tutorial;
   }
+  get daily() {
+    return this.opts.daily;
+  }
   get mapId() {
+    if (this.opts.daily) return dailyChallenge(this.opts.daily).map;
     return this.opts.tutorial ? "sydney" : this.opts.map && MAPS[this.opts.map] ? this.opts.map : "sydney";
   }
 
   restart() {
     if (this.opts.tutorial) return this.startTutorial();
+    if (this.opts.daily) return this.startDaily(this.opts.daily);
     const human = this.opts.watch ? [] : [{ id: "P1", name: this.opts.name || "You", color: SLOTS[0].color, hub: SLOTS[0].hub }];
     const offset = human.length;
     const players = [
@@ -108,6 +116,30 @@ export class LocalGame implements GameConn {
       }))
     ];
     this.session = Session.create(MAPS[this.mapId], players, { ...cleanRules(this.opts.rules), roundMinutes: this.opts.roundMinutes });
+    this.paused = false;
+    if (!this.timer) {
+      this.last = performance.now();
+      this.timer = setInterval(() => this.loop(), 100);
+    }
+    this.emit();
+  }
+
+  /** Today's challenge: fixed seat, bots, rules and random seed, so everyone starts the same. */
+  private startDaily(date: string) {
+    const c = dailyChallenge(date);
+    const others = SLOTS.map((_, i) => i).filter((i) => i !== c.slot);
+    const players = [
+      { id: "P1", name: this.opts.name || "You", color: SLOTS[c.slot].color, hub: SLOTS[c.slot].hub },
+      ...c.bots.map((style, i) => ({
+        id: `P${i + 2}`,
+        name: style === "builder" ? "The Builder" : style === "raider" ? "The Raider" : "The Banker",
+        color: SLOTS[others[i]].color,
+        hub: SLOTS[others[i]].hub,
+        isBot: true,
+        botStyle: style
+      }))
+    ];
+    this.session = Session.create(MAPS[c.map] ?? MAPS.sydney, players, { ...cleanRules(c.rules), roundMinutes: c.roundMinutes }, c.seed);
     this.paused = false;
     if (!this.timer) {
       this.last = performance.now();

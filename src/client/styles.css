@@ -283,3 +283,13 @@ details.rules summary { font-family: var(--display); font-weight: 800; cursor: p
   .toast.big { font-size: 15px; padding: 9px 12px; }
   .stats .v { font-size: 15px; }
 }
+
+/* daily challenge */
+.menu-sec.daily { border: 2px solid var(--gold); background: linear-gradient(180deg, #fff7e3, var(--paper) 60%); }
+.menu-sec.daily h2 small { font-size: 14px; font-weight: 600; margin-left: 6px; }
+.daily .twist { font-family: var(--display); font-weight: 800; font-size: 18px; }
+.daily-ranks tr.me td { background: #fff1c9; font-weight: 700; }
+.daily-ranks td { padding: 4px; }
+.daily-end { width: 100%; border: 2px solid var(--gold); border-radius: 12px; padding: 10px 12px; margin: 10px 0; background: #fffaf0; }
+.daily-end h3 { font-size: 15px; margin-bottom: 4px; }
+.daily-end p { margin: 4px 0; }

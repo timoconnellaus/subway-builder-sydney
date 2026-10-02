@@ -42,7 +42,7 @@ function botTurn(game: Game, p: Player) {
       : skill === 3
         ? { ...base, reserve: Math.max(100, base.reserve - 100), attack: Math.min(1, base.attack * 1.8), undercut: base.undercut + 0.25 }
         : base;
-  if (skill === 1 && p.botStyle === "raider" && Math.random() < 0.6) {
+  if (skill === 1 && p.botStyle === "raider" && game.random() < 0.6) {
     defend(game, p);
     cover(game, p, tune);
     manageTrains(game, p, tune);
@@ -63,7 +63,7 @@ function botTurn(game: Game, p: Player) {
   } else {
     open(game, p, tune);
     manageTrains(game, p, tune);
-    if (Math.random() < tune.attack || p.money > 2500) attack(game, p, tune);
+    if (game.random() < tune.attack || p.money > 2500) attack(game, p, tune);
   }
   if (tune.premium) adjustFares(game, p);
 }
@@ -82,7 +82,7 @@ function open(game: Game, p: Player, tune: StyleTuning) {
     if (!mine.has(s.a) && !mine.has(s.b)) continue;
     if (!game.canOpen(p.id, s.id).ok && game.state.players.some((o) => o.id !== p.id && (o.hub === s.a || o.hub === s.b))) continue;
     const far = mine.has(s.a) ? s.b : s.a;
-    const score = stationValue(game, far) / game.openCost(s.id, p.id) + Math.random() * 0.02;
+    const score = stationValue(game, far) / game.openCost(s.id, p.id) + game.random() * 0.02;
     if (score > bestScore) {
       bestScore = score;
       best = s.id;
@@ -90,7 +90,7 @@ function open(game: Game, p: Player, tune: StyleTuning) {
   }
   if (!best) return;
   const cost = game.openCost(best, p.id) + game.trainCost(2);
-  const keen = game.linesOf(p.id).length === 0 || Math.random() < tune.openAppetite;
+  const keen = game.linesOf(p.id).length === 0 || game.random() < tune.openAppetite;
   if (keen && p.money >= cost + tune.reserve) game.apply(p.id, { type: "open", section: best });
 }
 

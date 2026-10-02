@@ -46,7 +46,7 @@ const EVENT_LIST: Omit<CityEvent, "id" | "announce" | "start" | "end" | "crowd">
   { station: "macpark", title: "Big tech expo", emoji: "💻" }
 ];
 
-export function createGame(map: MapDef, players: PlayerSetup[], settings: Partial<Settings> = {}): GameState {
+export function createGame(map: MapDef, players: PlayerSetup[], settings: Partial<Settings> = {}, seed?: number): GameState {
   const net = buildNetwork(map);
   const S: Settings = { ...DEFAULT_SETTINGS, ...settings };
   const sections: GameState["sections"] = {};
@@ -86,7 +86,8 @@ export function createGame(map: MapDef, players: PlayerSetup[], settings: Partia
     lost: 0,
     cityEvents: [],
     nextEventAt: 120,
-    history: []
+    history: [],
+    rng: seed === undefined ? undefined : seed >>> 0
   };
   return state;
 }
@@ -97,6 +98,16 @@ export class Game {
   constructor(public state: GameState, map: MapDef) {
     this.net = buildNetwork(map);
     this.router = new Router(this.net);
+  }
+
+  /** Seeded random number in [0, 1) (mulberry32), stored in the state so saves carry on the same sequence. */
+  random(): number {
+    const st = this.state;
+    st.rng ??= (Math.random() * 2 ** 32) >>> 0;
+    let t = (st.rng = (st.rng + 0x6d2b79f5) >>> 0);
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   }
 
   // ---------- queries ----------
@@ -466,13 +477,13 @@ export class Game {
     const end = st.settings.roundMinutes;
     if (st.time >= st.nextEventAt && st.time < end - 90) {
       const options = EVENT_LIST.filter((e) => this.net.station[e.station] && !st.cityEvents.some((c) => c.station === e.station && c.end > st.time));
-      const pick = options[Math.floor(Math.random() * options.length)];
+      const pick = options[Math.floor(this.random() * options.length)];
       if (pick) {
         const ev: CityEvent = { id: st.nextId++, ...pick, announce: st.time, start: st.time + 45, end: st.time + 45 + 40, crowd: st.settings.demandPerMinute * 0.35 };
         st.cityEvents.push(ev);
         this.emit({ t: st.time, kind: "event", phase: "soon", event: ev });
       }
-      st.nextEventAt = st.time + 150 + Math.random() * 60;
+      st.nextEventAt = st.time + 150 + this.random() * 60;
     }
     for (const ev of st.cityEvents) {
       if (ev.start <= st.time && ev.start > st.time - dt) this.emit({ t: st.time, kind: "event", phase: "start", event: ev });
@@ -504,7 +515,7 @@ export class Game {
     const list = this.net.stations.filter((s) => s.id !== not);
     let total = 0;
     for (const s of list) total += s.pop;
-    let r = Math.random() * total;
+    let r = this.random() * total;
     for (const s of list) {
       r -= s.pop;
       if (r <= 0) return s.id;

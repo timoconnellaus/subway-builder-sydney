@@ -12,9 +12,17 @@ run_worker_first = ["/api/*"]
 name = "ROOMS"
 class_name = "GameRoom"
 
+[[durable_objects.bindings]]
+name = "BOARDS"
+class_name = "DailyBoard"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["GameRoom"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["DailyBoard"]
 
 [observability]
 enabled = true
