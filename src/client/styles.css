@@ -355,3 +355,6 @@ input.need { border-color: var(--bad); box-shadow: 0 0 0 3px rgba(214, 40, 57, 0
 .push { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .stars { color: #e8a200; letter-spacing: 0.05em; font-size: 22px; line-height: 1; }
 .stamp .stars { font-size: 13px; letter-spacing: 0; }
+p.good, p.bad { margin: 0; padding: 6px 10px; border-radius: 8px; }
+p.good { background: #e6f6ea; }
+p.bad { background: #fde8ea; }

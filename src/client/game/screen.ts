@@ -967,6 +967,24 @@ export class GameScreen {
   }
 
   /** One tap to fight for a section with a line: 25¢ cheaper and one more train. */
+  /** Why an attack is or isn't working: riders only wait for your cheaper train if it comes within their patience. */
+  private attackCheck(s: Snapshot, users: LineView[], mine: LineView[]): string {
+    const theirs = users.filter((l) => l.owner !== this.you);
+    if (!theirs.length) return `<p class="good small">Nobody else runs trains here: every rider is yours, so it will flip soon.</p>`;
+    const theirFare = Math.min(...theirs.map((l) => l.fare));
+    const best = [...mine].sort((a, b) => a.headway - b.headway)[0];
+    const myFare = Math.min(...mine.map((l) => l.fare));
+    if (myFare >= theirFare) return `<p class="bad small">Your fare (${fare(myFare)}) isn't lower than theirs (${fare(theirFare)}), so riders just take the first train. Cut your fare.</p>`;
+    const patience = (theirFare - myFare) / s.settings.valueOfTime;
+    const theirHeadway = Math.min(...theirs.map((l) => l.headway));
+    // you win riders two ways: they wait for your cheaper train, or yours simply clear the platform first
+    if (isFinite(best.headway) && best.headway * 2 <= theirHeadway && best.headway > patience)
+      return `<p class="good small">Your trains come every ${best.headway.toFixed(1)} min, theirs every ${theirHeadway.toFixed(1)}: you clear the platform before they arrive. Keep it up and the section should flip.</p>`;
+    if (!isFinite(best.headway) || best.headway > patience)
+      return `<p class="bad small">Riders here will wait up to <b>${patience.toFixed(1)} min</b> for your cheaper train, but yours only come every <b>${isFinite(best.headway) ? best.headway.toFixed(1) : "–"} min</b>. Add trains, cut the fare more, or run a shorter line.</p>`;
+    return `<p class="good small">Your trains come every ${best.headway.toFixed(1)} min, inside the ${patience.toFixed(1)} min riders will wait. Keep it up and the section should flip.</p>`;
+  }
+
   private speedSeg(cls: string): string {
     return `<div class="${cls}">${[1, 2, 3].map((x) => `<button data-act="speedx" data-arg="${x}" class="${this.conn.speed === x ? "on" : ""}">${x}×</button>`).join("")}</div>`;
   }
@@ -1116,6 +1134,7 @@ export class GameScreen {
       const mine = users.filter((l) => l.owner === this.you);
       action = mine.length
         ? `<div class="tip">To take it, win the passengers getting on here: when nobody boards ${esc(owner?.name ?? "the owner")}'s train ${need} times in a row, it's yours. Riders already on their train ride on through, so be cheaper <b>and</b> come more often.</div>` +
+          this.attackCheck(s, users, mine) +
           mine.map((l) => this.pushButton(l, "Undercut")).join("")
         : `<div class="tip">Run one of your lines over this section, then undercut ${esc(owner?.name ?? "the owner")}'s fare to win their passengers. You'll pay them ${money(s.settings.trackFee)} each time your train uses it.</div>`;
     } else if (ss.owner === this.you && ss.emptyRun > 0) {
