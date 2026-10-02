@@ -1,12 +1,14 @@
 # Metro Empire
 
-A Sydney rail strategy game for the browser, with online multiplayer.
+A rail strategy game for the browser, set on real city networks (Sydney first, then the world),
+with online multiplayer.
 
-Each player is a train company starting at a home hub on the real Sydney Trains and Metro map. Open
+Each player is a train company starting at a home hub on a real rail map. Open
 track next to your network, run lines, and win passengers. You can run your trains on rivals' track
 (paying them a fee); passengers wait for a cheaper train if it's coming soon and has room. When
 nobody boards the owner's train on a section three times in a row, the section is yours. Own 60% of
-the network, or own the most track when the clock runs out (passengers carried break a tie).
+the network, or own the most track when the clock runs out (passengers carried break a tie). You can
+always start a line at your own hub, so a company that loses all its track can fight back.
 
 ## Play
 
@@ -15,10 +17,12 @@ the network, or own the most track when the clock runs out (passengers carried b
   *Berlin*, *Hong Kong* and *Singapore*. Each map has
   its own four starting hubs (seat 1 is the city centre) and local events.
 - **Tutorial:** a guided practice game that teaches the whole loop in about two minutes.
-- **Against bots:** pick 1–3 bots (the Builder, the Raider, the Banker) and a round length. Runs
-  entirely in the browser, with pause and 1×/2×/3× speed.
+- **Against bots:** pick 1–3 bots (the Builder, the Raider, the Banker), their skill (Easy until
+  you've won a game), your starting hub and a round length. Runs entirely in the browser, with pause
+  and 1×/2×/3× speed.
 - **World Tour:** nine cities in a row, from Sydney (easy bots) to Tokyo (hard bots). Win a city to
-  unlock the next; progress shows as stamps on the menu.
+  unlock the next. Each city scores up to three stars (win, own the winning share, do it before 7:00);
+  stamps on the menu show stars and best times.
 - **Daily challenge:** one setup per Sydney day (your hub, the bots, a twist like "Rush hour" or
   "Toll roads"), the same random seed for everyone, and a shared leaderboard. Fastest win ranks first.
   Saturdays are in a world city, Sundays on Greater Sydney.
@@ -27,6 +31,7 @@ the network, or own the most track when the clock runs out (passengers carried b
 
 Install it from the browser (Add to Home Screen) and single-player games keep working offline.
 Works with a mouse or touch: drag to pan, scroll or pinch to zoom, tap stations and sections.
+Also: 15 achievements, optional music, a colour-blind palette, and phone/iPad layouts.
 
 ## Rules in numbers
 
@@ -39,7 +44,8 @@ Works with a mouse or touch: drag to pan, scroll or pinch to zoom, tap stations 
 | Track fee | $4 to the owner each time a rival train uses their section |
 | Instant win | own 60% of all sections |
 | Time | 1 game minute = 1 real second; rounds are 5–20 minutes |
-| Events | about every 2.5–3.5 minutes a Sydney event (Swans at the SCG, Vivid, the Easter Show…) is announced 45 seconds ahead and sends crowds to one station |
+| Events | about every 2.5–3.5 minutes a local event (Swans at the SCG, Wimbledon, Yankees at Yankee Stadium…) is announced 45 seconds ahead and sends crowds to one station |
+| Bot skill | Easy bots defend gently (fares no lower than $1.25), run at most 4 lines and stay off your track |
 
 All of these live in `DEFAULT_SETTINGS` in `src/sim/types.ts`.
 
