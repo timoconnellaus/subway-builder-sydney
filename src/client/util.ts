@@ -162,3 +162,5 @@ export const isNarrow = () => window.matchMedia(NARROW_QUERY).matches;
 /** Portrait tablets: narrow layout but more room than a phone (keep in step with styles.css). */
 export const TABLET_QUERY = "(orientation: portrait) and (min-width: 600px) and (max-width: 1100px)";
 export const isTablet = () => window.matchMedia(TABLET_QUERY).matches;
+/** A finger rather than a mouse: bigger tap targets, pinch rather than scroll. */
+export const isCoarse = () => window.matchMedia("(pointer: coarse)").matches;

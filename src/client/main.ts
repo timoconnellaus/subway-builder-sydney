@@ -70,6 +70,9 @@ function effectiveRules(): HouseRules {
 
 /** Selects for the house rules. Unset rules show the default. */
 const RULE_KEYS = Object.keys(HOUSE_RULES) as HouseRuleKey[];
+const BOT_STYLES = Object.keys(BOT_NAMES) as BotStyle[];
+// bot skill sits next to the bots, outside the house rules
+const OTHER_RULES = RULE_KEYS.filter((k) => k !== "botSkill");
 
 function rulesHtml(rules: HouseRules, disabled = false, keys = RULE_KEYS): string {
   return keys
@@ -154,7 +157,7 @@ function menu() {
       <section class="menu-sec bots-sec">
         <h2>Play against bots</h2>
         <div class="bots">
-          ${(["builder", "raider", "banker"] as BotStyle[])
+          ${BOT_STYLES
             .map(
               (b, i) => `<label class="bot-opt"><input type="checkbox" value="${b}" ${bots.includes(b) ? "checked" : ""}>
               <img src="/sprites/badge-${SLOTS[i + 1].color}.webp" alt=""><span><b>${BOT_NAMES[b]}</b>
@@ -173,7 +176,7 @@ function menu() {
           <select id="round">${[300, 600, 900, 1200].map((m) => `<option value="${m}" ${String(m) === minutes ? "selected" : ""}>${m / 60} minutes</option>`).join("")}</select>
         </label>
         ${rulesHtml(menuRules, false, ["botSkill"])}
-        <details class="rules"><summary>House rules</summary><div class="rules-grid">${rulesHtml(menuRules, false, RULE_KEYS.filter((k) => k !== "botSkill"))}</div></details>
+        <details class="rules"><summary>House rules</summary><div class="rules-grid">${rulesHtml(menuRules, false, OTHER_RULES)}</div></details>
         <button class="btn primary big" id="play">Play</button>
       </section>
 
@@ -469,10 +472,15 @@ function online(code: string) {
       const bonusText = bonus ? ` · +$${bonus.toLocaleString("en-AU")} to start` : "";
       const won = p ? l.wins?.[p.id] ?? 0 : 0;
       if (p)
-        return `<div class="slot" data-key="s${i}" style="--c:${CSS_COLORS[slot.color]}"><img src="/sprites/badge-${slot.color}.webp" alt=""><div><b>${esc(p.name)}${p.id === room.you ? " (you)" : ""}${l.rounds ? ` · ${won} ${won === 1 ? "win" : "wins"}` : ""}</b><small>${COLOR_NAMES[slot.color]} · starts at ${hubName}${bonusText}${p.id === l.host ? " · host" : ""}${p.isBot ? ` · ${ruleLabel("botSkill", l.options.rules.botSkill ?? DEFAULT_SETTINGS.botSkill)}` : ""}${!p.connected && !p.isBot ? " · away" : ""}</small></div>${isHost && p.id !== room.you ? `<button class="link" data-act="kick" data-arg="${p.id}">Remove</button>` : ""}</div>`;
+        return `<div class="slot" data-key="s${i}" style="--c:${CSS_COLORS[slot.color]}"><img src="/sprites/badge-${slot.color}.webp" alt=""><div><b>${esc(p.name)}${p.id === room.you ? " (you)" : ""}${l.rounds ? ` · ${won} ${won === 1 ? "win" : "wins"}` : ""}</b><small>${[
+          `${COLOR_NAMES[slot.color]} · starts at ${hubName}${bonusText}`,
+          p.id === l.host && "host",
+          p.isBot && ruleLabel("botSkill", l.options.rules.botSkill ?? DEFAULT_SETTINGS.botSkill),
+          !p.connected && !p.isBot && "away"
+        ].filter(Boolean).join(" · ")}</small></div>${isHost && p.id !== room.you ? `<button class="link" data-act="kick" data-arg="${p.id}">Remove</button>` : ""}</div>`;
       return `<div class="slot empty" data-key="s${i}" style="--c:${CSS_COLORS[slot.color]}"><img src="/sprites/badge-${slot.color}.webp" alt=""><div><b>Empty seat</b><small>${COLOR_NAMES[slot.color]} · starts at ${hubName}${bonusText}</small></div>
         <div class="slot-actions">${l.phase === "lobby" && l.players.some((x) => x.id === room.you) ? `<button class="link" data-act="slot" data-arg="${i}">Sit here</button>` : ""}
-        ${isHost ? (["builder", "raider", "banker"] as const).map((b) => `<button class="link" data-act="bot" data-arg="${b}" data-slot="${i}" title="${BOT_TIPS[b]}">+ ${b[0].toUpperCase()}${b.slice(1)}</button>`).join("") : ""}</div></div>`;
+        ${isHost ? BOT_STYLES.map((b) => `<button class="link" data-act="bot" data-arg="${b}" data-slot="${i}" title="${BOT_TIPS[b]}">+ ${BOT_NAMES[b].replace("The ", "")}</button>`).join("") : ""}</div></div>`;
     }).join("");
     return `<div class="menu-card lobby">
       <img class="logo small" src="/sprites/logo-full.webp" alt="Metro Empire">
@@ -493,7 +501,7 @@ function online(code: string) {
         <select id="round" ${isHost ? "" : "disabled"} data-act-change="round">${[300, 600, 900, 1200].map((m) => `<option value="${m}" ${m === l.options.roundMinutes ? "selected" : ""}>${m / 60} minutes</option>`).join("")}</select>
       </label>
       ${l.options.roundMinutes <= 300 && l.options.map !== "sydney" ? `<p class="muted small">Bigger maps need 10 minutes or more for a real fight.</p>` : ""}
-      <details class="rules"><summary>House rules${isHost ? "" : " (set by the host)"}</summary><div class="rules-grid">${rulesHtml(l.options.rules, !isHost, isHost ? RULE_KEYS.filter((k) => k !== "botSkill") : RULE_KEYS)}</div></details>
+      <details class="rules"><summary>House rules${isHost ? "" : " (set by the host)"}</summary><div class="rules-grid">${rulesHtml(l.options.rules, !isHost, isHost ? OTHER_RULES : RULE_KEYS)}</div></details>
       ${message ? `<p class="error">${esc(message)}</p>` : ""}
       <div class="row">
         ${isHost ? `<button class="btn primary big" data-act="start" ${l.players.length < 2 ? "disabled" : ""}>Start game</button>` : ""}
@@ -555,9 +563,7 @@ function online(code: string) {
     if (t.id === "round") room.send({ t: "setOptions", options: { roundMinutes: Number(t.value) } });
     if (t.id === "map") {
       setStorage("map", t.value);
-      // five minutes is only enough on the small Sydney map
-      const longer = t.value !== "sydney" && (room.lobby?.options.roundMinutes ?? 0) <= 300 ? { roundMinutes: 600 } : {};
-      room.send({ t: "setOptions", options: { map: t.value, ...longer } });
+      room.send({ t: "setOptions", options: { map: t.value } });
     }
     if (t.dataset.rule && room.lobby) {
       const rules = { ...room.lobby.options.rules, [t.dataset.rule]: Number(t.value) };

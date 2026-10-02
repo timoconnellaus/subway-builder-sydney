@@ -284,6 +284,10 @@ describe("tutorial", () => {
     s.command("P1", { type: "setTrains", line, trains: 4 });
     s.tick(120); // two real minutes
     expect(st.sections["ashfield~strathfield"].owner).toBe("P1");
+    // the run that captures is announced as a capture, not as a last "nobody boarded" warning
+    const need = st.settings.emptyToCapture;
+    expect(st.events.some((e) => e.kind === "capture" && e.section === "ashfield~strathfield")).toBe(true);
+    expect(st.events.some((e) => e.kind === "empty" && e.run >= need)).toBe(false);
   });
 });
 

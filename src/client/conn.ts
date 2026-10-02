@@ -40,6 +40,7 @@ export interface GameConn {
   // online only
   emote?(e: string): void;
   onEmote?(cb: (from: PlayerId, e: string) => void): () => void;
+  readonly lobby?: LobbyState | null;
   onLobby?(cb: (l: LobbyState) => void): () => void;
 }
 

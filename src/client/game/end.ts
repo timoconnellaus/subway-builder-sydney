@@ -49,7 +49,7 @@ export function endHtml(s: Snapshot, c: EndContext): string {
         </table>
         <div class="row">
           ${c.local ? `<button class="btn primary" data-act="restart">Play again</button>` : c.host ? `<button class="btn primary" data-act="rematch">Back to the lobby</button>` : `<span class="waiting">Waiting for the host to start the next round…</span>`}
-          <button class="btn ${c.local || c.host ? "" : "ghost"}" data-act="exit">${c.local || c.host ? "Main menu" : "Leave the room"}</button>
+          ${c.local || c.host ? `<button class="btn" data-act="exit">Main menu</button>` : `<button class="btn ghost" data-act="exit">Leave the room</button>`}
           <button class="btn ghost" data-act="close-overlay">Look at the map</button>
         </div>
         ${c.daily && me ? `<div class="daily-end"><h3>Daily challenge · ${esc(dailyDateLabel(c.daily))}</h3><div id="daily-board"><p class="muted">Saving your score…</p></div></div>` : ""}

@@ -35,7 +35,8 @@ interface Saved {
   phase: LobbyState["phase"];
   game: GameState | null;
   nextPlayer: number;
-  paused?: boolean;
+  paused?: boolean; // older saves
+  pausedBy?: PlayerId | null;
   wins?: Record<PlayerId, number>;
   rounds?: number;
 }
@@ -86,8 +87,8 @@ export class RoomCore {
   private session: Session | null = null;
   private conns = new Map<string, { conn: Conn; player: PlayerId | null; greeted: boolean; bucket: number; last: number }>();
   private nextPlayer = 1;
-  private paused = false;
-  private pausedBy: PlayerId | null = null;
+  private pausedBy: PlayerId | null = null; // who pressed pause; null while running
+  private snapDue = false; // a change clients haven't seen yet (matters while paused, when nothing ticks)
   private wins: Record<PlayerId, number> = {};
   private rounds = 0;
   private lastEmote = new Map<string, number>();
@@ -104,7 +105,7 @@ export class RoomCore {
     r.options = { roundMinutes: s.options.roundMinutes ?? 900, rules: s.options.rules ?? {}, map: s.options.map ?? "sydney" };
     r.phase = s.phase;
     r.nextPlayer = s.nextPlayer;
-    r.paused = !!s.paused;
+    r.pausedBy = s.pausedBy ?? (s.paused ? s.host : null);
     r.wins = s.wins ?? {};
     r.rounds = s.rounds ?? 0;
     if (s.game) {
@@ -125,7 +126,7 @@ export class RoomCore {
       phase: this.phase,
       game: this.session ? this.session.state : null,
       nextPlayer: this.nextPlayer,
-      paused: this.paused,
+      pausedBy: this.pausedBy,
       wins: this.wins,
       rounds: this.rounds
     };
@@ -168,7 +169,10 @@ export class RoomCore {
       m.leftAt = Date.now();
     }
     const gp = this.session?.state.players.find((p) => p.id === c.player);
-    if (gp) gp.connected = false;
+    if (gp) {
+      gp.connected = false;
+      this.snapDue = true;
+    }
     if (this.host === c.player) {
       const next = this.members.find((x) => !x.isBot && this.live(x.id));
       if (next) this.host = next.id;
@@ -203,15 +207,14 @@ export class RoomCore {
         if (!this.session || this.phase !== "game") return send({ t: "ack", id: msg.id, ok: false, error: "The game hasn't started." });
         const r = this.session.command(me, msg.cmd);
         this.dirty = true;
-        if (r.ok && this.paused) this.broadcastSnapshot(); // no ticks while paused, so show the change now
+        if (r.ok) this.snapDue = true; // a paused room still sends it on the next tick
         return send(r.ok ? { t: "ack", id: msg.id, ok: true } : { t: "ack", id: msg.id, ok: false, error: r.error });
       }
       case "addBot": {
         if (!isHost || this.phase !== "lobby") return;
         if (!Object.prototype.hasOwnProperty.call(BOT_NAMES, msg.style)) return;
         // the row the host tapped, or the first free seat
-        const want = msg.slot;
-        const slot = typeof want === "number" && Number.isInteger(want) && want >= 0 && want < SLOTS.length && !this.members.some((m) => m.slot === want) ? want : this.freeSlot();
+        const slot = msg.slot !== undefined && this.slotFree(msg.slot) ? msg.slot : this.freeSlot();
         if (slot < 0) return send({ t: "error", message: "The room is full." });
         this.members.push({
           id: `P${this.nextPlayer++}`,
@@ -243,7 +246,7 @@ export class RoomCore {
       case "setSlot": {
         if (this.phase !== "lobby") return;
         const slot = msg.slot;
-        if (!Number.isInteger(slot) || slot < 0 || slot >= SLOTS.length || this.members.some((m) => m.slot === slot)) return;
+        if (!this.slotFree(slot)) return;
         const m = this.members.find((x) => x.id === me)!;
         m.slot = slot;
         m.color = SLOTS[slot].color;
@@ -254,7 +257,11 @@ export class RoomCore {
         const rm = msg.options.roundMinutes;
         if (rm && [300, 600, 900, 1200].includes(rm)) this.options.roundMinutes = rm;
         if (msg.options.rules) this.options.rules = cleanRules(msg.options.rules) as RoomOptions["rules"];
-        if (typeof msg.options.map === "string" && Object.prototype.hasOwnProperty.call(MAPS, msg.options.map)) this.options.map = msg.options.map;
+        if (typeof msg.options.map === "string" && Object.prototype.hasOwnProperty.call(MAPS, msg.options.map)) {
+          this.options.map = msg.options.map;
+          // five minutes is only enough for a fight on the small Sydney map
+          if (!rm && this.options.map !== "sydney" && this.options.roundMinutes < 600) this.options.roundMinutes = 600;
+        }
         break;
       }
       case "start": {
@@ -267,14 +274,12 @@ export class RoomCore {
         if (!isHost || this.phase === "lobby") return;
         this.phase = "lobby";
         this.session = null;
-        this.paused = false;
         this.pausedBy = null;
         break;
       }
       case "pause": {
         if (!isHost || this.phase !== "game") return;
-        this.paused = !!msg.paused;
-        this.pausedBy = this.paused ? me : null;
+        this.pausedBy = msg.paused ? me : null;
         break;
       }
       case "emote": {
@@ -315,7 +320,10 @@ export class RoomCore {
       if (this.phase === "lobby") m.name = name;
       c.player = m.id;
       const gp = this.session?.state.players.find((p) => p.id === m!.id);
-      if (gp) gp.connected = true;
+      if (gp) {
+        gp.connected = true;
+        this.snapDue = true;
+      }
       this.owner ??= m.id;
       if (!this.host || !this.live(this.host) || m.id === this.owner) this.host = m.id;
     }
@@ -326,9 +334,13 @@ export class RoomCore {
     if (this.session) c.conn.send({ t: "snap", s: this.session.snapshot() });
   }
 
+  private slotFree(i: number): boolean {
+    return Number.isInteger(i) && i >= 0 && i < SLOTS.length && !this.members.some((m) => m.slot === i);
+  }
+
   private freeSlot(): number {
     if (this.members.length >= MAX_PLAYERS) return -1;
-    for (let i = 0; i < SLOTS.length; i++) if (!this.members.some((m) => m.slot === i)) return i;
+    for (let i = 0; i < SLOTS.length; i++) if (this.slotFree(i)) return i;
     return -1;
   }
 
@@ -353,7 +365,7 @@ export class RoomCore {
         .map(({ token: _t, slot: _s, ...p }) => p),
       options: this.options,
       phase: this.phase,
-      paused: this.paused,
+      paused: !!this.pausedBy,
       pausedBy: this.pausedBy,
       wins: this.wins,
       rounds: this.rounds
@@ -386,7 +398,12 @@ export class RoomCore {
   /** Advance the game by real seconds and broadcast a snapshot. */
   tick(seconds: number) {
     if (!this.session || this.phase !== "game") return;
-    if (this.paused) return;
+    if (this.pausedBy) {
+      if (this.snapDue) this.broadcastSnapshot();
+      this.snapDue = false;
+      return;
+    }
+    this.snapDue = false;
     this.session.tick(seconds * GAME_MINUTES_PER_SECOND);
     this.dirty = true;
     this.broadcastSnapshot();

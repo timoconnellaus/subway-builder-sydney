@@ -2,7 +2,7 @@ import { MAPS, type Snapshot, type StationId, type LineView, type PlayerView, ty
 import type { GameEvent } from "../../sim/types";
 import type { GameConn } from "../conn";
 import type { LobbyState } from "../../shared/protocol";
-import { COLORS, CSS_COLORS, esc, fare, h, isNarrow, isTablet, money, patch, readRecord, remaining, setStorage, storage } from "../util";
+import { COLORS, CSS_COLORS, esc, fare, h, isCoarse, isNarrow, isTablet, money, patch, readRecord, remaining, setStorage, storage } from "../util";
 import { EMOTES } from "../../shared/protocol";
 import { MapView, type Pick } from "./map";
 import { sound } from "../sound";
@@ -97,15 +97,18 @@ export class GameScreen {
 
   private onResize = () => this.layoutInsets();
 
-  private lobbyState: LobbyState | null = null;
+  private lastHost: string | null | undefined;
   /** Online: explain hosting changes, since the host's pause button moves with them. */
   private lobbyChanged(l: LobbyState) {
-    const was = this.lobbyState;
-    this.lobbyState = l;
-    if (!was || l.phase !== "game" || was.host === l.host) return;
-    const name = (id: string | null) => l.players.find((p) => p.id === id)?.name ?? "The host";
-    if (l.host === this.you) this.toastText(`${name(was.host)} is away, so you're in charge: you can pause the game.`);
-    else if (was.host === this.you) this.toastText(`${name(l.host)} is back and in charge again.`);
+    const was = this.lastHost;
+    this.lastHost = l.host;
+    if (was === undefined || l.phase !== "game" || was === l.host) return;
+    if (l.host === this.you) this.toastText(`${this.lobbyName(was)} is away, so you're in charge: you can pause the game.`);
+    else if (was === this.you) this.toastText(`${this.lobbyName(l.host)} is back and in charge again.`);
+  }
+
+  private lobbyName(id: string | null, fallback = "The host"): string {
+    return this.conn.lobby?.players.find((p) => p.id === id)?.name ?? fallback;
   }
   private mapReady = false;
   private focused = false;
@@ -714,9 +717,7 @@ export class GameScreen {
     this.lastSeq = s.eventSeq;
     if (fresh <= 0) return;
     const evs = s.events.slice(-Math.min(fresh, s.events.length));
-    // a capture in the same batch makes its "nobody boarded" warnings old news
-    const captured = new Set(evs.flatMap((e) => (e.kind === "capture" ? [e.section] : [])));
-    for (const e of evs) if (!(e.kind === "empty" && captured.has(e.section))) this.toast(e, s);
+    for (const e of evs) this.toast(e, s);
   }
 
   /** A player's name for a toast; `you` is lowercase unless it starts the sentence. */
@@ -932,10 +933,9 @@ export class GameScreen {
   }
 
   private pausedByText(): string {
-    const by = this.lobbyState?.pausedBy;
-    if (this.conn.local || !by) return "";
-    if (by === this.you) return " by you";
-    return ` by ${esc(this.lobbyState?.players.find((p) => p.id === by)?.name ?? "the host")}`;
+    const by = this.conn.lobby?.pausedBy;
+    if (!by) return "";
+    return ` by ${by === this.you ? "you" : esc(this.lobbyName(by, "the host"))}`;
   }
 
   private renderCoach(s: Snapshot) {
@@ -969,10 +969,10 @@ export class GameScreen {
       this.board,
       `<div class="board-row board-title"><span></span><span>Companies</span><span title="Sections owned">Track</span><span title="Passengers carried">Riders</span></div>` +
         ranked
-          .map(
-            (p) =>
-              `<div class="board-row ${p.id === this.you ? "me" : ""} ${!p.connected && !p.isBot ? "away" : ""}" data-key="${p.id}" title="${esc(p.name)}${!p.connected && !p.isBot ? " (away)" : ""}"><img src="/sprites/badge-${p.color}.webp" alt=""><span class="nm">${esc(p.name)}${!p.connected && !p.isBot ? " · away" : ""}</span><span class="mono" title="Sections owned">${p.owned}</span><span class="mono dim" title="Passengers carried">${compact(p.carried)}</span></div>`
-          )
+          .map((p) => {
+            const away = !p.connected && !p.isBot;
+            return `<div class="board-row ${p.id === this.you ? "me" : ""} ${away ? "away" : ""}" data-key="${p.id}" title="${esc(p.name)}${away ? " (away)" : ""}"><img src="/sprites/badge-${p.color}.webp" alt=""><span class="nm">${esc(p.name)}${away ? " · away" : ""}</span><span class="mono" title="Sections owned">${p.owned}</span><span class="mono dim" title="Passengers carried">${compact(p.carried)}</span></div>`;
+          })
           .join("")
     );
   }
@@ -1082,7 +1082,7 @@ export class GameScreen {
       ${this.step < 0 ? `<div class="tip">${tip}</div>` : ""}
       ${mine.length ? `<div class="lines">${mine.map((l) => this.lineRow(s, l)).join("")}</div>` : ""}
       <button class="btn primary wide" data-act="new-line" ${mine.length >= s.settings.maxLinesPerPlayer ? "disabled" : ""}>New line · ${money(trainCost(s, 2))}</button>
-      <p class="muted small">${matchMedia("(pointer: coarse)").matches ? "Drag to move the map, pinch to zoom." : "Drag to move the map, scroll to zoom."} Tap a station or a section for details.</p>
+      <p class="muted small">${isCoarse() ? "Drag to move the map, pinch to zoom." : "Drag to move the map, scroll to zoom."} Tap a station or a section for details.</p>
       ${this.conn.local ? `<div class="row small-row phone-only"><span class="muted small">Speed</span>${this.speedSeg("seg")}</div>` : ""}
       <div class="row small-row phone-only"><button class="link" data-act="mute">${sound.muted ? "🔇 Sound off" : "🔊 Sound on"}</button><button class="link" data-act="music">${sound.musicOn ? "🎵 Music on" : "🎵 Music off"}</button></div>
       ${this.conn.emote ? `<div class="emotes" aria-label="Send a reaction">${EMOTES.map((e) => `<button data-act="emote" data-arg="${e}" aria-label="Send ${e}">${e}</button>`).join("")}</div>` : ""}`;

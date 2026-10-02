@@ -623,10 +623,7 @@ export class Game {
       if (line.owner === ss.owner) {
         const rivalCarried = sum(ss.rivalSince);
         if (boarded === 0 && rivalCarried > 0 && this.rivalRuns(sec.id, ss.owner)) {
-          ss.emptyRun++;
-          addInto(ss.tally, ss.rivalSince);
-          this.emit({ t: st.time, kind: "empty", player: ss.owner, section: sec.id, run: ss.emptyRun });
-          if (ss.emptyRun >= S.emptyToCapture) this.capture(sec.id);
+          this.leftEmpty(sec.id);
         } else if (boarded > 0) {
           ss.emptyRun = 0;
           ss.tally = {};
@@ -667,16 +664,24 @@ export class Game {
       ss.absentTimer += dt;
       if (ss.absentTimer >= 6) {
         ss.absentTimer = 0;
-        ss.emptyRun++;
-        addInto(ss.tally, ss.rivalSince);
+        this.leftEmpty(sec.id);
         ss.rivalSince = {};
-        this.emit({ t: st.time, kind: "empty", player: ss.owner, section: sec.id, run: ss.emptyRun });
-        if (ss.emptyRun >= st.settings.emptyToCapture) this.capture(sec.id);
       }
     }
   }
 
-  private capture(section: SectionId) {
+  /** The owner's train left a section empty: count it, and capture on the last one (no warning then). */
+  private leftEmpty(section: SectionId) {
+    const st = this.state;
+    const ss = st.sections[section];
+    ss.emptyRun++;
+    addInto(ss.tally, ss.rivalSince);
+    if (ss.emptyRun >= st.settings.emptyToCapture && this.capture(section)) return;
+    this.emit({ t: st.time, kind: "empty", player: ss.owner!, section, run: ss.emptyRun });
+  }
+
+  /** Hand a section to the rival who carried most there; false if nobody did. */
+  private capture(section: SectionId): boolean {
     const st = this.state;
     const ss = st.sections[section];
     let best: PlayerId | null = null;
@@ -687,7 +692,7 @@ export class Game {
         bestN = ss.tally[pid];
       }
     }
-    if (!best) return;
+    if (!best) return false;
     const from = ss.owner;
     ss.owner = best;
     ss.emptyRun = 0;
@@ -696,6 +701,7 @@ export class Game {
     ss.absentTimer = 0;
     st.netVersion++;
     this.emit({ t: st.time, kind: "capture", player: best, from, section });
+    return true;
   }
 
   /** Board waiting passengers; returns how many got on here. */

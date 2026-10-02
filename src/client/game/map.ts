@@ -2,7 +2,7 @@ import { Application, Assets, Container, Graphics, Sprite, Text, Texture } from 
 import { Delaunay } from "d3-delaunay";
 import { buildNetwork, sectionBetween, type MapDef, type Network, type Snapshot, type StationId } from "../../sim";
 import type { Color, PlayerId, SectionId } from "../../sim/types";
-import { COLOR_BLIND, COLORS, SOFT } from "../util";
+import { COLOR_BLIND, COLORS, isCoarse, SOFT } from "../util";
 
 const LAND = 0xebe7de;
 const WATER = 0x9cc8e8;
@@ -11,8 +11,6 @@ const NEUTRAL = 0xa9aeb6;
 const PAPER = 0xfbfaf7;
 const LABEL_PX = 12; // station name font size
 const MIN_LABEL_PX = 11; // smallest a label may appear on screen
-
-const COARSE = matchMedia("(pointer: coarse)");
 
 export type Pick = { kind: "station"; id: StationId } | { kind: "section"; id: SectionId } | null;
 
@@ -372,7 +370,7 @@ export class MapView {
       }
     }
     // a direct hit on a station wins; otherwise the nearer of station or track (fingers get more room)
-    const f = COARSE.matches ? 1.4 : 1;
+    const f = isCoarse() ? 1.4 : 1;
     if (best && bestD <= 9 * f) return { kind: "station", id: best };
     if (bestSec && bestSD <= 14 * f && bestSD < bestD) return { kind: "section", id: bestSec };
     if (best && bestD <= 22 * f) return { kind: "station", id: best };

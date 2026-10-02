@@ -185,10 +185,24 @@ describe("hardening", () => {
     room.message("c1", { t: "pause", paused: true });
     room.message("c1", { t: "cmd", id: 1, cmd: { type: "open", section: "central~redfern" } });
     expect(a.last("ack")).toEqual({ t: "ack", id: 1, ok: true });
-    expect(a.last("snap")!.s.sections["central~redfern"].owner).toBe(a.last("welcome")!.you); // shown without a tick
+    const time = a.last("snap")?.s.time;
+    room.tick(0.25); // paused: no game time passes, but the change goes out
+    expect(a.last("snap")!.s.sections["central~redfern"].owner).toBe(a.last("welcome")!.you);
+    expect(a.last("snap")!.s.time).toBe(time ?? 0);
     expect(a.last("lobby")!.lobby.pausedBy).toBe(a.last("welcome")!.you);
     const restored = RoomCore.restore(room.serialize());
     expect(restored.lobby().paused).toBe(true);
+  });
+
+  it("moves a five-minute round to ten on a bigger map", () => {
+    const room = new RoomCore("LONG");
+    const a = client(room, "c1");
+    room.message("c1", { t: "hello", name: "A", token: "a" });
+    room.message("c1", { t: "setOptions", options: { roundMinutes: 300 } });
+    room.message("c1", { t: "setOptions", options: { map: "paris" } });
+    expect(a.last("lobby")!.lobby.options.roundMinutes).toBe(600);
+    room.message("c1", { t: "setOptions", options: { roundMinutes: 300 } }); // still the host's choice
+    expect(a.last("lobby")!.lobby.options.roundMinutes).toBe(300);
   });
 
   it("puts a bot in the seat the host picked", () => {
