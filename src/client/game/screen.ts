@@ -210,14 +210,65 @@ export class GameScreen {
   }
 
   private onKey = (e: KeyboardEvent) => {
-    if ((e.target as HTMLElement)?.tagName === "INPUT") return;
-    if (e.key === "Escape") {
-      this.mode = { kind: "idle" };
-      this.select(null);
-    } else if (e.key === " " && this.conn.local) {
-      e.preventDefault();
-      this.conn.setPaused?.(!this.conn.paused);
-      this.render();
+    const tag = (e.target as HTMLElement)?.tagName;
+    if (tag === "INPUT" || tag === "SELECT" || e.metaKey || e.ctrlKey || e.altKey) return;
+    const cx = this.map.app.screen.width / 2;
+    const cy = this.map.app.screen.height / 2;
+    switch (e.key) {
+      case "Escape":
+        this.mode = { kind: "idle" };
+        this.select(null);
+        break;
+      case " ":
+        if (!this.conn.canPause?.()) return;
+        e.preventDefault();
+        this.conn.setPaused?.(!this.conn.paused);
+        this.render();
+        break;
+      case "n":
+      case "N":
+        this.mode = { kind: "build", stations: [] };
+        this.sel = null;
+        this.map.selected = null;
+        this.updateHighlight();
+        this.render();
+        break;
+      case "1":
+      case "2":
+      case "3":
+        if (this.conn.local) {
+          this.conn.setSpeed?.(Number(e.key));
+          this.render();
+        }
+        break;
+      case "+":
+      case "=":
+        this.map.zoomAt(cx, cy, 1.25);
+        break;
+      case "-":
+      case "_":
+        this.map.zoomAt(cx, cy, 0.8);
+        break;
+      case "ArrowLeft":
+        this.map.panBy(60, 0);
+        break;
+      case "ArrowRight":
+        this.map.panBy(-60, 0);
+        break;
+      case "ArrowUp":
+        this.map.panBy(0, 60);
+        break;
+      case "ArrowDown":
+        this.map.panBy(0, -60);
+        break;
+      case "h":
+      case "H": {
+        const me = this.snap?.players.find((p) => p.id === this.you);
+        if (me) this.map.focus(me.hub);
+        break;
+      }
+      default:
+        return;
     }
   };
 
@@ -1062,4 +1113,5 @@ export const HELP_HTML = `
     <li><b>Win.</b> Own 60% of the network, or carry the most passengers when time runs out.</li>
     <li><b>Home hubs.</b> Only you can open the track touching your hub, so nobody can box you in at the start.</li>
   </ol>
-  <p class="muted small">Passengers pick routes by fare plus time (50 cents a minute), and changing trains costs them 4 minutes.</p>`;
+  <p class="muted small">Passengers pick routes by fare plus time (50 cents a minute), and changing trains costs them 4 minutes.</p>
+  <p class="muted small">Keys: <b>N</b> new line · <b>Space</b> pause · <b>1 2 3</b> speed · <b>+ −</b> zoom · arrows move · <b>H</b> home · <b>Esc</b> cancel</p>`;
