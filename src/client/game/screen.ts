@@ -24,6 +24,7 @@ export class GameScreen {
   private board: HTMLElement;
   private toasts: HTMLElement;
   private overlay: HTMLElement;
+  private tip: HTMLElement;
   private map: MapView;
   private snap: Snapshot | null = null;
   private sel: Sel = null;
@@ -46,7 +47,8 @@ export class GameScreen {
     this.board = h("div", { class: "board" });
     this.toasts = h("div", { class: "toasts", "aria-live": "polite" });
     this.overlay = h("div", { class: "overlay", hidden: true });
-    this.el.append(this.mapHost, this.hud, this.board, this.panel, this.toasts, this.overlay);
+    this.tip = h("div", { class: "maptip", hidden: true });
+    this.el.append(this.mapHost, this.tip, this.hud, this.board, this.panel, this.toasts, this.overlay);
     this.map = new MapView(this.mapHost, MAPS.sydney);
     this.map.you = conn.you;
     if (!conn.local) this.map.delay = 300;
@@ -156,9 +158,14 @@ export class GameScreen {
         pinchDist = Math.hypot(a.x - b.x, a.y - b.y);
       }
     });
+    host.addEventListener("pointerleave", () => (this.tip.hidden = true));
     host.addEventListener("pointermove", (e) => {
       const p = pointers.get(e.pointerId);
-      if (!p) return;
+      if (!p) {
+        if (e.pointerType === "mouse") this.hover(e.offsetX, e.offsetY);
+        return;
+      }
+      this.tip.hidden = true;
       const dx = e.offsetX - p.x;
       const dy = e.offsetY - p.y;
       p.x = e.offsetX;
@@ -202,6 +209,28 @@ export class GameScreen {
       this.render();
     }
   };
+
+  private hover(sx: number, sy: number) {
+    const s = this.snap;
+    const pick = this.map.pick(sx, sy);
+    if (!s || !pick) {
+      this.tip.hidden = true;
+      return;
+    }
+    let html = "";
+    if (pick.kind === "station") {
+      const st = this.map.net.station[pick.id];
+      const ev = (s.cityEvents ?? []).find((x) => x.station === pick.id);
+      html = `<b>${esc(st.name)}</b><span>${s.waiting[pick.id] ?? 0} waiting${ev ? ` · ${ev.emoji} ${esc(ev.title)}` : ""}</span>`;
+    } else {
+      const ss = s.sections[pick.id];
+      const owner = s.players.find((p) => p.id === ss.owner);
+      html = `<b>${esc(this.secName(pick.id))}</b><span>${owner ? `${owner.id === this.you ? "Yours" : esc(owner.name)}${ss.emptyRun ? ` · ${ss.emptyRun}/${s.settings.emptyToCapture} empty` : ""}` : "Not opened"}</span>`;
+    }
+    this.tip.innerHTML = html;
+    this.tip.hidden = false;
+    this.tip.style.transform = `translate(${sx + 14}px, ${sy + 14}px)`;
+  }
 
   private tap(sx: number, sy: number) {
     const pick = this.map.pick(sx, sy);

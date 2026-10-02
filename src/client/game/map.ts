@@ -64,6 +64,8 @@ export class MapView {
   private lastLoad = new Map<string, number>();
   private floatLayer = new Container();
   private eventMarks = new Map<number, Text>();
+  private flashes = new Map<SectionId, { at: number; color: number }>();
+  private owners: Record<SectionId, PlayerId | null> = {};
   you: PlayerId = "";
   delay = 120; // ms of interpolation delay
   insets = { left: 0, top: 0, right: 0, bottom: 0 };
@@ -304,6 +306,16 @@ export class MapView {
       .map(([k, v]) => `${k}:${v.owner ?? ""}:${v.contested ? 1 : 0}`)
       .join("|");
     if (sig !== this.ownerSig) {
+      // flash sections that just changed hands from one company to another
+      for (const id in snap.sections) {
+        const was = this.owners[id];
+        const now = snap.sections[id].owner;
+        if (was && now && was !== now) {
+          const c = this.colorOf[now];
+          if (c) this.flashes.set(id, { at: performance.now(), color: COLORS[c] });
+        }
+        this.owners[id] = now;
+      }
       this.ownerSig = sig;
       this.drawOwnership(snap);
     }
@@ -433,6 +445,18 @@ export class MapView {
         if (i < st.emptyRun) m.circle(cx, my, 2.6 * u).fill(col ? COLORS[col] : PAPER);
         else m.circle(cx, my, 2.6 * u).stroke({ width: 1.4 * u, color: col ? COLORS[col] : PAPER });
       }
+    }
+    for (const [id, f] of this.flashes) {
+      const age = (t - f.at) / 1000;
+      if (age > 1.6) {
+        this.flashes.delete(id);
+        continue;
+      }
+      const sec = this.net.section[id];
+      const [ax, ay] = this.pos[sec.a];
+      const [bx, by] = this.pos[sec.b];
+      const k = age / 1.6;
+      m.moveTo(ax, ay).lineTo(bx, by).stroke({ width: (14 + 40 * k) * this.u, color: f.color, alpha: 0.6 * (1 - k), cap: "round" });
     }
     // selection
     const s = this.selectG;

@@ -217,6 +217,10 @@ details.rules summary { font-family: var(--display); font-weight: 800; cursor: p
 .toast.emote { font-size: 16px; }
 .toast.emote .emoji { font-size: 26px; vertical-align: middle; }
 
+.maptip { position: absolute; left: 0; top: 0; pointer-events: none; background: var(--ink); color: var(--paper); border-radius: 8px; padding: 6px 10px; font-size: 13px; display: grid; gap: 1px; white-space: nowrap; z-index: 5; }
+.maptip b { font-family: var(--display); font-size: 14px; }
+.maptip span { opacity: 0.85; }
+
 /* ---------- phones ---------- */
 @media (max-width: 760px) {
   .panel { left: 0; right: 0; top: auto; bottom: 0; width: auto; max-height: 52%; border-radius: 18px 18px 0 0; padding-bottom: env(safe-area-inset-bottom, 0px); }
