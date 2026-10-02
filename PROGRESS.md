@@ -68,3 +68,8 @@ Overnight build, started 2026-10-02 20:30 AEST.
 - Shared rules moved into the sim/shared code: networkOf, hubLock, winNeed, openPrice (network.ts)
   and startRound, ROUND_CHOICES, minRoundFor (protocol.ts) — no client copies of game rules.
 - Three more cities: Brisbane, Seoul and Madrid (13 maps), balance-checked with bot games.
+- Second online family playtest (Seoul, then Brisbane): Easy bots now really stay off people's
+  track (tested), one-tap "onto their track" buttons on rival sections, "You beat Dad!" on the
+  online end card, hosting messages debounced across quick reconnects. A correctness review
+  caught single-player player order changing with the shared startRound (would have changed
+  seeded dailies) — fixed and pinned by a test.
