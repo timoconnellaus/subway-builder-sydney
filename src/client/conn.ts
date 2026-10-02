@@ -1,6 +1,6 @@
-import { cleanRules, MAPS, Session, type BotStyle, type Command, type CommandResult, type HouseRules, type PlayerId, type Snapshot } from "../sim";
+import { cleanRules, createTutorial, MAPS, Session, type BotStyle, type Command, type CommandResult, type HouseRules, type PlayerId, type Snapshot } from "../sim";
 import { BOT_NAMES, seat, SLOTS, type ClientMsg, type LobbyState, type ServerMsg } from "../shared/protocol";
-import type { GameState, PlayerSetup, Settings } from "../sim";
+import type { GameState } from "../sim";
 import { setStorage, storage } from "./util";
 
 const SAVE_KEY = "local-save";
@@ -112,11 +112,12 @@ export class LocalGame implements GameConn {
       isBot: true,
       botStyle: style
     }));
-    this.begin([...human, ...bots], { ...cleanRules(this.opts.rules), roundMinutes: this.opts.roundMinutes }, this.opts.seed);
+    this.session = Session.create(MAPS[this.mapId], [...human, ...bots], { ...cleanRules(this.opts.rules), roundMinutes: this.opts.roundMinutes }, this.opts.seed);
+    this.begin();
   }
 
-  private begin(players: PlayerSetup[], settings: Partial<Settings>, seed?: number) {
-    this.session = Session.create(MAPS[this.mapId], players, settings, seed);
+  /** Start running this.session. */
+  private begin() {
     this.paused = false;
     if (!this.timer) {
       this.last = performance.now();
@@ -127,20 +128,8 @@ export class LocalGame implements GameConn {
 
   /** A calm practice game: one sleepy rival that never changes its line. */
   private startTutorial() {
-    this.begin(
-      [
-        { id: "P1", name: this.opts.name || "You", ...seat("sydney", 0) },
-        { id: "P2", name: "Western Rail", ...seat("sydney", 1) }
-      ],
-      { roundMinutes: 3600, events: 0, winShare: 1 }
-    );
-    const st = this.session.state;
-    for (const sec of ["granville~parramatta", "granville~lidcombe", "lidcombe~strathfield", "ashfield~strathfield"]) st.sections[sec].owner = "P2";
-    st.netVersion++;
-    st.players[1].money = 100000;
-    this.session.command("P2", { type: "createLine", stations: ["parramatta", "granville", "lidcombe", "strathfield", "ashfield"] });
-    this.session.command("P2", { type: "setTrains", line: st.lines[0].id, trains: 2 });
-    this.emit();
+    this.session = createTutorial(this.opts.name || "You");
+    this.begin();
   }
 
   private loop() {

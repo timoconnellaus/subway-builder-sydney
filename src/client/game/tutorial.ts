@@ -5,7 +5,7 @@ import type { LineView, Snapshot } from "../../sim";
 
 export interface TutorialStep {
   title: string;
-  text: string;
+  text: string | ((s: Snapshot, you: string) => string);
   hint?: string[]; // section ids to pulse
   done(s: Snapshot, you: string): boolean;
 }
@@ -37,7 +37,11 @@ export const STEPS: TutorialStep[] = [
   {
     title: "Run a line",
     text: "Press <b>New line</b>, tap <b>Central</b>, <b>Redfern</b> and <b>Ashfield</b>, then press <b>Create line</b>.",
-    done: (s, you) => !!lineUsing(s, you, "central", "redfern") && !!lineUsing(s, you, "redfern", "ashfield")
+    done: (s, you) => {
+      // one line that runs Central – Redfern – Ashfield (either way round)
+      const l = lineUsing(s, you, "central", "redfern");
+      return !!l && l === lineUsing(s, you, "redfern", "ashfield");
+    }
   },
   {
     title: "Add a train",
@@ -57,7 +61,10 @@ export const STEPS: TutorialStep[] = [
   },
   {
     title: "Win their passengers",
-    text: "Passengers wait for a cheaper train if it's coming soon. Make your fare <b>lower</b> than Western Rail's and run <b>3 or more trains</b>.",
+    text: (s, you) => {
+      const theirs = s.lines.find((l) => l.owner !== you);
+      return `Passengers wait for a cheaper train if it's coming soon. Western Rail charges <b>$${(theirs?.fare ?? 2).toFixed(2)}</b>. Tap your line, make your fare <b>lower</b>, and run <b>3 or more trains</b>.`;
+    },
     hint: ["ashfield~strathfield"],
     done: (s, you) => {
       const mine = lineUsing(s, you, "ashfield", "strathfield");
@@ -67,7 +74,8 @@ export const STEPS: TutorialStep[] = [
   },
   {
     title: "Take the track",
-    text: "When nobody boards Western Rail's train on that section 3 times in a row, it's yours. Watch the dots on the track fill up…",
+    text: (s) =>
+      `When nobody boards Western Rail's train on that section ${s.settings.emptyToCapture} times in a row, it's yours. Watch the dots on the track fill up…`,
     hint: ["ashfield~strathfield"],
     done: (s, you) => s.sections["ashfield~strathfield"]?.owner === you
   },

@@ -131,7 +131,11 @@ export class GameScreen {
   private layoutInsets() {
     const narrow = window.innerWidth <= 760;
     const panel = this.panel.getBoundingClientRect();
-    this.map.setInsets(narrow ? { right: 0, bottom: this.panelOpen ? panel.height : 30, top: 140 } : { right: panel.width + 24, bottom: 0, top: 56 });
+    // keep what the tutorial coach points at clear of the coach card
+    const coach = this.coach.hidden ? 0 : this.coach.getBoundingClientRect().height + 8;
+    this.map.setInsets(
+      narrow ? { right: 0, bottom: (this.panelOpen ? panel.height : 30) + coach, top: 140 } : { right: panel.width + 24, bottom: 0, top: 56 + coach }
+    );
   }
 
   private get you() {
@@ -854,17 +858,23 @@ export class GameScreen {
     if (this.step < 0) return;
     const before = this.step;
     while (this.step < STEPS.length - 1 && STEPS[this.step].done(s, this.you)) this.step++;
-    if (this.step !== before) {
-      sound.play("good");
-      this.updateHighlight();
-    }
     const st = STEPS[this.step];
+    const first = this.coach.hidden;
     this.coach.hidden = false;
     patch(
       this.coach,
-      `<div class="coach-step">Step ${Math.min(this.step + 1, STEPS.length)} of ${STEPS.length}</div><h3>${st.title}</h3><p>${st.text}</p>` +
+      `<div class="coach-step">Step ${Math.min(this.step + 1, STEPS.length)} of ${STEPS.length}</div><h3>${st.title}</h3><p>${typeof st.text === "function" ? st.text(s, this.you) : st.text}</p>` +
         (this.step === STEPS.length - 1 ? `<div class="row"><button class="btn primary" data-act="exit">Back to the menu</button></div>` : "")
     );
+    if (this.step !== before || first) {
+      if (this.step !== before) sound.play("good");
+      // after opening track, go back to the lines list so "New line" is in view
+      if (before <= 1 && this.step !== before) this.select(null);
+      this.layoutInsets();
+      const hint = st.hint?.[0] && this.map.net.section[st.hint[0]];
+      if (hint) this.map.focus(hint.a);
+      this.updateHighlight();
+    }
   }
 
   private renderBoard(s: Snapshot) {

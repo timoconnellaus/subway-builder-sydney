@@ -245,3 +245,22 @@ describe("world maps", () => {
     }
   });
 });
+
+describe("tutorial", () => {
+  it("undercutting Western Rail with more trains captures Ashfield – Strathfield quickly", async () => {
+    const { createTutorial } = await import("../src/sim");
+    const s = createTutorial("You");
+    const st = s.state;
+    s.command("P1", { type: "open", section: "central~redfern" });
+    s.command("P1", { type: "open", section: "ashfield~redfern" });
+    s.command("P1", { type: "createLine", stations: ["central", "redfern", "ashfield"] });
+    const line = st.lines.find((l) => l.owner === "P1")!.id;
+    s.command("P1", { type: "setTrains", line, trains: 2 });
+    s.tick(60);
+    expect(s.command("P1", { type: "extendLine", line, station: "strathfield", end: "end" }).ok).toBe(true);
+    s.command("P1", { type: "setFare", line, fare: 1.25 });
+    s.command("P1", { type: "setTrains", line, trains: 4 });
+    s.tick(120); // two real minutes
+    expect(st.sections["ashfield~strathfield"].owner).toBe("P1");
+  });
+});

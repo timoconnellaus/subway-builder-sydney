@@ -4,6 +4,7 @@ export * from "./routing";
 export * from "./game";
 export * from "./session";
 export * from "./random";
+export * from "./tutorial";
 export { SYDNEY, SYDNEY_WATER } from "./data/sydney";
 
 import { SYDNEY } from "./data/sydney";
