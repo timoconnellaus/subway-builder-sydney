@@ -52,3 +52,6 @@ Overnight build, started 2026-10-02 20:30 AEST.
 - iPad playtest: portrait bottom-sheet layout, bigger touch targets, arrival card for tour cities,
   'spend your money' nudge, smarter label placement (your neighbourhood first, other sides tried).
 - Two more correctness reviews and three more /simplify passes; e2e smoke now covers the tour and daily.
+- Fun-focused playtest: comeback rule (a line may start at your hub), capture confetti,
+  close-race alerts, one-tap Undercut/Defend, World Tour stars (win / own the share / under 7:00),
+  daily intro card, faster tutorial wait, phone speed buttons.
