@@ -1099,6 +1099,8 @@ export class GameScreen {
       tip = `Rivals own all the track around <b>${esc(this.stationName(me.hub))}</b>. Fight back: press <b>New line</b>, start at ${esc(this.stationName(me.hub))} and run onto their track with a cheaper fare.`;
     else if (owned === 0) tip = `Tap a <b>dotted section</b> next to your hub, <b>${esc(this.stationName(me.hub))}</b>, then press <b>Open</b>.`;
     else if (!mine.length) tip = `Now press <b>New line</b> and tap the stations along your track to start running trains.`;
+    else if (s.time < 120 && this.conn.local && (this.conn.speed ?? 1) === 1 && me.money < openCost(s, 4, me.owned))
+      tip = `Your trains are earning. Press <b>2×</b> or <b>3×</b> at the top to speed up while you save for more track.`;
     else if (s.time < 120) tip = `Open more track and extend your lines. Busy lines need more trains.`;
     else if (me.money > RICH) tip = `You have <b>${money(me.money)}</b> to spend. Open more track and add trains: money in the bank doesn't win.`;
     else tip = `Run a line onto a rival's track, then cut your fare and add trains to win their passengers.`;
