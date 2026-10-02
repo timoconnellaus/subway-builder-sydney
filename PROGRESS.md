@@ -41,3 +41,9 @@ Overnight build, started 2026-10-02 20:30 AEST.
 - World cities added by four parallel subagents (one per city), then registered, tested for
   connectivity / no track through stations, and balance-tuned for 3 and 4 players.
 - /simplify passes (reuse, simplification, efficiency, altitude reviewers) after each batch.
+- Second playtest (online + world cities): host handover on reconnect, lobby names, label
+  overlaps, starting zoom, water-coloured territory — fixed. A correctness review found 7 bugs — fixed.
+- Four more cities (Melbourne, Berlin, Hong Kong, Singapore) and a World Tour campaign.
+- "Can a kid win?" test: a scripted tutorial-level player won 2/12 on Easy and often lost while
+  owning the most track. Changed the clock rule to most track (passengers break ties) and made
+  Easy bots gentler; now 4/6. Hub bonuses retuned for the new rule.
