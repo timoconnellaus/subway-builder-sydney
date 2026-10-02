@@ -81,7 +81,7 @@ export class GameScreen {
     if (!this.mapReady || !this.snap || this.focused) return;
     this.focused = true;
     const me = this.snap.players.find((p) => p.id === this.you);
-    if (me) this.map.focus(me.hub, 1.7);
+    if (me) this.map.focus(me.hub, window.innerWidth <= 760 ? 3 : 1.7);
     if (me && storage("seen-intro") !== "1") this.showIntro(me);
   }
 
@@ -109,7 +109,7 @@ export class GameScreen {
   private layoutInsets() {
     const narrow = window.innerWidth <= 760;
     const panel = this.panel.getBoundingClientRect();
-    this.map.setInsets(narrow ? { right: 0, bottom: this.panelOpen ? panel.height : 30, top: 110 } : { right: panel.width + 24, bottom: 0, top: 56 });
+    this.map.setInsets(narrow ? { right: 0, bottom: this.panelOpen ? panel.height : 30, top: 140 } : { right: panel.width + 24, bottom: 0, top: 56 });
   }
 
   private get you() {

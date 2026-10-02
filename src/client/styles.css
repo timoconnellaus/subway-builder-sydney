@@ -224,17 +224,19 @@ details.rules summary { font-family: var(--display); font-weight: 800; cursor: p
 
 /* ---------- phones ---------- */
 @media (max-width: 760px) {
-  .panel { left: 0; right: 0; top: auto; bottom: 0; width: auto; max-height: 52%; border-radius: 18px 18px 0 0; padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .panel { left: 0; right: 0; top: auto; bottom: 0; width: auto; max-height: 44%; border-radius: 18px 18px 0 0; padding-bottom: env(safe-area-inset-bottom, 0px); }
   .panel-toggle { display: block; border: 0; background: var(--chip); width: 100%; padding: 4px 0; font-size: 16px; cursor: pointer; }
   .panel-closed .panel .panel-body, .panel-closed .panel .flash { display: none; }
-  .board { bottom: auto; top: 112px; left: 8px; min-width: 0; padding: 8px; }
-  .board-row { grid-template-columns: 20px auto 26px; }
+  .board { bottom: auto; top: calc(env(safe-area-inset-top, 0px) + 108px); left: 8px; min-width: 0; padding: 4px 8px; display: flex; gap: 10px; border-radius: 10px; }
+  .board-row { display: flex; gap: 4px; align-items: center; }
+  .board-row img { width: 18px; height: 18px; }
   .board-row .nm, .board-row .dim, .board-title { display: none; }
+  .hud .seg.small, .hud [data-act="mute"] { display: none; }
   .pill.goal { order: 3; flex-basis: 100%; }
   .hud { gap: 6px; padding-inline: 8px; }
   .pill { padding: 6px 10px; font-size: 14px; }
   .pill.you span { display: none; }
-  .toasts { top: 120px; }
+  .toasts { top: calc(env(safe-area-inset-top, 0px) + 140px); }
   .toast { font-size: 13px; padding: 7px 10px; }
   .toast.big { font-size: 15px; padding: 9px 12px; }
   .stats .v { font-size: 15px; }
