@@ -33,7 +33,13 @@ export function tourWon(stop: number) {
   if (stop === tourProgress()) setStorage("tour", String(stop + 1));
 }
 
+/** The city at a stop (clamped to the tour). */
+export function tourCity(stop: number): { flag: string; name: string } {
+  const t = TOUR[Math.max(0, Math.min(stop, TOUR.length - 1))];
+  return MAP_CHOICES.find((c) => c.id === t.map) ?? { flag: "", name: t.map };
+}
+
 export function stopName(stop: number): string {
-  const m = MAP_CHOICES.find((c) => c.id === TOUR[stop]?.map);
-  return m ? `${m.flag} ${m.name}` : "";
+  const m = tourCity(stop);
+  return `${m.flag} ${m.name}`;
 }

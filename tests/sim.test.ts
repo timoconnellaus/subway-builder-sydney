@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildNetwork, createTutorial, MAPS, Session, type MapDef } from "../src/sim";
+import { tuning } from "../src/sim/bots";
 
 // A tiny three-station line. All demand is between A and C, so every passenger rides A–B–C.
 const LINE_MAP: MapDef = {
@@ -303,5 +304,26 @@ describe("winning on the clock", () => {
     s.tick(31);
     expect(st.phase).toBe("over");
     expect(st.winner).toBe("A");
+  });
+});
+
+describe("easy bots", () => {
+  it("never cut fares below the easy floor or run more than 4 lines", () => {
+    const s = Session.create(
+      MAPS.sydney,
+      [
+        { id: "A", name: "A", color: "red", hub: "central", isBot: true, botStyle: "raider" },
+        { id: "B", name: "B", color: "blue", hub: "parramatta", isBot: true, botStyle: "banker" },
+        { id: "C", name: "C", color: "gold", hub: "airport", isBot: true, botStyle: "builder" }
+      ],
+      { roundMinutes: 600, botSkill: 1 },
+      11
+    );
+    for (let t = 0; t < 600 && s.state.phase === "running"; t += 20) {
+      s.tick(20);
+      for (const id of ["A", "B", "C"]) expect(s.state.lines.filter((l) => l.owner === id).length).toBeLessThanOrEqual(4);
+    }
+    expect(tuning("raider", 1)).toMatchObject({ fareFloor: 1.25, maxLines: 4, retake: false, richAttack: false });
+    expect(tuning("raider", 2)).toMatchObject({ fareFloor: 0, retake: true });
   });
 });

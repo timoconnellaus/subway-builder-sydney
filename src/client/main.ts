@@ -7,7 +7,7 @@ import { MAP_CHOICES, MAPS, stationName } from "../sim";
 import { clearLocalSave, LocalGame, RemoteRoom, savedLocalGame, type LocalOptions } from "./conn";
 import { ACHIEVEMENTS, unlocked } from "./achievements";
 import { boardHtml, fetchBoard, localBest } from "./daily";
-import { stopName, TOUR, TOUR_MINUTES, tourProgress } from "./tour";
+import { stopName, TOUR, TOUR_MINUTES, tourCity, tourProgress } from "./tour";
 import { dailyChallenge, dailyLabel, sydneyDate, type DailyChallenge } from "../shared/daily";
 import { GameScreen, HELP_HTML } from "./game/screen";
 import { COLOR_BLIND, COLOR_NAMES, CSS_COLORS, esc, patch, readRecord, setStorage, storage, token } from "./util";
@@ -133,7 +133,7 @@ function menu() {
       <label class="field"><span>Your name</span><input id="name" maxlength="16" placeholder="Your name" value="${esc(name)}" autocomplete="nickname"></label>
 
       ${storage("tutorial-done") !== "1" ? `<div class="newbie"><span>New to Metro Empire?</span><button class="btn primary" id="tutorial-top">Learn to play (2 minutes)</button></div>` : ""}
-      ${saved ? `<button class="btn primary big" id="continue">Continue your ${saved.opts.daily ? "daily challenge" : "game"}</button>` : ""}
+      ${saved ? `<button class="btn primary big" id="continue">Continue your ${saved.opts.daily ? "daily challenge" : saved.opts.tour !== undefined ? `World Tour game (${esc(stopName(saved.opts.tour))})` : "game"}</button>` : ""}
       ${dailyHtml(challenge)}
       ${tourHtml()}
       <section class="menu-sec bots-sec">
@@ -310,8 +310,9 @@ function menuOptions(): LocalOptions {
 
 /** A World Tour stop as an ordinary game. */
 function tourOptions(stop: number): LocalOptions {
-  const t = TOUR[Math.min(stop, TOUR.length - 1)];
-  return { name: playerName(), bots: t.bots, roundMinutes: TOUR_MINUTES, rules: { botSkill: t.skill }, map: t.map, tour: stop };
+  const i = Math.max(0, Math.min(stop, TOUR.length - 1));
+  const t = TOUR[i];
+  return { name: playerName(), bots: t.bots, roundMinutes: TOUR_MINUTES, rules: { botSkill: t.skill }, map: t.map, tour: i };
 }
 
 function playTour(stop: number) {
@@ -322,7 +323,7 @@ function playTour(stop: number) {
 function tourHtml(): string {
   const done = tourProgress();
   const stamps = TOUR.map((t, i) => {
-    const m = MAP_CHOICES.find((c) => c.id === t.map)!;
+    const m = tourCity(i);
     const state = i < done ? "done" : i === done ? "next" : "locked";
     return `<button class="stamp ${state}" data-tour="${i}" ${state === "locked" ? "disabled" : ""} title="${esc(m.name)}">
       <span class="flag">${state === "locked" ? "🔒" : m.flag}</span><span class="nm">${esc(m.name)}</span>

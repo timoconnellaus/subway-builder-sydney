@@ -11,19 +11,47 @@ interface StyleTuning {
   attack: number; // 0..1 how keen to fight rivals
   undercut: number; // dollars below the rival fare when attacking
   premium: boolean; // raise fares on safe lines
-  fareFloor?: number; // never cut fares below this when defending (easy bots)
-  defendTrains?: number; // most trains a defended line gets (easy bots)
-  defendAfter?: number; // empty trains in a row before defending (default 1)
-  rivalTrack?: number; // how much new routes like rival track (default 0.4)
-  retake?: boolean; // fight back for track just lost (default true)
-  maxLines?: number; // fewer lines than the rules allow (easy bots)
+  fareFloor: number; // never cut fares below this when defending
+  defendTrains: number; // most trains a defended line gets
+  defendAfter: number; // empty trains in a row before defending
+  rivalTrack: number; // how much new routes like rival track (1 = as much as our own)
+  retake: boolean; // fight back for track just lost
+  maxLines: number; // most lines this bot runs
+  richAttack: boolean; // attack whenever it has money to spare
 }
 
-const STYLES: Record<BotStyle, StyleTuning> = {
+type Style = Pick<StyleTuning, "reserve" | "openAppetite" | "attack" | "undercut" | "premium">;
+const STYLES: Record<BotStyle, Style> = {
   builder: { reserve: 200, openAppetite: 1, attack: 0.3, undercut: 0.25, premium: false },
   raider: { reserve: 150, openAppetite: 0.5, attack: 1, undercut: 0.75, premium: false },
   banker: { reserve: 400, openAppetite: 0.7, attack: 0.45, undercut: 0.5, premium: true }
 };
+
+const NORMAL = { fareFloor: 0, defendTrains: Infinity, defendAfter: 1, rivalTrack: 0.4, retake: true, maxLines: Infinity, richAttack: true };
+
+/** A style adjusted for the bot skill house rule. */
+export function tuning(style: BotStyle | undefined, skill: number): StyleTuning {
+  const base = STYLES[style ?? "builder"] ?? STYLES.builder;
+  if (skill === 1)
+    // easy bots keep more money back, rarely fight, defend gently and keep off your track, so a fare war can be won
+    return {
+      ...base,
+      ...NORMAL,
+      reserve: base.reserve + 300,
+      attack: base.attack * 0.25,
+      undercut: 0.25,
+      openAppetite: base.openAppetite * 0.5,
+      fareFloor: 1.25,
+      defendTrains: 4,
+      defendAfter: 2,
+      rivalTrack: 0.1,
+      retake: false,
+      maxLines: 4,
+      richAttack: false
+    };
+  if (skill === 3) return { ...base, ...NORMAL, reserve: Math.max(100, base.reserve - 100), attack: Math.min(1, base.attack * 1.8), undercut: base.undercut + 0.25 };
+  return { ...base, ...NORMAL };
+}
 
 export function runBots(game: Game, memory: Map<string, number>) {
   const st = game.state;
@@ -39,28 +67,8 @@ export function runBots(game: Game, memory: Map<string, number>) {
 }
 
 function botTurn(game: Game, p: Player) {
-  const base = STYLES[p.botStyle ?? "builder"] ?? STYLES.builder;
   const skill = game.state.settings.botSkill ?? 2;
-  // easy bots keep more money back and rarely fight; hard bots fight harder
-  const tune: StyleTuning =
-    skill === 1
-      ? {
-          ...base,
-          reserve: base.reserve + 300,
-          attack: base.attack * 0.25,
-          undercut: 0.25,
-          // easy bots defend gently and keep off your track, so a fare war can be won
-          fareFloor: 1.25,
-          defendTrains: 4,
-          defendAfter: 2,
-          rivalTrack: 0.1,
-          retake: false,
-          maxLines: 4,
-          openAppetite: base.openAppetite * 0.5
-        }
-      : skill === 3
-        ? { ...base, reserve: Math.max(100, base.reserve - 100), attack: Math.min(1, base.attack * 1.8), undercut: base.undercut + 0.25 }
-        : base;
+  const tune = tuning(p.botStyle, skill);
   if (skill === 1 && p.botStyle === "raider" && game.random() < 0.6) {
     defend(game, p, tune);
     cover(game, p, tune);
@@ -73,7 +81,7 @@ function botTurn(game: Game, p: Player) {
     return;
   }
   defend(game, p, tune);
-  if (tune.retake !== false) retake(game, p, tune);
+  if (tune.retake) retake(game, p, tune);
   cover(game, p, tune);
   if (p.botStyle === "raider") {
     attack(game, p, tune);
@@ -82,7 +90,7 @@ function botTurn(game: Game, p: Player) {
   } else {
     open(game, p, tune);
     manageTrains(game, p, tune);
-    if (game.random() < tune.attack || (p.money > 2500 && skill > 1)) attack(game, p, tune);
+    if (game.random() < tune.attack || (p.money > 2500 && tune.richAttack)) attack(game, p, tune);
   }
   if (tune.premium) adjustFares(game, p);
 }
@@ -130,7 +138,7 @@ function cover(game: Game, p: Player, tune: StyleTuning) {
         if (game.apply(p.id, { type: "extendLine", line: l.id, station: other, end }).ok) return;
       }
     }
-    if ((p.money >= game.trainCost(2) + tune.reserve / 2 && lines.length < (tune.maxLines ?? Infinity)) || lines.length === 0) {
+    if ((p.money >= game.trainCost(2) + tune.reserve / 2 && lines.length < tune.maxLines) || lines.length === 0) {
       const route = longRoute(game, p, s.a, s.b, tune.rivalTrack);
       const r = game.apply(p.id, { type: "createLine", stations: route });
       if (!r.ok) game.apply(p.id, { type: "createLine", stations: [s.a, s.b] });
@@ -140,7 +148,7 @@ function cover(game: Game, p: Player, tune: StyleTuning) {
 }
 
 /** Grow a route out from a section along opened track, towards busy stations. */
-function longRoute(game: Game, p: Player, a: StationId, b: StationId, rivalTrack = 0.4): StationId[] {
+function longRoute(game: Game, p: Player, a: StationId, b: StationId, rivalTrack: number): StationId[] {
   const st = game.state;
   const route = [a, b];
   const grow = (atEnd: boolean) => {
@@ -217,11 +225,11 @@ function retake(game: Game, p: Player, tune: StyleTuning) {
 function defend(game: Game, p: Player, tune: StyleTuning) {
   for (const s of game.net.sections) {
     const ss = game.state.sections[s.id];
-    if (ss.owner !== p.id || ss.emptyRun < (tune.defendAfter ?? 1)) continue;
+    if (ss.owner !== p.id || ss.emptyRun < tune.defendAfter) continue;
     for (const l of game.linesOf(p.id)) {
       if (!game.lineUses(l, s.id)) continue;
-      if (l.fare - 0.25 >= (tune.fareFloor ?? 0)) game.apply(p.id, { type: "setFare", line: l.id, fare: l.fare - 0.25 });
-      if (l.trains < (tune.defendTrains ?? Infinity) && p.money > game.trainCost(l.cars) + 150) game.apply(p.id, { type: "setTrains", line: l.id, trains: l.trains + 1 });
+      if (l.fare - 0.25 >= tune.fareFloor) game.apply(p.id, { type: "setFare", line: l.id, fare: l.fare - 0.25 });
+      if (l.trains < tune.defendTrains && p.money > game.trainCost(l.cars) + 150) game.apply(p.id, { type: "setTrains", line: l.id, trains: l.trains + 1 });
     }
   }
 }
@@ -230,7 +238,7 @@ function defend(game: Game, p: Player, tune: StyleTuning) {
 function attack(game: Game, p: Player, tune: StyleTuning) {
   const st = game.state;
   const lines = game.linesOf(p.id);
-  if (lines.length >= Math.min(st.settings.maxLinesPerPlayer, tune.maxLines ?? Infinity)) return;
+  if (lines.length >= Math.min(st.settings.maxLinesPerPlayer, tune.maxLines)) return;
   let best: { x: StationId; here: StationId; y: StationId; sec: SectionId } | null = null;
   let bestTraffic = 1;
   for (const s of game.net.sections) {

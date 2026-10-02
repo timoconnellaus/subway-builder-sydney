@@ -849,8 +849,7 @@ export class Game {
       }
     }
     if (st.time >= st.settings.roundMinutes - 1e-6) {
-      // the goal is to own the network: most track wins, passengers carried break a tie
-      const best = [...st.players].sort((a, b) => this.ownedCount(b.id) - this.ownedCount(a.id) || b.carried - a.carried)[0];
+      const best = st.players.map((p) => ({ id: p.id, owned: this.ownedCount(p.id), carried: p.carried })).sort(byStanding)[0];
       st.phase = "over";
       st.winner = best?.id ?? null;
       if (best) this.emit({ t: st.time, kind: "win", player: best.id, reason: "time" });
@@ -860,6 +859,11 @@ export class Game {
   headway(line: Line): number {
     return lineHeadway(this.net, this.state, line);
   }
+}
+
+/** League-table order: the goal is to own the network, so most track first; passengers carried break a tie. */
+export function byStanding(a: { owned: number; carried: number }, b: { owned: number; carried: number }): number {
+  return b.owned - a.owned || b.carried - a.carried;
 }
 
 /** Reject malformed commands (from a buggy or malicious client) before they touch the state. */
