@@ -159,7 +159,7 @@ function menu() {
           ${(["builder", "raider", "banker"] as BotStyle[])
             .map(
               (b, i) => `<label class="bot-opt"><input type="checkbox" value="${b}" ${bots.includes(b) ? "checked" : ""}>
-              <img src="/sprites/badge-${SLOTS[i + 1].color}.webp" alt=""><span><b>${b === "builder" ? "The Builder" : b === "raider" ? "The Raider" : "The Banker"}</b>
+              <img data-bot-badge="${b}" src="/sprites/badge-${SLOTS[i + 1].color}.webp" alt=""><span><b>${BOT_NAMES[b]}</b>
               <small>${BOT_TIPS[b]}</small></span></label>`
             )
             .join("")}
@@ -200,6 +200,20 @@ function menu() {
   // the rules to remember; bot skill only once picked, so the easy-until-you-win default can move up
   // the hub list follows the map
   const seatSel = el.querySelector<HTMLSelectElement>("#seat")!;
+  // bot badges show the colour each ticked bot will actually play: the seats you didn't take, in order
+  const botBadges = () => {
+    const free = SLOTS.map((_, i) => i).filter((i) => i !== Number(seatSel.value));
+    let k = 0;
+    el.querySelectorAll<HTMLInputElement>(".bot-opt input").forEach((box) => {
+      const img = el.querySelector<HTMLImageElement>(`[data-bot-badge="${box.value}"]`)!;
+      const seat = box.checked ? free[k++] : undefined;
+      img.style.opacity = seat === undefined ? "0.35" : "1";
+      if (seat !== undefined) img.src = `/sprites/badge-${SLOTS[seat].color}.webp`;
+    });
+  };
+  seatSel.addEventListener("change", botBadges);
+  el.querySelectorAll(".bot-opt input").forEach((box) => box.addEventListener("change", botBadges));
+  botBadges();
   el.querySelector<HTMLSelectElement>("#map")!.addEventListener("change", (e) => {
     seatSel.innerHTML = seatOptions((e.target as HTMLSelectElement).value, Number(seatSel.value) || 0);
   });
