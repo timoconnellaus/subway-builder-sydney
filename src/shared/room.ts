@@ -203,6 +203,7 @@ export class RoomCore {
         if (!this.session || this.phase !== "game") return send({ t: "ack", id: msg.id, ok: false, error: "The game hasn't started." });
         const r = this.session.command(me, msg.cmd);
         this.dirty = true;
+        if (r.ok && this.paused) this.broadcastSnapshot(); // no ticks while paused, so show the change now
         return send(r.ok ? { t: "ack", id: msg.id, ok: true } : { t: "ack", id: msg.id, ok: false, error: r.error });
       }
       case "addBot": {
@@ -359,6 +360,12 @@ export class RoomCore {
     };
   }
 
+  private broadcastSnapshot() {
+    if (!this.session) return;
+    const msg: ServerMsg = { t: "snap", s: this.session.snapshot() };
+    for (const c of this.conns.values()) c.conn.send(msg);
+  }
+
   private broadcastLobby() {
     const msg: ServerMsg = { t: "lobby", lobby: this.lobby() };
     for (const c of this.conns.values()) c.conn.send(msg);
@@ -382,9 +389,7 @@ export class RoomCore {
     if (this.paused) return;
     this.session.tick(seconds * GAME_MINUTES_PER_SECOND);
     this.dirty = true;
-    const snap = this.session.snapshot();
-    const msg: ServerMsg = { t: "snap", s: snap };
-    for (const c of this.conns.values()) c.conn.send(msg);
+    this.broadcastSnapshot();
     if (this.session.state.phase === "over") {
       this.phase = "over";
       this.rounds++;

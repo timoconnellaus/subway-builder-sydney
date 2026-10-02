@@ -185,6 +185,7 @@ describe("hardening", () => {
     room.message("c1", { t: "pause", paused: true });
     room.message("c1", { t: "cmd", id: 1, cmd: { type: "open", section: "central~redfern" } });
     expect(a.last("ack")).toEqual({ t: "ack", id: 1, ok: true });
+    expect(a.last("snap")!.s.sections["central~redfern"].owner).toBe(a.last("welcome")!.you); // shown without a tick
     expect(a.last("lobby")!.lobby.pausedBy).toBe(a.last("welcome")!.you);
     const restored = RoomCore.restore(room.serialize());
     expect(restored.lobby().paused).toBe(true);
