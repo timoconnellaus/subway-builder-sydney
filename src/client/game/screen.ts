@@ -825,7 +825,7 @@ export class GameScreen {
     // World Tour: a win unlocks the next city (remember whether it was already unlocked)
     const tourStop = this.conn.tour;
     const replay = tourStop !== undefined && tourStop < tourProgress();
-    if (tourStop !== undefined && youWon) tourWon(tourStop);
+    if (tourStop !== undefined && youWon) tourWon(tourStop, s.time);
     const host = this.hooks.isHost?.() ?? false;
     const me = s.players.find((p) => p.id === this.you);
     this.overlay.hidden = false;

@@ -28,9 +28,17 @@ export function tourProgress(): number {
   return Math.min(TOUR.length, Math.max(0, Number(storage("tour", "0")) || 0));
 }
 
-/** Record a win at a stop; only the next unbeaten stop moves you on. */
-export function tourWon(stop: number) {
+/** Record a win at a stop (and its time); only the next unbeaten stop moves you on. */
+export function tourWon(stop: number, minutes: number) {
   if (stop === tourProgress()) setStorage("tour", String(stop + 1));
+  const best = tourBest(stop);
+  if (best === null || minutes < best) setStorage(`tour-best:${stop}`, String(Math.round(minutes)));
+}
+
+/** Fastest win at a stop, in game minutes (shown like the clock, m:ss). */
+export function tourBest(stop: number): number | null {
+  const v = Number(storage(`tour-best:${stop}`, ""));
+  return v > 0 ? v : null;
 }
 
 /** The city at a stop (clamped to the tour). */
