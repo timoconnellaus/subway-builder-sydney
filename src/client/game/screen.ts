@@ -57,7 +57,7 @@ export class GameScreen {
 
   constructor(private conn: GameConn, private hooks: GameScreenHooks) {
     this.el = h("div", { class: "game" });
-    this.mapHost = h("div", { class: "map" });
+    this.mapHost = h("div", { class: "map loading" });
     this.hud = h("div", { class: "hud" });
     this.panel = h("aside", { class: "panel" });
     this.board = h("div", { class: "board" });
@@ -87,6 +87,7 @@ export class GameScreen {
     void this.map.init().then(() => {
       if (this.destroyed) return;
       this.mapReady = true;
+      this.mapHost.classList.remove("loading");
       this.layoutInsets();
       this.map.fit();
       this.focusHome();

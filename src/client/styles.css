@@ -105,6 +105,8 @@ details.rules summary { font-family: var(--display); font-weight: 800; cursor: p
 .map { position: absolute; inset: 0; touch-action: none; cursor: grab; }
 .map:active { cursor: grabbing; }
 .map canvas { display: block; }
+/* the map draws its sprites asynchronously: say so rather than show a blank screen */
+.map.loading::after { content: "Loading the map…"; position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--display); font-weight: 800; color: var(--muted); pointer-events: none; }
 
 .hud {
   position: absolute; left: 0; right: 0; top: 0; padding: calc(env(safe-area-inset-top, 0px) + 10px) 12px 0;
