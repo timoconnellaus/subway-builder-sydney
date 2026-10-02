@@ -5,6 +5,7 @@ import { isRoomCode, SLOTS, type LobbyState } from "../shared/protocol";
 import qrcode from "qrcode-generator";
 import { MAP_CHOICES, MAPS } from "../sim";
 import { clearLocalSave, LocalGame, RemoteRoom, savedLocalGame } from "./conn";
+import { ACHIEVEMENTS, unlocked } from "./achievements";
 import { GameScreen, HELP_HTML } from "./game/screen";
 import { COLOR_NAMES, CSS_COLORS, esc, patch, setStorage, storage, token } from "./util";
 
@@ -60,8 +61,14 @@ function readRules(root: HTMLElement): HouseRules {
   return out;
 }
 
+function achievementsHtml(): string {
+  const have = unlocked();
+  return `<section class="menu-sec trophies"><h2>Achievements <span class="muted small">${have.size} of ${ACHIEVEMENTS.length}</span></h2>
+    <div class="badges">${ACHIEVEMENTS.map((a) => `<div class="ach ${have.has(a.id) ? "on" : ""}" title="${esc(a.name)}: ${esc(a.how)}"><span class="e">${have.has(a.id) ? a.emoji : "🔒"}</span><span class="n">${esc(a.name)}</span><span class="h">${esc(a.how)}</span></div>`).join("")}</div></section>`;
+}
+
 function mapOptions(current: string): string {
-  return MAP_CHOICES.map((m) => `<option value="${m.id}" ${m.id === current ? "selected" : ""}>${esc(m.name)}: ${esc(m.blurb)}</option>`).join("");
+  return MAP_CHOICES.map((m) => `<option value="${m.id}" ${m.id === current ? "selected" : ""}>${esc(m.name)} (${esc(m.blurb)})</option>`).join("");
 }
 
 function recordLine(): string {
@@ -99,6 +106,7 @@ function menu() {
       <p class="tagline">Own Sydney's rail network, one section at a time.</p>
       <label class="field"><span>Your name</span><input id="name" maxlength="16" placeholder="Your name" value="${esc(name)}" autocomplete="nickname"></label>
 
+      ${storage("tutorial-done") !== "1" ? `<div class="newbie"><span>New to Metro Empire?</span><button class="btn primary" id="tutorial-top">Learn to play (2 minutes)</button></div>` : ""}
       ${savedLocalGame() ? `<button class="btn primary big" id="continue">Continue your game</button>` : ""}
       <section class="menu-sec">
         <h2>Play against bots</h2>
@@ -134,6 +142,7 @@ function menu() {
       </section>
 
       ${storage("last-room") ? `<button class="btn" id="rejoin">Rejoin room ${esc(storage("last-room"))}</button>` : ""}
+      ${achievementsHtml()}
       <div class="row center"><button class="btn" id="tutorial">Learn to play (2 minutes)</button><button class="link" id="how">How to play</button></div>
     </div>`;
   app.append(el);
@@ -179,11 +188,14 @@ function menu() {
   el.querySelector("#join")!.addEventListener("click", join);
   codeIn.addEventListener("keydown", (e) => e.key === "Enter" && join());
   el.querySelector("#rejoin")?.addEventListener("click", () => go(`#/room/${storage("last-room")}`));
-  el.querySelector("#tutorial")!.addEventListener("click", () => {
+  const startTutorial = () => {
     saveName();
     setStorage("seen-intro", "1");
+    setStorage("tutorial-done", "1");
     go("#/tutorial");
-  });
+  };
+  el.querySelector("#tutorial")!.addEventListener("click", startTutorial);
+  el.querySelector("#tutorial-top")?.addEventListener("click", startTutorial);
   el.querySelector("#how")!.addEventListener("click", () => {
     const ov = document.createElement("div");
     ov.className = "overlay";

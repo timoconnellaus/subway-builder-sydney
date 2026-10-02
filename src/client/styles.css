@@ -61,6 +61,13 @@ button { font: inherit; color: inherit; }
 .menu-sec h2 { font-size: 22px; font-weight: 900; }
 .menu-sec p { margin: 0; }
 .bots { display: grid; gap: 8px; }
+.badges { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.ach { display: grid; grid-template-columns: 34px 1fr; grid-template-rows: auto auto; column-gap: 8px; align-items: center; background: var(--bg); border-radius: 10px; padding: 8px; opacity: 0.55; }
+.ach.on { opacity: 1; background: #fff7e0; }
+.ach .e { grid-row: 1 / 3; font-size: 24px; text-align: center; }
+.ach .n { font-family: var(--display); font-weight: 800; font-size: 14px; }
+.ach .h { font-size: 12px; color: var(--muted); }
+.newbie { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; background: #fff7e0; border: 2px solid var(--gold); border-radius: 14px; padding: 12px 16px; font-family: var(--display); font-weight: 800; font-size: 17px; }
 .record { margin: 0; font-size: 15px; background: var(--bg); border-radius: 10px; padding: 8px 12px; }
 .bot-opt { display: grid; grid-template-columns: auto 40px 1fr; gap: 12px; align-items: center; padding: 8px 10px; border-radius: 12px; border: 2px solid var(--rule); cursor: pointer; }
 .bot-opt:has(input:checked) { border-color: var(--ink); background: #fff; }

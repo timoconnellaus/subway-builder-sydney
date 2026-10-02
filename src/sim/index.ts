@@ -10,6 +10,6 @@ import { GREATER } from "./data/greater";
 import type { MapDef } from "./types";
 export const MAPS: Record<string, MapDef> = { sydney: SYDNEY, greater: GREATER };
 export const MAP_CHOICES = [
-  { id: "sydney", name: "Sydney", blurb: "The inner network: quick, busy games" },
-  { id: "greater", name: "Greater Sydney", blurb: "Out to Gosford, Wollongong and Katoomba: longer games" }
+  { id: "sydney", name: "Sydney", blurb: "quick games" },
+  { id: "greater", name: "Greater Sydney", blurb: "Gosford to Wollongong, longer games" }
 ];

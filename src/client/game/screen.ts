@@ -6,6 +6,7 @@ import { EMOTES } from "../../shared/protocol";
 import { MapView, type Pick } from "./map";
 import { sound } from "../sound";
 import { STEPS } from "./tutorial";
+import { checkAchievements } from "../achievements";
 
 type Mode = { kind: "idle" } | { kind: "build"; stations: StationId[] } | { kind: "extend"; line: string; end: "start" | "end" };
 
@@ -130,6 +131,12 @@ export class GameScreen {
       this.focusHome();
     }
     this.handleEvents(s);
+    if (this.step < 0 && this.you !== "spectator" && (s.phase === "over" || Math.floor(s.time) % 2 === 0)) {
+      for (const a of checkAchievements(s, this.you, this.conn.local)) {
+        this.toastText(`${a.emoji} Achievement unlocked: ${a.name}! (${a.how})`, "big good");
+        sound.play("good");
+      }
+    }
     if (first || (this.map.hintSections.length && s.players.find((p) => p.id === this.you)?.owned)) this.updateHighlight();
     const me = s.players.find((p) => p.id === this.you);
     if (me && me.money < 0 && !this.warnedBroke) {
