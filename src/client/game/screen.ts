@@ -139,7 +139,7 @@ export class GameScreen {
     }
     this.handleEvents(s);
     if (this.step < 0 && this.you !== "spectator" && (s.phase === "over" || Math.floor(s.time) % 2 === 0)) {
-      for (const a of checkAchievements(s, this.you, this.conn.local)) {
+      for (const a of checkAchievements(s, this.you, this.conn.local, !!this.conn.daily)) {
         const t = h("div", { class: "trophy" });
         t.innerHTML = `<span class="e">${a.emoji}</span><span><b>${esc(a.name)}</b><small>${esc(a.how)}</small></span>`;
         this.trophies.prepend(t);

@@ -8,7 +8,7 @@ export interface Achievement {
   emoji: string;
   name: string;
   how: string;
-  check(s: Snapshot, you: string, ctx: { local: boolean }): boolean;
+  check(s: Snapshot, you: string, ctx: { local: boolean; daily: boolean }): boolean;
 }
 
 const owns = (s: Snapshot, you: string, id: string) => s.sections[id]?.owner === you;
@@ -50,6 +50,13 @@ export const ACHIEVEMENTS: Achievement[] = [
     check: (s, you, c) => c.local && s.phase === "over" && s.winner === you && s.players.some((p) => p.isBot) && s.settings.botSkill >= 3
   },
   {
+    id: "win-daily",
+    emoji: "📅",
+    name: "Daily dasher",
+    how: "Win a daily challenge",
+    check: (s, you, c) => c.daily && s.phase === "over" && s.winner === you
+  },
+  {
     id: "win-online",
     emoji: "🏆",
     name: "Head of the family",
@@ -67,9 +74,9 @@ export function unlocked(): Set<string> {
 }
 
 /** Check a snapshot; returns achievements unlocked for the first time. */
-export function checkAchievements(s: Snapshot, you: string, local: boolean): Achievement[] {
+export function checkAchievements(s: Snapshot, you: string, local: boolean, daily = false): Achievement[] {
   const have = unlocked();
-  const fresh = ACHIEVEMENTS.filter((a) => !have.has(a.id) && a.check(s, you, { local }));
+  const fresh = ACHIEVEMENTS.filter((a) => !have.has(a.id) && a.check(s, you, { local, daily }));
   if (fresh.length) {
     for (const a of fresh) have.add(a.id);
     setStorage("achievements", JSON.stringify([...have]));
