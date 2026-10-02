@@ -2,7 +2,7 @@ import "./styles.css";
 import { HOUSE_RULES, type BotStyle, type HouseRuleKey, type HouseRules } from "../sim/types";
 import { DEFAULT_SETTINGS } from "../sim/types";
 import { isRoomCode, SLOTS, type LobbyState } from "../shared/protocol";
-import { LocalGame, RemoteRoom } from "./conn";
+import { clearLocalSave, LocalGame, RemoteRoom, savedLocalGame } from "./conn";
 import { GameScreen, HELP_HTML } from "./game/screen";
 import { COLOR_NAMES, CSS_COLORS, esc, patch, setStorage, storage, token } from "./util";
 
@@ -15,7 +15,7 @@ function route() {
   app.innerHTML = "";
   const hash = location.hash.replace(/^#\/?/, "");
   const [page, arg] = hash.split("/");
-  if (page === "play") return playLocal();
+  if (page === "play") return playLocal(arg === "continue");
   if (page === "room" && arg && isRoomCode(arg.toUpperCase())) return online(arg.toUpperCase());
   return menu();
 }
@@ -85,6 +85,7 @@ function menu() {
       <p class="tagline">Own Sydney's rail network, one section at a time.</p>
       <label class="field"><span>Your name</span><input id="name" maxlength="16" placeholder="Your name" value="${esc(name)}" autocomplete="nickname"></label>
 
+      ${savedLocalGame() ? `<button class="btn primary big" id="continue">Continue your game</button>` : ""}
       <section class="menu-sec">
         <h2>Play against bots</h2>
         <div class="bots">
@@ -122,7 +123,9 @@ function menu() {
   const nameIn = el.querySelector<HTMLInputElement>("#name")!;
   const saveName = () => setStorage("me-name", nameIn.value.trim());
   nameIn.addEventListener("change", saveName);
+  el.querySelector("#continue")?.addEventListener("click", () => go("#/play/continue"));
   el.querySelector("#play")!.addEventListener("click", () => {
+    clearLocalSave();
     saveName();
     const chosen = [...el.querySelectorAll<HTMLInputElement>(".bot-opt input:checked")].map((i) => i.value);
     setStorage("bots", (chosen.length ? chosen : ["builder"]).join(","));
@@ -167,9 +170,10 @@ function menu() {
 }
 
 // ---------- single player ----------
-function playLocal() {
+function playLocal(resume = false) {
   const bots = storage("bots", "builder,raider").split(",").filter(Boolean) as BotStyle[];
-  const conn = new LocalGame({
+  const saved = resume ? savedLocalGame() : null;
+  const conn = saved ? new LocalGame(saved.opts, saved.state) : new LocalGame({
     name: storage("me-name", "") || "You",
     bots: bots.slice(0, 3),
     roundMinutes: Number(storage("round", "900")) || 900,

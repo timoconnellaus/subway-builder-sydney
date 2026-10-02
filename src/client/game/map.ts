@@ -114,7 +114,7 @@ export class MapView {
     const water = new Graphics();
     const ocean = SYDNEY_WATER.ocean.map(([lo, la]) => this.project(lo, la));
     water.poly(ocean.flat()).fill(WATER);
-    for (const rib of [SYDNEY_WATER.harbour, SYDNEY_WATER.middleHarbour]) {
+    for (const rib of [SYDNEY_WATER.harbour, SYDNEY_WATER.middleHarbour, ...SYDNEY_WATER.rivers]) {
       const L: number[] = [];
       const R: [number, number][] = [];
       for (const [lo, la, w] of rib) {

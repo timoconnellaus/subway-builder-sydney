@@ -1,5 +1,24 @@
 import { cleanRules, MAPS, Session, type BotStyle, type Command, type CommandResult, type HouseRules, type PlayerId, type Snapshot } from "../sim";
 import { SLOTS, type ClientMsg, type LobbyState, type ServerMsg } from "../shared/protocol";
+import type { GameState } from "../sim";
+import { setStorage, storage } from "./util";
+
+const SAVE_KEY = "local-save";
+
+/** A saved single-player game, if there is one still running. */
+export function savedLocalGame(): { opts: LocalOptions; state: GameState } | null {
+  try {
+    const raw = storage(SAVE_KEY);
+    if (!raw) return null;
+    const save = JSON.parse(raw) as { opts: LocalOptions; state: GameState };
+    return save.state?.phase === "running" ? save : null;
+  } catch {
+    return null;
+  }
+}
+export function clearLocalSave() {
+  setStorage(SAVE_KEY, "");
+}
 
 /** What the game screen needs, whether the game runs in this browser or on the server. */
 export interface GameConn {
@@ -37,9 +56,27 @@ export class LocalGame implements GameConn {
   private listeners = new Set<(s: Snapshot) => void>();
   private last = 0;
 
-  constructor(private opts: LocalOptions) {
-    this.restart();
+  private lastSave = 0;
+  constructor(private opts: LocalOptions, resume?: GameState) {
+    if (resume) {
+      this.session = new Session(MAPS[resume.mapId] ?? MAPS.sydney, resume);
+      this.paused = true; // resume paused so nobody is caught out
+      this.last = performance.now();
+      this.timer = setInterval(() => this.loop(), 100);
+      this.emit();
+    } else this.restart();
+    window.addEventListener("pagehide", this.save);
   }
+
+  /** Save the game so it can be continued after closing the tab. */
+  save = () => {
+    try {
+      if (this.session.state.phase !== "running") return clearLocalSave();
+      setStorage(SAVE_KEY, JSON.stringify({ opts: this.opts, state: this.session.state }));
+    } catch {
+      /* storage full or unavailable */
+    }
+  };
 
   restart() {
     const players = [
@@ -67,6 +104,10 @@ export class LocalGame implements GameConn {
     const dt = Math.min(0.5, (now - this.last) / 1000);
     this.last = now;
     if (!this.paused && this.session.state.phase === "running") this.session.tick(dt * this.speed);
+    if (now - this.lastSave > 10_000) {
+      this.lastSave = now;
+      this.save();
+    }
     this.emit();
   }
 
@@ -97,6 +138,8 @@ export class LocalGame implements GameConn {
   }
 
   close() {
+    this.save();
+    window.removeEventListener("pagehide", this.save);
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
     this.listeners.clear();

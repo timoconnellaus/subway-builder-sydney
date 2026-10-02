@@ -150,10 +150,13 @@ function loadFactor(l: Line): number {
 }
 
 function manageTrains(game: Game, p: Player, tune: StyleTuning) {
+  const st = game.state;
+  const busy = new Set((st.cityEvents ?? []).filter((e) => e.end > st.time).map((e) => e.station));
   for (const l of game.linesOf(p.id)) {
     const lf = loadFactor(l);
     const cost = game.trainCost(l.cars);
-    if (lf > 0.7 && p.money > cost + tune.reserve) {
+    const eventLine = l.stations.some((s) => busy.has(s));
+    if ((lf > 0.7 || (eventLine && lf > 0.35 && l.trains < 6)) && p.money > cost + tune.reserve) {
       if (l.trains < 4 || l.cars >= 6) game.apply(p.id, { type: "setTrains", line: l.id, trains: l.trains + 1 });
       else game.apply(p.id, { type: "setCars", line: l.id, cars: l.cars + 2 });
     } else if (lf < 0.12 && l.trains > 1 && game.state.time > 60 && l.capSum > 50) {
