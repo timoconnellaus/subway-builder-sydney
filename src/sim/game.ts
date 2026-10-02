@@ -3,6 +3,7 @@ import { Router, lineRunMinutes, lineHeadway } from "./routing";
 import {
   DEFAULT_SETTINGS,
   type BotStyle,
+  type CityEvent,
   type Color,
   type Command,
   type CommandResult,
@@ -29,6 +30,21 @@ export interface PlayerSetup {
 }
 
 const MAX_EVENTS = 60;
+
+const EVENT_LIST: Omit<CityEvent, "id" | "announce" | "start" | "end" | "crowd">[] = [
+  { station: "randwick", title: "Swans at the SCG", emoji: "🏉" },
+  { station: "randwick", title: "Cricket at the SCG", emoji: "🏏" },
+  { station: "lidcombe", title: "Concert at Olympic Park", emoji: "🎸" },
+  { station: "lidcombe", title: "The Royal Easter Show", emoji: "🎡" },
+  { station: "parramatta", title: "Eels game at CommBank Stadium", emoji: "🏉" },
+  { station: "northsydney", title: "Vivid lights on the harbour", emoji: "✨" },
+  { station: "central", title: "New Year's Eve fireworks", emoji: "🎆" },
+  { station: "bondijn", title: "Hot day at Bondi Beach", emoji: "🏖️" },
+  { station: "airport", title: "Holiday rush at the airport", emoji: "✈️" },
+  { station: "cronulla", title: "Surf carnival at Cronulla", emoji: "🏄" },
+  { station: "penrith", title: "Panthers game at Penrith", emoji: "🏉" },
+  { station: "macpark", title: "Big tech expo", emoji: "💻" }
+];
 
 export function createGame(map: MapDef, players: PlayerSetup[], settings: Partial<Settings> = {}): GameState {
   const net = buildNetwork(map);
@@ -67,7 +83,9 @@ export function createGame(map: MapDef, players: PlayerSetup[], settings: Partia
     eventSeq: 0,
     winner: null,
     settings: S,
-    lost: 0
+    lost: 0,
+    cityEvents: [],
+    nextEventAt: 120
   };
   return state;
 }
@@ -402,6 +420,7 @@ export class Game {
     if (st.phase !== "running") return;
     st.time += dt;
     this.spawn(dt);
+    this.runEvents(dt);
     this.runCosts(dt);
     for (const t of [...st.trains]) this.moveTrain(t, dt);
     this.absentOwners(dt);
@@ -413,6 +432,60 @@ export class Game {
       l.capSum *= d;
     }
     this.checkWin();
+  }
+
+  private runEvents(dt: number) {
+    const st = this.state;
+    if (!st.settings.events) return;
+    st.cityEvents ??= [];
+    st.nextEventAt ??= 120;
+    const end = st.settings.roundMinutes;
+    if (st.time >= st.nextEventAt && st.time < end - 90) {
+      const options = EVENT_LIST.filter((e) => this.net.station[e.station] && !st.cityEvents.some((c) => c.station === e.station && c.end > st.time));
+      const pick = options[Math.floor(Math.random() * options.length)];
+      if (pick) {
+        const ev: CityEvent = { id: st.nextId++, ...pick, announce: st.time, start: st.time + 45, end: st.time + 45 + 40, crowd: st.settings.demandPerMinute * 0.35 };
+        st.cityEvents.push(ev);
+        this.emit({ t: st.time, kind: "event", phase: "soon", event: ev });
+      }
+      st.nextEventAt = st.time + 150 + Math.random() * 60;
+    }
+    for (const ev of st.cityEvents) {
+      if (ev.start <= st.time && ev.start > st.time - dt) this.emit({ t: st.time, kind: "event", phase: "start", event: ev });
+      if (ev.end <= st.time && ev.end > st.time - dt) this.emit({ t: st.time, kind: "event", phase: "end", event: ev });
+      // crowds travel there before and during the event, and home again afterwards
+      const going = st.time >= ev.start - 20 && st.time < ev.end;
+      const leaving = st.time >= ev.end && st.time < ev.end + 30;
+      if (!going && !leaving) continue;
+      const S = st.settings;
+      const key = `ev${ev.id}`;
+      this.eventAcc[key] = (this.eventAcc[key] ?? 0) + ev.crowd * dt;
+      while (this.eventAcc[key] >= S.groupSize) {
+        this.eventAcc[key] -= S.groupSize;
+        const other = this.randomStationByPop(ev.station);
+        const [from, to] = going ? [other, ev.station] : [ev.station, other];
+        const path = this.router.path(st, from, to);
+        if (!path) continue;
+        const g: PassengerGroup = { id: st.nextId++, n: S.groupSize, path, i: 0, train: null, since: st.time };
+        st.groups[g.id] = g;
+        st.waiting[from].push(g.id);
+      }
+    }
+    st.cityEvents = st.cityEvents.filter((e) => e.end + 30 > st.time);
+  }
+
+  private eventAcc: Record<string, number> = {};
+
+  private randomStationByPop(not: StationId): StationId {
+    const list = this.net.stations.filter((s) => s.id !== not);
+    let total = 0;
+    for (const s of list) total += s.pop;
+    let r = Math.random() * total;
+    for (const s of list) {
+      r -= s.pop;
+      if (r <= 0) return s.id;
+    }
+    return list[0].id;
   }
 
   private spawn(dt: number) {

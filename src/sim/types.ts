@@ -59,6 +59,18 @@ export interface Settings {
   maxLinesPerPlayer: number;
   maxTrainsPerLine: number;
   botSkill: 1 | 2 | 3; // 1 easy, 2 normal, 3 hard
+  events: 0 | 1; // big Sydney events that send crowds to one station
+}
+
+export interface CityEvent {
+  id: number;
+  station: StationId;
+  title: string;
+  emoji: string;
+  announce: number; // game minute it was announced
+  start: number;
+  end: number;
+  crowd: number; // extra passengers per minute heading there during the event
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -85,7 +97,8 @@ export const DEFAULT_SETTINGS: Settings = {
   winShare: 0.6,
   maxLinesPerPlayer: 8,
   maxTrainsPerLine: 12,
-  botSkill: 2
+  botSkill: 2,
+  events: 1
 };
 
 /** Rules players may change ("house rules"), with the values offered in the menus. */
@@ -95,7 +108,8 @@ export const HOUSE_RULES = {
   startMoney: { label: "Starting money", values: [2000, 3000, 5000], format: "money" },
   trackFee: { label: "Fee for using rival track", values: [0, 4, 10], format: "money" },
   demandPerMinute: { label: "How busy Sydney is", values: [100, 140, 200], names: ["Quiet", "Normal", "Rush hour"] },
-  botSkill: { label: "Bot skill", values: [1, 2, 3], names: ["Easy", "Normal", "Hard"] }
+  botSkill: { label: "Bot skill", values: [1, 2, 3], names: ["Easy", "Normal", "Hard"] },
+  events: { label: "Big events", values: [0, 1], names: ["Off", "On"] }
 } as const;
 export type HouseRuleKey = keyof typeof HOUSE_RULES;
 export type HouseRules = Partial<Record<HouseRuleKey, number>>;
@@ -174,7 +188,8 @@ export type GameEvent =
   | { t: number; kind: "line"; player: PlayerId; line: LineId }
   | { t: number; kind: "empty"; player: PlayerId; section: SectionId; run: number }
   | { t: number; kind: "win"; player: PlayerId; reason: "share" | "time" }
-  | { t: number; kind: "info"; text: string };
+  | { t: number; kind: "info"; text: string }
+  | { t: number; kind: "event"; phase: "soon" | "start" | "end"; event: CityEvent };
 
 export interface GameState {
   mapId: string;
@@ -194,6 +209,8 @@ export interface GameState {
   winner: PlayerId | null;
   settings: Settings;
   lost: number; // passengers who gave up
+  cityEvents: CityEvent[];
+  nextEventAt: number;
 }
 
 export type Command =

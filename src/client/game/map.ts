@@ -63,6 +63,7 @@ export class MapView {
   private floats: { text: Text; born: number; x: number; y: number }[] = [];
   private lastLoad = new Map<string, number>();
   private floatLayer = new Container();
+  private eventMarks = new Map<number, Text>();
   you: PlayerId = "";
   delay = 120; // ms of interpolation delay
   insets = { left: 0, top: 0, right: 0, bottom: 0 };
@@ -464,6 +465,7 @@ export class MapView {
     const span = b.at - a.at;
     const alpha = span > 0 ? Math.max(0, Math.min(1, (t - a.at) / span)) : 1;
     this.drawOverlay(b.snap, now);
+    this.drawEvents(b.snap, now);
     this.drawTrains(a.snap, b.snap, alpha);
   }
 
@@ -536,6 +538,35 @@ export class MapView {
       if (!seen.has(id)) {
         ts.sprite.destroy();
         this.trains.delete(id);
+      }
+    }
+  }
+
+  private drawEvents(snap: Snapshot, t: number) {
+    const live = new Set<number>();
+    const g = this.overlay;
+    for (const ev of snap.cityEvents ?? []) {
+      live.add(ev.id);
+      const [x, y] = this.pos[ev.station];
+      const on = snap.time >= ev.start && snap.time < ev.end;
+      const pulse = 0.5 + 0.5 * Math.sin(t / 200);
+      g.circle(x, y, (on ? 26 : 22) * this.u + pulse * 4 * this.u).stroke({ width: 3 * this.u, color: 0xf4a300, alpha: on ? 0.9 : 0.6 });
+      let label = this.eventMarks.get(ev.id);
+      if (!label) {
+        label = new Text({ text: "", style: { fontFamily: "Overpass, Arial, sans-serif", fontWeight: "900", fontSize: 13, fill: 0x1e2430, stroke: { color: 0xfff7e0, width: 5, join: "round" } }, resolution: 3 });
+        label.anchor.set(0.5, 1);
+        this.floatLayer.addChild(label);
+        this.eventMarks.set(ev.id, label);
+      }
+      const mins = Math.ceil(ev.start - snap.time);
+      label.text = snap.time < ev.start ? `${ev.emoji} in ${mins}` : snap.time < ev.end ? `${ev.emoji} now!` : `${ev.emoji} heading home`;
+      label.scale.set(this.u);
+      label.position.set(x, y - 26 * this.u);
+    }
+    for (const [id, label] of this.eventMarks) {
+      if (!live.has(id)) {
+        label.destroy();
+        this.eventMarks.delete(id);
       }
     }
   }

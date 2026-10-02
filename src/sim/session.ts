@@ -89,6 +89,7 @@ export interface Snapshot {
   settings: Settings;
   totalSections: number;
   lost: number;
+  cityEvents: GameState["cityEvents"];
 }
 
 export function toSnapshot(game: Game): Snapshot {
@@ -150,6 +151,7 @@ export function toSnapshot(game: Game): Snapshot {
     eventSeq: st.eventSeq,
     settings: st.settings,
     totalSections: game.net.sections.length,
-    lost: st.lost
+    lost: st.lost,
+    cityEvents: st.cityEvents ?? []
   };
 }

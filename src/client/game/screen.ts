@@ -538,6 +538,18 @@ export class GameScreen {
         }
         break;
       }
+      case "event": {
+        const where = this.map.net.station[e.event.station]?.name ?? e.event.station;
+        if (e.phase === "soon") {
+          text = `${e.event.emoji} ${e.event.title} soon! Crowds are heading to ${where}.`;
+          cls = "big event";
+          sound.play("warn");
+        } else if (e.phase === "start") {
+          text = `${e.event.emoji} ${e.event.title} has started at ${where}.`;
+          cls = "event";
+        } else return;
+        break;
+      }
       case "win":
         if (e.player === this.you) sound.play("win");
         this.showEnd(s);
@@ -725,6 +737,7 @@ export class GameScreen {
   private stationHtml(s: Snapshot, id: StationId, me: PlayerView | undefined): string {
     const st = this.map.net.station[id];
     const waiting = s.waiting[id] ?? 0;
+    const ev = (s.cityEvents ?? []).find((x) => x.station === id);
     const lines = s.lines.filter((l) => l.stations.includes(id));
     const out = this.map.net.adj[id];
     const canStart = me && out.some((e) => s.sections[e.section].owner);
@@ -733,6 +746,7 @@ export class GameScreen {
       <button class="back" data-act="back">← Back</button>
       <h3>${esc(st.name)}</h3>
       ${hubOf ? `<div class="tag">${hubOf.id === this.you ? "Your home hub" : `${esc(hubOf.name)}'s home hub`}</div>` : ""}
+      ${ev ? `<div class="tip">${ev.emoji} <b>${esc(ev.title)}</b>: ${s.time < ev.start ? `starts in ${Math.ceil(ev.start - s.time)} minutes` : s.time < ev.end ? "happening now" : "crowds heading home"}. Extra passengers are travelling here.</div>` : ""}
       <div class="stats">
         <div><span class="v mono">${waiting}</span><span class="k">waiting now</span></div>
         <div><span class="v mono">${st.pop}k</span><span class="k">people nearby</span></div>

@@ -28,6 +28,7 @@ Works with a mouse or touch: drag to pan, scroll or pinch to zoom, tap stations 
 | Track fee | $4 to the owner each time a rival train uses their section |
 | Instant win | own 60% of all sections |
 | Time | 1 game minute = 1 real second; rounds are 5–20 minutes |
+| Events | about every 2.5–3.5 minutes a Sydney event (Swans at the SCG, Vivid, the Easter Show…) is announced 45 seconds ahead and sends crowds to one station |
 
 All of these live in `DEFAULT_SETTINGS` in `src/sim/types.ts`.
 
