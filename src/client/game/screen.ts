@@ -7,13 +7,16 @@ import { MapView, type Pick } from "./map";
 import { sound } from "../sound";
 import { STEPS } from "./tutorial";
 import { checkAchievements } from "../achievements";
-import { stopName, TOUR, tourProgress, tourWon } from "../tour";
+import { STAR_MINUTES, starText, stopName, TOUR, tourProgress, tourStarsFor, tourWon } from "../tour";
 import { boardHtml, submitScore } from "../daily";
-import { dailyChallenge, dailyLabel, dailyScore } from "../../shared/daily";
+import { dailyChallenge, dailyLabel, dailyScore, mmss } from "../../shared/daily";
 
 type Mode = { kind: "idle" } | { kind: "build"; stations: StationId[] } | { kind: "extend"; line: string; end: "start" | "end" };
 
 type Sel = Pick | { kind: "line"; id: string };
+
+/** Did the round end by someone owning the winning share (not on the clock)? */
+const reasonIsShare = (s: Snapshot) => s.events.some((e) => e.kind === "win" && e.reason === "share");
 
 /** Money sitting above this gets a "spend it" nudge. */
 const RICH = 3500;
@@ -873,7 +876,9 @@ export class GameScreen {
     // World Tour: a win unlocks the next city (remember whether it was already unlocked)
     const tourStop = this.conn.tour;
     const replay = tourStop !== undefined && tourStop < tourProgress();
-    if (tourStop !== undefined && youWon) tourWon(tourStop, s.time);
+    const byShare = reasonIsShare(s);
+    const stars = youWon ? tourStarsFor(byShare, s.time) : 0;
+    if (tourStop !== undefined && youWon) tourWon(tourStop, s.time, stars);
     const host = this.hooks.isHost?.() ?? false;
     const me = s.players.find((p) => p.id === this.you);
     this.overlay.hidden = false;
@@ -884,7 +889,7 @@ export class GameScreen {
         ${!youWon && me && winner && winner.owned - me.owned === 1 ? `<p class="so-close">So close! You lost by just 1 section.</p>` : ""}
         <p class="muted">${reason && reason.kind === "win" && reason.reason === "share" ? `${youWon ? "You own" : "They own"} ${Math.round(s.settings.winShare * 100)}% of ${esc(MAPS[s.mapId]?.name ?? "the")}'s network.` : "Most track when the clock ran out (passengers break a tie)."}</p>
         ${historyChart(s)}
-        ${me && this.conn.tour !== undefined ? this.tourEnd(this.conn.tour, youWon, replay) : ""}
+        ${me && this.conn.tour !== undefined ? this.tourEnd(this.conn.tour, youWon, replay, stars) : ""}
         ${me && this.conn.local && !(this.conn.tour !== undefined && youWon) ? `<p class="end-tip">💡 ${this.endTip(s, me, youWon)}</p>` : ""}
         <table class="ranks">
           <thead><tr><th></th><th>Company</th><th>Track</th><th>Passengers</th><th>Money</th></tr></thead>
@@ -906,13 +911,19 @@ export class GameScreen {
   }
 
   /** World Tour result: unlock the next city on a win. */
-  private tourEnd(stop: number, won: boolean, replay: boolean): string {
+  private tourEnd(stop: number, won: boolean, replay: boolean, stars: number): string {
     const next = stop + 1 < TOUR.length ? stopName(stop + 1) : "";
     if (!won)
       return `<div class="tour-end"><b>World Tour: ${esc(stopName(stop))}</b><p>${
         replay ? "You've beaten this city before. Press Play again for a rematch." : `Win here to unlock ${next ? esc(next) : "the title"}. Press Play again to have another go.`
       }</p></div>`;
-    return `<div class="tour-end won"><b>🎉 ${esc(stopName(stop))} won!</b>${
+    const how =
+      stars < 2
+        ? `Own ${Math.round((this.snap?.settings.winShare ?? 0.6) * 100)}% of the track before time runs out for ★★.`
+        : stars < 3
+          ? `Do it before ${mmss(STAR_MINUTES)} on the clock for ★★★.`
+          : "Perfect!";
+    return `<div class="tour-end won"><b>🎉 ${esc(stopName(stop))} won!</b><div class="stars" aria-label="${stars} of 3 stars">${starText(stars)}</div><p class="muted small">${how}</p>${
       next ? `<p>Next stop: ${esc(next)}</p><button class="btn primary" data-act="tour-next">Fly to ${esc(next)} ✈️</button>` : "<p>You've won every city on the World Tour. World champion! 🏆</p>"
     }</div>`;
   }

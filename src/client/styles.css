@@ -353,3 +353,5 @@ input.need { border-color: var(--bad); box-shadow: 0 0 0 3px rgba(214, 40, 57, 0
 @keyframes goal-pulse { 0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(43, 168, 74, 0.6); } 50% { transform: scale(1.06); box-shadow: 0 0 0 10px rgba(43, 168, 74, 0); } 100% { transform: scale(1); } }
 .so-close { margin: 0; font-family: var(--display); font-weight: 900; color: var(--bad); font-size: 18px; }
 .push { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.stars { color: #e8a200; letter-spacing: 0.05em; font-size: 22px; line-height: 1; }
+.stamp .stars { font-size: 13px; letter-spacing: 0; }

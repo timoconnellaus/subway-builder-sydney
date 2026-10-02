@@ -7,7 +7,7 @@ import { MAP_CHOICES, MAPS, stationName } from "../sim";
 import { clearLocalSave, LocalGame, RemoteRoom, savedLocalGame, type LocalOptions } from "./conn";
 import { ACHIEVEMENTS, unlocked } from "./achievements";
 import { boardHtml, fetchBoard, localBest } from "./daily";
-import { stopName, TOUR, TOUR_MINUTES, tourBest, tourCity, tourProgress } from "./tour";
+import { starText, stopName, TOUR, TOUR_MINUTES, tourBest, tourCity, tourProgress, tourStars } from "./tour";
 import { dailyChallenge, dailyLabel, mmss, sydneyDate, type DailyChallenge } from "../shared/daily";
 import { GameScreen, HELP_HTML } from "./game/screen";
 import { COLOR_BLIND, COLOR_NAMES, CSS_COLORS, esc, patch, readRecord, setStorage, storage, token } from "./util";
@@ -367,9 +367,10 @@ function tourHtml(): string {
     const state = i < done ? "done" : i === done ? "next" : "locked";
     return `<button class="stamp ${state}" data-tour="${i}" ${state === "locked" ? "disabled" : ""} title="${esc(m.name)}">
       <span class="flag">${state === "locked" ? "🔒" : m.flag}</span><span class="nm">${esc(m.name)}</span>
-      <span class="st">${state === "done" ? `✓ ${best ? mmss(best) : "won"}` : state === "next" ? "play" : ruleLabel("botSkill", t.skill)}</span></button>`;
+      <span class="st">${state === "done" ? `<span class="stars">${starText(tourStars(i))}</span> ${best ? mmss(best) : ""}` : state === "next" ? "play" : ruleLabel("botSkill", t.skill)}</span></button>`;
   }).join("");
-  const head = done >= TOUR.length ? "You've won every city. World champion!" : done ? `${done} of ${TOUR.length} cities won. Next stop: ${stopName(done)}.` : "Win a city to unlock the next. The bots get tougher as you go.";
+  const stars = TOUR.reduce((a, _, i) => a + tourStars(i), 0);
+  const head = done >= TOUR.length ? `You've won every city. World champion! ${stars} of ${TOUR.length * 3} stars.` : done ? `${done} of ${TOUR.length} cities won · ${stars} of ${TOUR.length * 3} ★. Next stop: ${stopName(done)}.` : "Win a city to unlock the next. The bots get tougher as you go.";
   return `<section class="menu-sec tour"><h2>World Tour</h2><p class="muted">${head}</p><div class="stamps">${stamps}</div></section>`;
 }
 

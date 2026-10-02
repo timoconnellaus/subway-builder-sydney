@@ -28,9 +28,24 @@ export function tourProgress(): number {
   return Math.min(TOUR.length, Math.max(0, Number(storage("tour", "0")) || 0));
 }
 
-/** Record a win at a stop (and its time); only the next unbeaten stop moves you on. */
-export function tourWon(stop: number, minutes: number) {
+/** Stars for a tour win: one for winning, one for owning enough track (not just leading at the
+ * clock), one for winning before STAR_MINUTES. */
+export const STAR_MINUTES = 420;
+export function tourStarsFor(byShare: boolean, minutes: number): number {
+  return 1 + (byShare ? 1 : 0) + (byShare && minutes <= STAR_MINUTES ? 1 : 0);
+}
+
+/** Best stars earned at a stop (0 if not won). */
+export function tourStars(stop: number): number {
+  return Number(storage(`tour-stars:${stop}`, "0")) || 0;
+}
+
+export const starText = (n: number) => "★".repeat(n) + "☆".repeat(3 - n);
+
+/** Record a win at a stop (time and stars); only the next unbeaten stop moves you on. */
+export function tourWon(stop: number, minutes: number, stars: number) {
   if (stop === tourProgress()) setStorage("tour", String(stop + 1));
+  if (stars > tourStars(stop)) setStorage(`tour-stars:${stop}`, String(stars));
   const t = Math.round(minutes);
   const best = tourBest(stop);
   if (best === null || t < best) setStorage(`tour-best:${stop}`, String(t));
