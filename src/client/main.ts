@@ -7,6 +7,7 @@ import { MAP_CHOICES, MAPS, stationName } from "../sim";
 import { clearLocalSave, LocalGame, RemoteRoom, savedLocalGame, type LocalOptions } from "./conn";
 import { ACHIEVEMENTS, unlocked } from "./achievements";
 import { boardHtml, fetchBoard, localBest } from "./daily";
+import { stopName, TOUR, TOUR_MINUTES, tourProgress } from "./tour";
 import { dailyChallenge, dailyLabel, sydneyDate, type DailyChallenge } from "../shared/daily";
 import { GameScreen, HELP_HTML } from "./game/screen";
 import { COLOR_BLIND, COLOR_NAMES, CSS_COLORS, esc, patch, readRecord, setStorage, storage, token } from "./util";
@@ -25,6 +26,7 @@ function route() {
     const fresh = storage("new-game");
     setStorage("new-game", "");
     if (fresh === "daily") return playLocal(new LocalGame(dailyOptions()));
+    if (fresh === "tour") return playLocal(new LocalGame(tourOptions(Number(storage("tour-stop")) || 0)));
     const saved = fresh ? null : savedLocalGame();
     return playLocal(saved ? new LocalGame(saved.opts, saved.state) : new LocalGame(menuOptions()));
   }
@@ -128,6 +130,7 @@ function menu() {
       ${storage("tutorial-done") !== "1" ? `<div class="newbie"><span>New to Metro Empire?</span><button class="btn primary" id="tutorial-top">Learn to play (2 minutes)</button></div>` : ""}
       ${saved ? `<button class="btn primary big" id="continue">Continue your ${saved.opts.daily ? "daily challenge" : "game"}</button>` : ""}
       ${dailyHtml(challenge)}
+      ${tourHtml()}
       <section class="menu-sec bots-sec">
         <h2>Play against bots</h2>
         <div class="bots">
@@ -195,6 +198,12 @@ function menu() {
     saveName();
     startFresh("daily");
   });
+  el.querySelectorAll<HTMLButtonElement>("[data-tour]").forEach((b) =>
+    b.addEventListener("click", () => {
+      saveName();
+      playTour(Number(b.dataset.tour));
+    })
+  );
   fetchBoard(challenge.date).then((b) => {
     const host = el.querySelector("#daily-top");
     if (host && b) host.innerHTML = boardHtml(b, 3);
@@ -259,7 +268,7 @@ function menu() {
 }
 
 /** Start a new single-player game, dropping any saved one. */
-function startFresh(kind: "menu" | "daily") {
+function startFresh(kind: "menu" | "daily" | "tour") {
   clearLocalSave();
   setStorage("new-game", kind);
   go("#/play");
@@ -294,6 +303,30 @@ function menuOptions(): LocalOptions {
   };
 }
 
+/** A World Tour stop as an ordinary game. */
+function tourOptions(stop: number): LocalOptions {
+  const t = TOUR[Math.min(stop, TOUR.length - 1)];
+  return { name: playerName(), bots: t.bots, roundMinutes: TOUR_MINUTES, rules: { botSkill: t.skill }, map: t.map, tour: stop };
+}
+
+function playTour(stop: number) {
+  setStorage("tour-stop", String(stop));
+  startFresh("tour");
+}
+
+function tourHtml(): string {
+  const done = tourProgress();
+  const stamps = TOUR.map((t, i) => {
+    const m = MAP_CHOICES.find((c) => c.id === t.map)!;
+    const state = i < done ? "done" : i === done ? "next" : "locked";
+    return `<button class="stamp ${state}" data-tour="${i}" ${state === "locked" ? "disabled" : ""} title="${esc(m.name)}">
+      <span class="flag">${state === "locked" ? "🔒" : m.flag}</span><span class="nm">${esc(m.name)}</span>
+      <span class="st">${state === "done" ? "✓ won" : state === "next" ? "play" : ruleLabel("botSkill", t.skill)}</span></button>`;
+  }).join("");
+  const head = done >= TOUR.length ? "You've won every city. World champion!" : done ? `${done} of ${TOUR.length} cities won. Next stop: ${stopName(done)}.` : "Win a city to unlock the next. The bots get tougher as you go.";
+  return `<section class="menu-sec tour"><h2>World Tour</h2><p class="muted">${head}</p><div class="stamps">${stamps}</div></section>`;
+}
+
 /** Today's daily challenge as an ordinary game with a fixed seat and seed. */
 function dailyOptions(): LocalOptions {
   const c = dailyChallenge(sydneyDate());
@@ -309,7 +342,8 @@ function playLocal(conn: LocalGame) {
         screen.destroy();
         conn.restart();
         mount();
-      }
+      },
+      onTourNext: () => playTour((conn.tour ?? 0) + 1)
     });
     app.append(screen.el);
   };

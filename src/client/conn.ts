@@ -26,6 +26,7 @@ export interface GameConn {
   readonly mapId: string;
   readonly local: boolean;
   readonly daily?: string;
+  readonly tour?: number; // World Tour stop being played
   onSnapshot(cb: (s: Snapshot) => void): () => void;
   command(cmd: Command): Promise<CommandResult>;
   close(): void;
@@ -50,6 +51,7 @@ export interface LocalOptions {
   map?: string;
   watch?: boolean; // bots only, you just watch
   daily?: string; // date of the daily challenge being played (a label; the setup is in the fields above)
+  tour?: number; // World Tour stop
   slot?: number; // your seat, default 0
   seed?: number; // fixed random seed
 }
@@ -94,6 +96,9 @@ export class LocalGame implements GameConn {
   }
   get daily() {
     return this.opts.daily;
+  }
+  get tour() {
+    return this.opts.tour;
   }
   get mapId() {
     return this.opts.tutorial ? "sydney" : this.opts.map && MAPS[this.opts.map] ? this.opts.map : "sydney";

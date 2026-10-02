@@ -7,6 +7,7 @@ import { MapView, type Pick } from "./map";
 import { sound } from "../sound";
 import { STEPS } from "./tutorial";
 import { checkAchievements } from "../achievements";
+import { stopName, TOUR, tourWon } from "../tour";
 import { boardHtml, submitScore } from "../daily";
 import { dailyLabel, dailyScore } from "../../shared/daily";
 
@@ -27,6 +28,7 @@ function pushToast(stack: HTMLElement, t: HTMLElement, max: number, ms: number) 
 export interface GameScreenHooks {
   onExit(): void;
   onRestart?(): void;
+  onTourNext?(): void;
   onRematch?(): void;
   isHost?(): boolean;
 }
@@ -155,7 +157,7 @@ export class GameScreen {
     }
     this.handleEvents(s);
     if (this.step < 0 && this.you !== "spectator" && (s.phase === "over" || Math.floor(s.time) % 2 === 0)) {
-      for (const a of checkAchievements(s, this.you, { local: this.conn.local, daily: !!this.conn.daily })) {
+      for (const a of checkAchievements(s, this.you, { local: this.conn.local, daily: !!this.conn.daily, tour: this.conn.tour })) {
         const t = h("div", { class: "trophy" });
         t.innerHTML = `<span class="e">${a.emoji}</span><span><b>${esc(a.name)}</b><small>${esc(a.how)}</small></span>`;
         pushToast(this.trophies, t, 3, 4500);
@@ -578,6 +580,9 @@ export class GameScreen {
         case "exit":
           this.hooks.onExit();
           break;
+        case "tour-next":
+          this.hooks.onTourNext?.();
+          break;
         case "restart":
           if (this.hooks.onRestart) this.hooks.onRestart();
           else {
@@ -771,7 +776,7 @@ export class GameScreen {
         <h2>${youWon ? "You win!" : winner ? `${esc(winner.name)} wins` : "Round over"}</h2>
         <p class="muted">${reason && reason.kind === "win" && reason.reason === "share" ? `${youWon ? "You own" : "They own"} ${Math.round(s.settings.winShare * 100)}% of ${esc(MAPS[s.mapId]?.name ?? "the")}'s network.` : "Most passengers carried when the clock ran out."}</p>
         ${historyChart(s)}
-        ${me && this.conn.local ? `<p class="end-tip">💡 ${this.endTip(s, me, youWon)}</p>` : ""}
+        ${me && this.conn.tour !== undefined ? this.tourEnd(this.conn.tour, youWon) : me && this.conn.local ? `<p class="end-tip">💡 ${this.endTip(s, me, youWon)}</p>` : ""}
         <table class="ranks">
           <thead><tr><th></th><th>Company</th><th>Track</th><th>Passengers</th><th>Money</th></tr></thead>
           <tbody>${ranked
@@ -789,6 +794,16 @@ export class GameScreen {
         ${this.conn.daily && me ? `<div class="daily-end"><h3>Daily challenge · ${esc(this.conn.daily)}</h3><div id="daily-board"><p class="muted">Saving your score…</p></div></div>` : ""}
       </div>`;
     if (this.conn.daily && me) this.sendDaily(this.conn.daily, me.name, dailyScore(youWon, s.time, me.owned / s.totalSections));
+  }
+
+  /** World Tour result: unlock the next city on a win. */
+  private tourEnd(stop: number, won: boolean): string {
+    if (won) tourWon(stop);
+    const next = stop + 1 < TOUR.length ? stopName(stop + 1) : "";
+    if (!won) return `<div class="tour-end"><b>World Tour: ${esc(stopName(stop))}</b><p>Win here to unlock ${next ? esc(next) : "the title"}. Press Play again to have another go.</p></div>`;
+    return `<div class="tour-end won"><b>🎉 ${esc(stopName(stop))} won!</b>${
+      next ? `<p>Next stop: ${esc(next)}</p><button class="btn primary" data-act="tour-next">Fly to ${esc(next)} ✈️</button>` : "<p>You've won every city on the World Tour. World champion! 🏆</p>"
+    }</div>`;
   }
 
   /** One piece of advice for next time, based on how the round went. */

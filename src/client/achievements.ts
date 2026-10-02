@@ -1,4 +1,5 @@
 import { WORLD_MAPS, type Snapshot } from "../sim";
+import { TOUR } from "./tour";
 import { setStorage, storage } from "./util";
 
 // Small goals that unlock once and are remembered in this browser.
@@ -7,6 +8,7 @@ import { setStorage, storage } from "./util";
 export interface PlayContext {
   local: boolean;
   daily: boolean;
+  tour?: number; // World Tour stop
 }
 
 export interface Achievement {
@@ -61,6 +63,13 @@ export const ACHIEVEMENTS: Achievement[] = [
     name: "Globetrotter",
     how: "Win in a world city",
     check: (s, you) => s.phase === "over" && s.winner === you && WORLD_MAPS.includes(s.mapId)
+  },
+  {
+    id: "world-champion",
+    emoji: "🌍",
+    name: "World champion",
+    how: "Win the last city of the World Tour",
+    check: (s, you, c) => c.tour === TOUR.length - 1 && s.phase === "over" && s.winner === you
   },
   {
     id: "win-daily",

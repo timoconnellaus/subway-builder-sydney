@@ -14,10 +14,11 @@ Overnight build, started 2026-10-02 20:30 AEST.
 - [x] Polish: sounds, welcome card, hints, hover tooltips, capture flash, head-to-head panel, line names
 - [x] Deploy config (wrangler.toml, GitHub Actions), README, CLAUDE.md
 - [x] Code review pass: fixed ghost trains, refunds, input validation, host edge cases
-- [x] Guided tutorial (9 steps with a coach and pulsing hints) and 14 achievements
+- [x] Guided tutorial (9 steps with a coach and pulsing hints) and 15 achievements
 - [x] Greater Sydney map (Gosford, Wollongong, Katoomba, Richmond, Leppington, Olympic Park)
 - [x] "Watch the bots" mode, installable PWA (icons + manifest), phone layout
 - [x] World cities: London, New York, Tokyo, Paris, Berlin, Hong Kong, Singapore, plus Melbourne (each with hubs, events, rivers; tested for connectivity)
+- [x] World Tour campaign: nine cities that unlock in order, bots getting harder
 - [x] Daily challenge with a seeded sim and a leaderboard (one Durable Object per day)
 - [x] Line renaming/trimming, station destinations panel, online rooms keep score across rounds
 
