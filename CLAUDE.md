@@ -30,6 +30,8 @@ Browser rail-strategy game set on the Sydney network, with online multiplayer on
 
 ## Conventions
 - Every rule change goes in `src/sim` with a test; never put rules in the client or server.
+  Rules the client also needs are pure helpers it imports: `networkOf`, `hubLock`, `winNeed`,
+  `openPrice` (sim/network.ts); `startRound`, `ROUND_CHOICES`, `minRoundFor` (shared/protocol.ts).
 - Validate anything from the network (`checkMessage` in room.ts, `checkCommand` in game.ts).
 - State must stay JSON-serialisable (it's snapshotted, stored and sent over the wire).
 - Tunable numbers live in `DEFAULT_SETTINGS`; player-changeable ones in `HOUSE_RULES`.
