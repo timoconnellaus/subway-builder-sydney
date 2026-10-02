@@ -198,6 +198,7 @@ export class GameScreen {
     if (first) {
       this.freshGame = s.time < 1;
       this.lastSeq = s.eventSeq;
+      if (!this.conn.local && !this.freshGame) this.whileAway(s);
       this.focusHome();
     }
     this.handleEvents(s);
@@ -900,6 +901,17 @@ export class GameScreen {
   }
 
   private netCache: { s: Snapshot; id: string; set: Set<StationId> } | null = null;
+  /** Rejoining a running online game: sum up recent captures that involved you. */
+  private whileAway(s: Snapshot) {
+    const parts: string[] = [];
+    for (const e of s.events) {
+      if (e.kind !== "capture" || s.time - e.t > 60) continue;
+      if (e.player === this.you) parts.push(`you took ${this.secName(e.section)}`);
+      else if (e.from === this.you) parts.push(`${this.pname(s, e.player)} took ${this.secName(e.section)}`);
+    }
+    if (parts.length) this.toastText(`While you were away: ${parts.join("; ")}.`, "big", {}, 8000);
+  }
+
   /** Stations on a player's network (computed once per snapshot). */
   private network(s: Snapshot, p: PlayerView): Set<StationId> {
     const c = this.netCache;
