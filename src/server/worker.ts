@@ -128,6 +128,7 @@ export class GameRoom extends DurableObject<Env> {
     }
     this.idleSince = 0;
     try {
+      core.housekeep(now);
       core.tick(dt);
     } catch (err) {
       console.error("tick failed", err);

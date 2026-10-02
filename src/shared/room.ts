@@ -21,6 +21,7 @@ export interface Conn {
 interface Member extends LobbyPlayer {
   token: string | null; // null for bots
   slot: number;
+  leftAt?: number; // when they last disconnected
 }
 
 interface Saved {
@@ -144,7 +145,10 @@ export class RoomCore {
     const still = [...this.conns.values()].some((x) => x.player === c.player);
     if (still) return;
     const m = this.members.find((x) => x.id === c.player);
-    if (m) m.connected = false;
+    if (m) {
+      m.connected = false;
+      m.leftAt = Date.now();
+    }
     const gp = this.session?.state.players.find((p) => p.id === c.player);
     if (gp) gp.connected = false;
     if (this.host === c.player) {
@@ -279,6 +283,7 @@ export class RoomCore {
     }
     if (m) {
       m.connected = true;
+      m.leftAt = undefined;
       if (this.phase === "lobby") m.name = name;
       c.player = m.id;
       const gp = this.session?.state.players.find((p) => p.id === m!.id);
@@ -326,6 +331,17 @@ export class RoomCore {
   private broadcastLobby() {
     const msg: ServerMsg = { t: "lobby", lobby: this.lobby() };
     for (const c of this.conns.values()) c.conn.send(msg);
+  }
+
+  /** Free lobby seats of people who left more than a minute ago. */
+  housekeep(now = Date.now()) {
+    if (this.phase !== "lobby") return;
+    const gone = this.members.filter((m) => !m.isBot && !m.connected && m.leftAt && now - m.leftAt > 60_000 && !this.live(m.id));
+    if (!gone.length) return;
+    this.members = this.members.filter((m) => !gone.includes(m));
+    if (this.host && !this.members.some((m) => m.id === this.host)) this.host = this.members.find((m) => !m.isBot && this.live(m.id))?.id ?? null;
+    this.dirty = true;
+    this.broadcastLobby();
   }
 
   /** Advance the game by real seconds and broadcast a snapshot. */

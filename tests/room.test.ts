@@ -187,4 +187,17 @@ describe("hardening", () => {
     const restored = RoomCore.restore(room.serialize());
     expect(restored.lobby().paused).toBe(true);
   });
+
+  it("frees lobby seats of players who left a minute ago", () => {
+    const room = new RoomCore("SEAT");
+    const a = client(room, "c1");
+    client(room, "c2");
+    room.message("c1", { t: "hello", name: "A", token: "a" });
+    room.message("c2", { t: "hello", name: "B", token: "b" });
+    room.disconnect("c2");
+    room.housekeep(Date.now() + 30_000);
+    expect(a.last("lobby")!.lobby.players.length).toBe(2);
+    room.housekeep(Date.now() + 61_000);
+    expect(a.last("lobby")!.lobby.players.length).toBe(1);
+  });
 });
