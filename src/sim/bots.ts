@@ -49,7 +49,12 @@ function botTurn(game: Game, p: Player) {
     open(game, p, tune);
     return;
   }
+  if (p.money < 0) {
+    sellEmptiest(game, p);
+    return;
+  }
   defend(game, p);
+  retake(game, p, tune);
   cover(game, p, tune);
   if (p.botStyle === "raider") {
     attack(game, p, tune);
@@ -161,6 +166,31 @@ function manageTrains(game: Game, p: Player, tune: StyleTuning) {
       else game.apply(p.id, { type: "setCars", line: l.id, cars: l.cars + 2 });
     } else if (lf < 0.12 && l.trains > 1 && game.state.time > 60 && l.capSum > 50) {
       game.apply(p.id, { type: "setTrains", line: l.id, trains: l.trains - 1 });
+    }
+  }
+}
+
+/** Broke: sell the train doing least work. */
+function sellEmptiest(game: Game, p: Player) {
+  const lines = game.linesOf(p.id).filter((l) => l.trains > 1);
+  if (!lines.length) return;
+  const worst = lines.sort((a, b) => loadFactor(a) - loadFactor(b))[0];
+  game.apply(p.id, { type: "setTrains", line: worst.id, trains: worst.trains - 1 });
+}
+
+/** Fight back on track we just lost: undercut the new owner if our trains still run there. */
+function retake(game: Game, p: Player, tune: StyleTuning) {
+  const st = game.state;
+  const recent = st.events.filter((e) => e.kind === "capture" && e.from === p.id && st.time - e.t < 30);
+  for (const e of recent) {
+    if (e.kind !== "capture") continue;
+    const mine = game.linesOf(p.id).filter((l) => game.lineUses(l, e.section));
+    const theirs = st.lines.filter((l) => l.owner === e.player && game.lineUses(l, e.section));
+    if (!mine.length || !theirs.length) continue;
+    const target = Math.min(...theirs.map((l) => l.fare)) - 0.25;
+    for (const l of mine) {
+      if (l.fare > target) game.apply(p.id, { type: "setFare", line: l.id, fare: target });
+      if (p.money > game.trainCost(l.cars) + tune.reserve) game.apply(p.id, { type: "setTrains", line: l.id, trains: l.trains + 1 });
     }
   }
 }
