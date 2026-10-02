@@ -143,3 +143,18 @@ function patchChildren(a: Node, b: Node) {
   }
   for (let i = ac.length - 1; i >= bc.length; i--) a.removeChild(ac[i]);
 }
+
+export interface PlayRecord {
+  played: number;
+  wins: number;
+  best: number; // most passengers in one game
+}
+
+/** The player's record against bots in this browser. */
+export function readRecord(): PlayRecord {
+  try {
+    return { played: 0, wins: 0, best: 0, ...JSON.parse(storage("record", "{}")) };
+  } catch {
+    return { played: 0, wins: 0, best: 0 };
+  }
+}

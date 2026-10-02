@@ -9,6 +9,8 @@ const WATER = 0x9cc8e8;
 const INK = 0x1e2430;
 const NEUTRAL = 0xa9aeb6;
 const PAPER = 0xfbfaf7;
+const LABEL_PX = 12; // station name font size
+const MIN_LABEL_PX = 11; // smallest a label may appear on screen
 
 export type Pick = { kind: "station"; id: StationId } | { kind: "section"; id: SectionId } | null;
 
@@ -146,7 +148,7 @@ export class MapView {
         style: {
           fontFamily: "Overpass, Arial, sans-serif",
           fontWeight: "800",
-          fontSize: s.icon ? 15 : 12,
+          fontSize: s.icon ? 15 : LABEL_PX,
           fill: INK,
           stroke: { color: LAND, width: 4, join: "round" }
         },
@@ -268,7 +270,7 @@ export class MapView {
       }
     }
     // labels grow a little with zoom, but never smaller than 11px on screen (small phone maps)
-    const inv = Math.max(1 / Math.max(1, z * 0.75), 11 / (12 * this.world.scale.x));
+    const inv = Math.max(1 / Math.max(1, z * 0.75), MIN_LABEL_PX / (LABEL_PX * this.world.scale.x));
     for (const l of this.labels) {
       l.text.scale.set(inv);
       l.text.visible = l.major || this.world.scale.x > 1.15 || z >= 2.5 || this.highlight.includes(l.station) || this.candidates.includes(l.station);

@@ -9,7 +9,7 @@ import { ACHIEVEMENTS, unlocked } from "./achievements";
 import { boardHtml, fetchBoard, localBest } from "./daily";
 import { dailyChallenge, dailyLabel, sydneyDate, type DailyChallenge } from "../shared/daily";
 import { GameScreen, HELP_HTML } from "./game/screen";
-import { COLOR_NAMES, colorBlind, CSS_COLORS, esc, patch, setStorage, storage, token } from "./util";
+import { COLOR_NAMES, colorBlind, CSS_COLORS, esc, patch, readRecord, setStorage, storage, token } from "./util";
 
 const app = document.getElementById("app")!;
 let cleanup: (() => void) | null = null;
@@ -53,8 +53,10 @@ function ruleLabel(k: HouseRuleKey, v: number): string {
 }
 
 /** Selects for the house rules. Unset rules show the default. */
-function rulesHtml(rules: HouseRules, disabled = false, only?: HouseRuleKey[]): string {
-  return (only ?? (Object.keys(HOUSE_RULES) as HouseRuleKey[]))
+const RULE_KEYS = Object.keys(HOUSE_RULES) as HouseRuleKey[];
+
+function rulesHtml(rules: HouseRules, disabled = false, keys = RULE_KEYS): string {
+  return keys
     .map((k) => {
       const r = HOUSE_RULES[k];
       const cur = rules[k] ?? (DEFAULT_SETTINGS[k] as number);
@@ -81,22 +83,10 @@ function mapOptions(current: string): string {
   return MAP_CHOICES.map((m) => `<option value="${m.id}" ${m.id === current ? "selected" : ""}>${esc(m.name)} (${esc(m.blurb)})</option>`).join("");
 }
 
-function recordWins(): number {
-  try {
-    return (JSON.parse(storage("record", "{}")) as { wins?: number }).wins ?? 0;
-  } catch {
-    return 0;
-  }
-}
-
 function recordLine(): string {
-  try {
-    const r = JSON.parse(storage("record", "{}")) as { played?: number; wins?: number; best?: number };
-    if (!r.played) return "";
-    return `<p class="record">Your record: <b>${r.wins ?? 0}</b> ${r.wins === 1 ? "win" : "wins"} from <b>${r.played}</b> ${r.played === 1 ? "game" : "games"} · best <b>${(r.best ?? 0).toLocaleString("en-AU")}</b> passengers</p>`;
-  } catch {
-    return "";
-  }
+  const r = readRecord();
+  if (!r.played) return "";
+  return `<p class="record">Your record: <b>${r.wins}</b> ${r.wins === 1 ? "win" : "wins"} from <b>${r.played}</b> ${r.played === 1 ? "game" : "games"} · best <b>${r.best.toLocaleString("en-AU")}</b> passengers</p>`;
 }
 
 function qrSvg(text: string): string {
@@ -116,7 +106,7 @@ function menu() {
   const name = storage("me-name", "");
   // new players start against easy bots until they've won a game
   const menuRules = loadRules();
-  menuRules.botSkill ??= recordWins() > 0 ? 2 : 1;
+  menuRules.botSkill ??= readRecord().wins > 0 ? 2 : 1;
   const saved = savedLocalGame();
   const challenge = dailyChallenge(sydneyDate());
   const bots = storage("bots", "builder,raider").split(",").filter(Boolean) as BotStyle[];
@@ -151,7 +141,7 @@ function menu() {
           <select id="round">${[300, 600, 900, 1200].map((m) => `<option value="${m}" ${String(m) === minutes ? "selected" : ""}>${m / 60} minutes</option>`).join("")}</select>
         </label>
         ${rulesHtml(menuRules, false, ["botSkill"])}
-        <details class="rules"><summary>House rules</summary><div class="rules-grid">${rulesHtml(menuRules, false, (Object.keys(HOUSE_RULES) as HouseRuleKey[]).filter((k) => k !== "botSkill"))}</div></details>
+        <details class="rules"><summary>House rules</summary><div class="rules-grid">${rulesHtml(menuRules, false, RULE_KEYS.filter((k) => k !== "botSkill"))}</div></details>
         <button class="btn primary big" id="play">Play</button>
       </section>
 

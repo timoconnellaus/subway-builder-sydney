@@ -1,7 +1,7 @@
 import { MAPS, type Snapshot, type StationId, type LineView, type PlayerView, type SectionId } from "../../sim";
-import type { GameEvent } from "../../sim/types";
+import { HOUSE_RULES, type GameEvent } from "../../sim/types";
 import type { GameConn } from "../conn";
-import { COLORS, CSS_COLORS, esc, fare, h, money, patch, remaining, setStorage, storage } from "../util";
+import { COLORS, CSS_COLORS, esc, fare, h, money, patch, readRecord, remaining, setStorage, storage } from "../util";
 import { EMOTES } from "../../shared/protocol";
 import { MapView, type Pick } from "./map";
 import { sound } from "../sound";
@@ -650,7 +650,7 @@ export class GameScreen {
   private toast(e: GameEvent, s: Snapshot) {
     let text = "";
     let cls = "";
-    let act = ""; // a section to open when the toast is tapped
+    let tap: { "data-act": string; "data-arg": string; role: string } | undefined; // what tapping the toast does
     const color = "player" in e ? s.players.find((p) => p.id === e.player)?.color : undefined;
     switch (e.kind) {
       case "capture":
@@ -676,7 +676,7 @@ export class GameScreen {
         if (e.player === this.you) {
           text = `Nobody boarded your train on ${this.secName(e.section)} (${e.run} of ${need}). Tap to defend it.`;
           cls = "bad";
-          act = e.section;
+          tap = { "data-act": "select-section", "data-arg": e.section, role: "button" };
           sound.play("warn");
         } else {
           const runsThere = s.lines.some((l) => l.owner === this.you && this.lineUses(l, e.section));
@@ -709,7 +709,7 @@ export class GameScreen {
     // one toast per section for empty-train updates, and per city event: replace the older one
     const key = e.kind === "empty" ? `empty-${e.section}` : e.kind === "event" ? `event-${e.event.id}` : "";
     if (key) this.toasts.querySelector(`[data-key="${key}"]`)?.remove();
-    const t = h("div", { class: `toast ${cls}`, "data-key": key || undefined, "data-act": act ? "select-section" : undefined, "data-arg": act || undefined, role: act ? "button" : undefined });
+    const t = h("div", { class: `toast ${cls}`, "data-key": key || undefined, ...tap });
     if (color) t.style.setProperty("--c", CSS_COLORS[color]);
     t.textContent = text;
     pushToast(this.toasts, t, maxToasts(), cls.includes("big") ? 5000 : 3200);
@@ -747,12 +747,7 @@ export class GameScreen {
     this.recorded = true;
     const me = s.players.find((p) => p.id === this.you);
     if (!me) return;
-    let rec = { played: 0, wins: 0, best: 0 };
-    try {
-      rec = { ...rec, ...JSON.parse(storage("record", "{}")) };
-    } catch {
-      /* fresh record */
-    }
+    const rec = readRecord();
     rec.played++;
     if (s.winner === this.you) rec.wins++;
     rec.best = Math.max(rec.best, me.carried);
@@ -799,7 +794,7 @@ export class GameScreen {
     const mine = s.lines.filter((l) => l.owner === me.id);
     const trains = mine.reduce((a, l) => a + l.trains, 0);
     const skill = s.settings.botSkill;
-    if (won) return skill < 3 ? `Great win! Try ${skill === 1 ? "Normal" : "Hard"} bots next time.` : "You beat the hard bots. Try the daily challenge, or a world city!";
+    if (won) return skill < 3 ? `Great win! Try ${(HOUSE_RULES.botSkill.names as readonly string[])[skill]} bots next time.` : "You beat the hard bots. Try the daily challenge, or a world city!";
     if (me.money > 3000) return `You finished with ${money(me.money)} unspent. Money in the bank doesn't win passengers: buy more trains and open more track.`;
     if (me.owned < 4) return "Open track early. Every section you own earns you fees when rivals use it, and counts towards the win.";
     if (mine.length && trains / mine.length < 2.5) return "Your lines had few trains, so rivals could win your passengers. Two or three trains per line keeps them loyal.";
@@ -959,7 +954,7 @@ export class GameScreen {
     const lf = Math.round(l.loadFactor * 100);
     return `<button class="line-row" data-act="select-line" data-arg="${l.id}" data-key="${l.id}">
       <span class="chip" style="--c:${owner ? CSS_COLORS[owner.color] : "#888"}"></span>
-      <span class="lr-name">${l.name ? esc(l.name) : `${esc(this.stationName(l.stations[0]))} → ${esc(this.stationName(l.stations[l.stations.length - 1]))}`}</span>
+      <span class="lr-name">${esc(this.lineTitle(l))}</span>
       <span class="lr-meta mono">${l.trains}🚆 ${fare(l.fare)}</span>
       <span class="load"><b style="width:${lf}%"></b></span>
     </button>`;

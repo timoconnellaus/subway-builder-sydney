@@ -13,7 +13,7 @@ for (const a of args) {
 }
 
 const styles: BotStyle[] = ["builder", "raider", "banker", "builder"];
-const hubs = ["central", "parramatta", "airport", "liverpool"];
+const hubs = MAPS[mapId].hubs;
 const colors = ["red", "blue", "gold", "green"] as const;
 const totals = { captures: 0, opens: 0, earlyWins: 0, endMinutes: 0 };
 const hubWins: Record<string, number> = {};

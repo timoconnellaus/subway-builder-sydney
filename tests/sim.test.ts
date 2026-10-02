@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildNetwork, MAPS, Session, type MapDef } from "../src/sim";
+import { buildNetwork, createTutorial, MAPS, Session, type MapDef } from "../src/sim";
 
 // A tiny three-station line. All demand is between A and C, so every passenger rides A–B–C.
 const LINE_MAP: MapDef = {
@@ -268,8 +268,7 @@ describe("world maps", () => {
 });
 
 describe("tutorial", () => {
-  it("undercutting Western Rail with more trains captures Ashfield – Strathfield quickly", async () => {
-    const { createTutorial } = await import("../src/sim");
+  it("undercutting Western Rail with more trains captures Ashfield – Strathfield quickly", () => {
     const s = createTutorial("You");
     const st = s.state;
     s.command("P1", { type: "open", section: "central~redfern" });
