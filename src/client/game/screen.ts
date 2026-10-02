@@ -1408,7 +1408,11 @@ export class GameScreen {
     const end = l ? (this.mode.end === "end" ? l.stations[l.stations.length - 1] : l.stations[0]) : "";
     return `
       <h3>Extend line</h3>
-      <div class="tip">Tap a station next to <b>${esc(this.stationName(end))}</b>, joined by opened track.</div>
+      ${
+        this.extendCandidates().length
+          ? `<div class="tip">Tap a station next to <b>${esc(this.stationName(end))}</b>, joined by opened track.</div>`
+          : `<div class="tip">No opened track leads on from <b>${esc(this.stationName(end))}</b> yet. Cancel, tap a dotted section next to it and press <b>Open</b>, then extend.</div>`
+      }
       <button class="btn ghost" data-act="cancel">Cancel</button>`;
   }
 
