@@ -7,6 +7,7 @@ export interface TutorialStep {
   title: string;
   text: string | ((s: Snapshot, you: string) => string);
   hint?: string[]; // section ids to pulse
+  fast?: boolean; // a waiting step: run the clock at 3× so it doesn't drag
   done(s: Snapshot, you: string): boolean;
 }
 
@@ -74,6 +75,7 @@ export const STEPS: TutorialStep[] = [
   },
   {
     title: "Take the track",
+    fast: true,
     text: (s) =>
       `When nobody boards Western Rail's train on that section ${s.settings.emptyToCapture} times in a row, it's yours. Watch the dots on the track fill up…`,
     hint: ["ashfield~strathfield"],

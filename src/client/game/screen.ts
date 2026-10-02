@@ -9,7 +9,7 @@ import { STEPS } from "./tutorial";
 import { checkAchievements } from "../achievements";
 import { stopName, TOUR, tourProgress, tourWon } from "../tour";
 import { boardHtml, submitScore } from "../daily";
-import { dailyLabel, dailyScore } from "../../shared/daily";
+import { dailyChallenge, dailyLabel, dailyScore } from "../../shared/daily";
 
 type Mode = { kind: "idle" } | { kind: "build"; stations: StationId[] } | { kind: "extend"; line: string; end: "start" | "end" };
 
@@ -111,12 +111,13 @@ export class GameScreen {
     if (me) this.map.focus(me.hub, this.map.zoomFor(me.hub, isTablet() ? 2 : isNarrow() ? 3 : 1.7));
     if (me && this.conn.local && storage("seen-intro") !== "1" && this.step < 0) this.showIntro(me);
     else if (me && this.conn.tour !== undefined && this.freshGame) this.showTourIntro(this.conn.tour);
+    else if (me && this.conn.daily && this.freshGame) this.showDailyIntro(this.conn.daily);
   }
   private freshGame = false; // the first snapshot was at the very start of a game
 
   /** A card over the map that holds the clock (single player) until "Let's go". */
-  private introKind: "welcome" | "tour" | null = null;
-  private openIntroCard(html: string, kind: "welcome" | "tour") {
+  private introKind: "welcome" | "info" | null = null;
+  private openIntroCard(html: string, kind: "welcome" | "info") {
     this.introKind = kind;
     const wasPaused = !!this.conn.paused;
     if (this.conn.local) this.conn.setPaused?.(true);
@@ -139,6 +140,21 @@ export class GameScreen {
   }
   private introPaused = false;
 
+  /** Today's challenge: the twist, the rivals and how the leaderboard ranks you. */
+  private showDailyIntro(date: string) {
+    const s = this.snap!;
+    const c = dailyChallenge(date);
+    const rivals = s.players.filter((p) => p.isBot);
+    this.openIntroCard(
+      `
+        <h2>📅 Daily challenge</h2>
+        <p class="twist"><b>${esc(c.twist)}</b></p>
+        <ul class="rivals">${rivals.map((p) => `<li><img src="/sprites/badge-${p.color}.webp" alt=""><b>${esc(p.name)}</b> at ${esc(this.stationName(p.hub))}</li>`).join("")}</ul>
+        <p>Everyone gets the same start today. Win as fast as you can: the fastest win tops the leaderboard (if nobody wins, the most track does).</p>`,
+      "info"
+    );
+  }
+
   /** Arriving in a World Tour city: who you're up against, before the clock starts. */
   private showTourIntro(stop: number) {
     const s = this.snap!;
@@ -149,7 +165,7 @@ export class GameScreen {
         <ul class="rivals">${rivals
           .map((p) => `<li><img src="/sprites/badge-${p.color}.webp" alt=""><b>${esc(p.name)}</b> at ${esc(this.stationName(p.hub))}${p.botStyle ? ` <span class="muted">· ${esc(BOT_TIPS[p.botStyle])}</span>` : ""}</li>`)
           .join("")}</ul>
-        <p>Own ${Math.round(s.settings.winShare * 100)}% of the track to win, or own the most when the ${Math.round(s.settings.roundMinutes / 60)} minutes are up.</p>`, "tour");
+        <p>Own ${Math.round(s.settings.winShare * 100)}% of the track to win, or own the most when the ${Math.round(s.settings.roundMinutes / 60)} minutes are up.</p>`, "info");
   }
 
   private layoutInsets() {
@@ -574,6 +590,14 @@ export class GameScreen {
           if (l) await this.run({ type: "setFare", line: l.id, fare: l.fare + Number(btn.dataset.d) });
           break;
         }
+        case "push": {
+          const l = lineOf(arg);
+          if (!l) break;
+          const S = this.snap!.settings;
+          if (l.fare - 0.25 >= S.minFare) await this.run({ type: "setFare", line: l.id, fare: l.fare - 0.25 });
+          if (l.trains < S.maxTrainsPerLine) await this.run({ type: "setTrains", line: l.id, trains: l.trains + 1 });
+          break;
+        }
         case "trains": {
           const l = lineOf(arg);
           if (l) await this.run({ type: "setTrains", line: l.id, trains: l.trains + Number(btn.dataset.d) });
@@ -753,7 +777,10 @@ export class GameScreen {
       case "empty": {
         const need = s.settings.emptyToCapture;
         if (e.player === this.you) {
-          text = `Nobody boarded your train on ${this.secName(e.section)} (${e.run} of ${need}). Tap to defend it.`;
+          const running = s.lines.some((l) => l.owner === this.you && this.lineUses(l, e.section));
+          text = running
+            ? `Nobody boarded your train on ${this.secName(e.section)} (${e.run} of ${need}). Tap to defend it.`
+            : `A rival is taking passengers on your track ${this.secName(e.section)}, where you run no trains (${e.run} of ${need}). Tap to defend it.`;
           cls = "bad";
           tap = { "data-act": "select-section", "data-arg": e.section, role: "button" };
           sound.play("warn");
@@ -791,7 +818,7 @@ export class GameScreen {
     const t = h("div", { class: `toast ${cls}`, "data-key": key || undefined, ...tap });
     if (color) t.style.setProperty("--c", CSS_COLORS[color]);
     t.textContent = text;
-    pushToast(this.toasts, t, maxToasts(), cls.includes("big") ? 5000 : 3200);
+    pushToast(this.toasts, t, maxToasts(), cls.includes("bad") ? 7000 : cls.includes("big") ? 5000 : 3200);
   }
 
   private warnedBroke = false;
@@ -873,7 +900,7 @@ export class GameScreen {
           <button class="btn" data-act="exit">Main menu</button>
           <button class="btn ghost" data-act="close-overlay">Look at the map</button>
         </div>
-        ${this.conn.daily && me ? `<div class="daily-end"><h3>Daily challenge · ${esc(this.conn.daily)}</h3><div id="daily-board"><p class="muted">Saving your score…</p></div></div>` : ""}
+        ${this.conn.daily && me ? `<div class="daily-end"><h3>Daily challenge · ${esc(new Date(`${this.conn.daily}T12:00:00Z`).toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" }))}</h3><div id="daily-board"><p class="muted">Saving your score…</p></div></div>` : ""}
       </div>`;
     if (this.conn.daily && me) this.sendDaily(this.conn.daily, me.name, dailyScore(youWon, s.time, me.owned / s.totalSections));
   }
@@ -982,6 +1009,8 @@ export class GameScreen {
     );
     if (this.step !== before || first) {
       if (this.step !== before) sound.play("good");
+      // waiting steps run fast; everything else at normal speed
+      if (this.conn.local) this.conn.setSpeed?.(st.fast ? 3 : 1);
       // after opening track, go back to the lines list so "New line" is in view
       if (before <= 1 && this.step !== before) this.select(null);
       this.layoutInsets();
@@ -1018,9 +1047,24 @@ export class GameScreen {
     return head + flash + `<div class="panel-body">${body}</div>`;
   }
 
+  /** One tap to fight for a section with a line: 25¢ cheaper and one more train. */
+  private pushButton(l: LineView, verb: "Undercut" | "Defend"): string {
+    const s = this.snap!;
+    const me = s.players.find((p) => p.id === this.you);
+    const cost = trainCost(s, l.cars) + (l.speed - 1) * s.settings.speedCost;
+    const can = l.fare - 0.25 >= s.settings.minFare || (l.trains < s.settings.maxTrainsPerLine && (me?.money ?? 0) >= cost);
+    return `<div class="push"><button class="btn primary" data-act="push" data-arg="${l.id}" ${can ? "" : "disabled"}>${verb}: −25¢ and +1 train</button>
+      <button class="link" data-act="select-line" data-arg="${l.id}">${esc(this.lineTitle(l))} ›</button></div>`;
+  }
+
   /** A line's name, or its two ends. */
   private lineTitle(l: LineView): string {
-    return l.name || `${this.stationName(l.stations[0])} – ${this.stationName(l.stations[l.stations.length - 1])}`;
+    if (l.name) return l.name;
+    const ends = (x: LineView) => `${this.stationName(x.stations[0])} – ${this.stationName(x.stations[x.stations.length - 1])}`;
+    const base = ends(l);
+    // two unnamed lines with the same ends get numbered so they can be told apart
+    const twins = (this.snap?.lines ?? []).filter((x) => x.owner === l.owner && !x.name && ends(x) === base);
+    return twins.length > 1 ? `${base} (${twins.findIndex((x) => x.id === l.id) + 1})` : base;
   }
 
   private stationName(id: StationId) {
@@ -1049,7 +1093,7 @@ export class GameScreen {
     else tip = `Run a line onto a rival's track, then cut your fare and add trains to win their passengers.`;
     return `
       <h3>Your lines</h3>
-      <div class="tip">${tip}</div>
+      ${this.step < 0 ? `<div class="tip">${tip}</div>` : ""}
       ${mine.length ? `<div class="lines">${mine.map((l) => this.lineRow(s, l)).join("")}</div>` : ""}
       <button class="btn primary wide" data-act="new-line" ${mine.length >= s.settings.maxLinesPerPlayer ? "disabled" : ""}>New line · ${money(trainCost(s, 2))}</button>
       <p class="muted small">${matchMedia("(pointer: coarse)").matches ? "Drag to move the map, pinch to zoom." : "Drag to move the map, scroll to zoom."} Tap a station or a section for details.</p>
@@ -1139,15 +1183,16 @@ export class GameScreen {
         ? `<button class="btn primary wide" data-act="open" data-arg="${id}" ${me.money < cost ? "disabled" : ""}>Open this section · ${money(cost)}</button>${me.money < cost ? `<p class="muted small">You need ${money(cost - me.money)} more.</p>` : ""}`
         : `<p class="muted">You can only open track that touches your own network.</p>`;
     } else if (ss.owner && ss.owner !== this.you && me) {
-      const runs = users.some((l) => l.owner === this.you);
-      action = runs
-        ? `<div class="tip">To take it, win the passengers here: when nobody boards ${esc(owner?.name ?? "the owner")}'s train ${need} times in a row, it's yours. Charge less, and run enough trains with room for everyone.</div>`
+      const mine = users.filter((l) => l.owner === this.you);
+      action = mine.length
+        ? `<div class="tip">To take it, win the passengers getting on here: when nobody boards ${esc(owner?.name ?? "the owner")}'s train ${need} times in a row, it's yours. Riders already on their train ride on through, so be cheaper <b>and</b> come more often.</div>` +
+          mine.map((l) => this.pushButton(l, "Undercut")).join("")
         : `<div class="tip">Run one of your lines over this section, then undercut ${esc(owner?.name ?? "the owner")}'s fare to win their passengers. You'll pay them ${money(s.settings.trackFee)} each time your train uses it.</div>`;
     } else if (ss.owner === this.you && ss.emptyRun > 0) {
       const mine = users.filter((l) => l.owner === this.you);
       action =
         `<div class="tip bad">Nobody boarded ${ss.emptyRun === 1 ? "your last train" : `your last ${ss.emptyRun} trains`} here. At ${need} in a row you lose this track. Lower your fare or add trains, fast!</div>` +
-        mine.map((l) => `<button class="btn primary wide" data-act="select-line" data-arg="${l.id}">Defend with ${esc(this.lineTitle(l))}</button>`).join("");
+        mine.map((l) => this.pushButton(l, "Defend")).join("");
     } else if (ss.owner === this.you && !users.some((l) => l.owner === this.you)) {
       action = `<div class="tip">You own this track but none of your trains run on it yet.</div><button class="btn primary wide" data-act="new-line" data-arg="${sec.a},${sec.b}">Run a line here · ${money(trainCost(s, 2))}</button>`;
     }
@@ -1226,7 +1271,7 @@ export class GameScreen {
         <button class="step" data-act="fare" data-arg="${l.id}" data-d="0.25" ${l.fare >= S.maxFare ? "disabled" : ""} aria-label="Raise fare">+</button>
       </div>
       <div class="ctrl">
-        <span class="ctrl-k">Trains <small>${money(tc)} each</small></span>
+        <span class="ctrl-k">Trains <small>${l.trains >= S.maxTrainsPerLine ? `max ${S.maxTrainsPerLine}: add cars instead` : `${money(tc)} each`}</small></span>
         <button class="step" data-act="trains" data-arg="${l.id}" data-d="-1" ${l.trains <= 1 ? "disabled" : ""} aria-label="Fewer trains">−</button>
         <span class="ctrl-v mono">${l.trains}</span>
         <button class="step" data-act="trains" data-arg="${l.id}" data-d="1" ${l.trains >= S.maxTrainsPerLine || (me?.money ?? 0) < tc ? "disabled" : ""} aria-label="More trains">+</button>
@@ -1265,7 +1310,8 @@ export class GameScreen {
         <button class="btn primary" data-act="create" ${st.length < 2 || !ownsOne || (me?.money ?? 0) < cost ? "disabled" : ""}>Create line · ${money(cost)}</button>
         <button class="btn" data-act="undo" ${st.length ? "" : "disabled"}>Undo</button>
         <button class="btn ghost" data-act="cancel">Cancel</button>
-      </div>`;
+      </div>
+      ${st.length >= 2 && ownsOne && (me?.money ?? 0) < cost ? `<p class="muted small">You need ${money(cost - (me?.money ?? 0))} more.</p>` : ""}`;
   }
 
   private extendHtml(s: Snapshot): string {

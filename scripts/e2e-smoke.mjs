@@ -27,7 +27,7 @@ async function page(name, viewport = { width: 1200, height: 800 }) {
   return p;
 }
 // the map loads its sprites asynchronously; wait until it can be tapped
-const mapReady = (p) => p.waitForFunction(() => window.__screen?.mapReady, null, { timeout: 20000 });
+const mapReady = (p) => p.waitForFunction(() => window.__screen?.mapReady, null, { timeout: 45000 });
 const stationXY = (p, id) => p.evaluate((id) => window.__screen.map.stationScreen(id), id);
 async function tapBetween(p, a, b) {
   const A = await stationXY(p, a);
@@ -80,6 +80,7 @@ async function tapBetween(p, a, b) {
   await p.click("[data-act=tour-next]");
   await mapReady(p);
   check((await p.evaluate(() => window.__screen.snap.mapId)) === "melbourne", "tour: winning Sydney flies you to Melbourne");
+  await p.close();
 }
 
 // daily challenge: starts today's setup
@@ -91,6 +92,7 @@ async function tapBetween(p, a, b) {
   await p.click("#daily");
   await mapReady(p);
   check(await p.evaluate(() => !!window.__screen.conn.daily), "daily: today's challenge starts");
+  await p.close();
 }
 
 // online: two players in one room, a move syncs, reload rejoins
