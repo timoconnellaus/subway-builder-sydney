@@ -5,8 +5,10 @@ import { MAPS, Session, type BotStyle, type Settings } from "../src/sim";
 const args = process.argv.slice(2);
 const games = Number(args.find((a) => /^\d+$/.test(a)) ?? 3);
 const overrides: Partial<Settings> = {};
+const mapId = args.find((a) => a.startsWith("map="))?.slice(4) ?? "sydney";
 for (const a of args) {
   const m = a.match(/^(\w+)=([\d.]+)$/);
+  if (a.startsWith("map=")) continue;
   if (m) (overrides as Record<string, number>)[m[1]] = Number(m[2]);
 }
 
@@ -19,7 +21,7 @@ const hubWins: Record<string, number> = {};
 for (let g = 0; g < games; g++) {
   const n = 3;
   const s = Session.create(
-    MAPS.sydney,
+    MAPS[mapId],
     // rotate styles across hubs each game so hub advantage shows up separately from bot style
     Array.from({ length: n }, (_, i) => {
       const style = styles[(i + g) % n];
