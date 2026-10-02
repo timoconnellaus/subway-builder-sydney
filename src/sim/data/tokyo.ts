@@ -10,7 +10,7 @@ export const TOKYO: MapDef = {
   bounds: { lon0: 139.37, lon1: 140.16, lat0: 35.94, lat1: 35.43 },
   hubs: ["tokyo", "shinjuku", "haneda", "yokohama"],
   // extra starting money for hubs with fewer passengers nearby
-  hubBonus: { tokyo: 0, shinjuku: 1250, haneda: 500, yokohama: 1500 },
+  hubBonus: { tokyo: 0, shinjuku: 1000, haneda: 1500, yokohama: 2000 },
   stations: [
     // Yamanote loop (simplified)
     { id: "tokyo", name: "Tokyo", lon: 139.767, lat: 35.681, pop: 20, jobs: 200, icon: "city" },
