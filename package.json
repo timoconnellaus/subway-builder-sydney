@@ -11,7 +11,8 @@
     "deploy": "npm run build && wrangler deploy",
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "balance": "vite-node scripts/balance.ts"
+    "balance": "vite-node scripts/balance.ts",
+    "e2e": "node scripts/e2e-smoke.mjs"
   },
   "dependencies": {
     "d3-delaunay": "^6.0.4",

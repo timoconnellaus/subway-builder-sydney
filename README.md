@@ -63,6 +63,9 @@ For client hot reload, run `npx wrangler dev` in one terminal and `npm run dev` 
 http://localhost:5173 (Vite proxies `/api` to the Worker). Rebuild (`npm run build`) and restart
 `wrangler dev` after changing anything in `dist/`.
 
+`npm run e2e` drives two browsers through single player and an online room against a running
+`wrangler dev` (needs Playwright: `npm i -D playwright && npx playwright install chromium`).
+
 `npm run balance -- 5 winShare=0.6` plays five bot games and prints money, track and passengers per
 minute; any setting can be overridden on the command line.
 
