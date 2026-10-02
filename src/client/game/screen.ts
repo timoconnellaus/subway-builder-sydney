@@ -182,8 +182,7 @@ export class GameScreen {
     const meNow = s.players.find((p) => p.id === this.you);
     if (meNow) {
       // name every station on your network and one step beyond it
-      const near = new Set<StationId>([meNow.hub]);
-      for (const sec of this.map.net.sections) if (s.sections[sec.id].owner === meNow.id) (near.add(sec.a), near.add(sec.b));
+      const near = this.network(s, meNow);
       for (const st of [...near]) for (const e of this.map.net.adj[st]) near.add(e.to);
       this.map.setNearby(near);
     }
@@ -242,7 +241,11 @@ export class GameScreen {
     // money sitting idle wins nothing: nudge once in a while
     if (me && this.conn.local && this.step < 0 && me.money > RICH && s.time - this.richNudgeAt > 120) {
       this.richNudgeAt = s.time;
-      this.toastText(`You have ${money(me.money)} in the bank. Spend it: open more track, or add trains to steal a rival's passengers!`, "good");
+      // tapping it shows the cheapest track you could open right now
+      const next = this.cheapestOpen(s, me);
+      const t = h("div", { class: "toast good", ...(next ? { "data-act": "select-section", "data-arg": next, role: "button" } : {}) });
+      t.textContent = `You have ${money(me.money)} in the bank. Spend it: open more track or add trains!${next ? " Tap for track you can open." : ""}`;
+      pushToast(this.toasts, t, maxToasts(), 6000);
     }
     if (me) {
       this.incomeLog.push({ t: s.time, v: me.income });
@@ -780,8 +783,7 @@ export class GameScreen {
         const sec = this.map.net.section[e.section];
         const me = s.players.find((p) => p.id === this.you);
         if (!sec || !me) return;
-        const mine = new Set<string>([me.hub]);
-        for (const x of this.map.net.sections) if (s.sections[x.id]?.owner === this.you) (mine.add(x.a), mine.add(x.b));
+        const mine = this.network(s, me);
         if (!mine.has(sec.a) && !mine.has(sec.b)) return;
         text = `${this.pname(s, e.player)} opened ${this.secName(e.section)}, next to you`;
         break;
@@ -839,6 +841,26 @@ export class GameScreen {
   private raceMsg = "";
   private goalPulseUntil = 0; // the track bar pulses after one of your captures
   private richNudgeAt = 60; // no nudge in the first couple of minutes
+
+  /** Stations on a player's network: their hub and both ends of every section they own. */
+  private network(s: Snapshot, p: PlayerView): Set<StationId> {
+    const out = new Set<StationId>([p.hub]);
+    for (const x of this.map.net.sections) if (s.sections[x.id]?.owner === p.id) (out.add(x.a), out.add(x.b));
+    return out;
+  }
+
+  /** The cheapest unopened section touching your network, if you can afford it. */
+  private cheapestOpen(s: Snapshot, me: PlayerView): SectionId | null {
+    const mine = this.network(s, me);
+    let best: SectionId | null = null;
+    let bestCost = me.money;
+    for (const x of this.map.net.sections) {
+      if (s.sections[x.id]?.owner || !(mine.has(x.a) || mine.has(x.b))) continue;
+      const cost = openCost(s, x.minutes, me.owned);
+      if (cost <= bestCost) (best = x.id), (bestCost = cost);
+    }
+    return best;
+  }
 
   private toastText(text: string, cls = "") {
     const t = h("div", { class: `toast ${cls}` });
@@ -1189,8 +1211,7 @@ export class GameScreen {
     let action = "";
     if (!ss.owner && me) {
       const cost = openCost(s, sec.minutes, me.owned);
-      const mine = new Set<string>([me.hub]);
-      for (const x of this.map.net.sections) if (s.sections[x.id].owner === me.id) (mine.add(x.a), mine.add(x.b));
+      const mine = this.network(s, me);
       const adjacent = mine.has(sec.a) || mine.has(sec.b);
       action = adjacent
         ? `<button class="btn primary wide" data-act="open" data-arg="${id}" ${me.money < cost ? "disabled" : ""}>Open this section · ${money(cost)}</button>${me.money < cost ? `<p class="muted small">You need ${money(cost - me.money)} more.</p>` : ""}`
@@ -1198,7 +1219,7 @@ export class GameScreen {
     } else if (ss.owner && ss.owner !== this.you && me) {
       const mine = users.filter((l) => l.owner === this.you);
       action = mine.length
-        ? `<div class="tip">To take it, win the passengers getting on here: when nobody boards ${esc(owner?.name ?? "the owner")}'s train ${need} times in a row, it's yours. Riders already on their train ride on through, so be cheaper <b>and</b> come more often.</div>` +
+        ? `<div class="tip">Be cheaper <b>and</b> come more often. When nobody boards ${esc(owner?.name ?? "the owner")}'s train ${need} times in a row, it's yours.</div>` +
           this.attackCheck(s, users, mine) +
           mine.map((l) => this.pushButton(l, "Undercut")).join("")
         : `<div class="tip">Run one of your lines over this section, then undercut ${esc(owner?.name ?? "the owner")}'s fare to win their passengers. You'll pay them ${money(s.settings.trackFee)} each time your train uses it.</div>`;
