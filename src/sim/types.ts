@@ -156,6 +156,7 @@ export interface SectionState {
 export interface Line {
   id: LineId;
   owner: PlayerId;
+  name?: string;
   stations: StationId[];
   fare: number; // dollars per ride (flat)
   cars: number;
@@ -223,6 +224,7 @@ export type Command =
   | { type: "createLine"; stations: StationId[] }
   | { type: "extendLine"; line: LineId; station: StationId; end: "start" | "end" }
   | { type: "trimLine"; line: LineId; end: "start" | "end" }
+  | { type: "renameLine"; line: LineId; name: string }
   | { type: "deleteLine"; line: LineId }
   | { type: "setFare"; line: LineId; fare: number }
   | { type: "setTrains"; line: LineId; trains: number }

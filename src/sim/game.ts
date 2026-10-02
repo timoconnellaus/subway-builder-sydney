@@ -253,6 +253,13 @@ export class Game {
         st.netVersion++;
         return { ok: true };
       }
+      case "renameLine": {
+        const line = this.ownLine(playerId, cmd.line);
+        if (!line) return fail("That isn't your line.");
+        const name = cleanName(cmd.name);
+        line.name = name || undefined;
+        return { ok: true };
+      }
       case "deleteLine": {
         const line = this.ownLine(playerId, cmd.line);
         if (!line) return fail("That isn't your line.");
@@ -873,6 +880,8 @@ function checkCommand(c: unknown): string | null {
       return str(x.line) && (x.end === "start" || x.end === "end") ? null : "Bad change.";
     case "deleteLine":
       return str(x.line) ? null : "Bad line.";
+    case "renameLine":
+      return str(x.line) && typeof x.name === "string" && x.name.length <= 64 ? null : "Bad name.";
     case "setFare":
       return str(x.line) && num(x.fare) ? null : "Bad fare.";
     case "setTrains":
@@ -884,6 +893,11 @@ function checkCommand(c: unknown): string | null {
     default:
       return "Unknown command.";
   }
+}
+
+/** Letters, numbers, spaces and a little punctuation; at most 24 characters. */
+export function cleanName(raw: string): string {
+  return raw.replace(/[^\p{L}\p{N} '&.!_-]/gu, "").replace(/\s+/g, " ").trim().slice(0, 24);
 }
 
 function fail(error: string): CommandResult {

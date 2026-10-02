@@ -14,6 +14,7 @@ type Sel = Pick | { kind: "line"; id: string };
 
 export interface GameScreenHooks {
   onExit(): void;
+  onRestart?(): void;
   onRematch?(): void;
   isHost?(): boolean;
 }
@@ -70,6 +71,7 @@ export class GameScreen {
       offLobby?.();
     };
     void this.map.init().then(() => {
+      if (this.destroyed) return;
       this.mapReady = true;
       this.layoutInsets();
       this.map.fit();
@@ -123,6 +125,7 @@ export class GameScreen {
   }
 
   private onSnap(s: Snapshot) {
+    if (this.destroyed) return;
     const first = !this.snap;
     this.snap = s;
     this.map.push(s);
@@ -152,12 +155,14 @@ export class GameScreen {
     this.queueRender();
   }
 
+  private destroyed = false;
+
   private queueRender() {
-    if (this.renderQueued) return;
+    if (this.renderQueued || this.destroyed) return;
     this.renderQueued = true;
     requestAnimationFrame(() => {
       this.renderQueued = false;
-      this.render();
+      if (!this.destroyed) this.render();
     });
   }
 
@@ -170,7 +175,8 @@ export class GameScreen {
     host.addEventListener("pointerdown", (e) => {
       host.setPointerCapture(e.pointerId);
       pointers.set(e.pointerId, { x: e.offsetX, y: e.offsetY, sx: e.offsetX, sy: e.offsetY });
-      moved = false;
+      if (pointers.size === 1) moved = false;
+      else moved = true; // a second finger means pinch, never a tap
       if (pointers.size === 2) {
         const [a, b] = [...pointers.values()];
         pinchDist = Math.hypot(a.x - b.x, a.y - b.y);
@@ -217,6 +223,7 @@ export class GameScreen {
   }
 
   private onKey = (e: KeyboardEvent) => {
+    if (!this.mapReady || this.destroyed) return;
     const tag = (e.target as HTMLElement)?.tagName;
     if (tag === "INPUT" || tag === "SELECT" || e.metaKey || e.ctrlKey || e.altKey) return;
     const cx = this.map.app.screen.width / 2;
@@ -428,7 +435,7 @@ export class GameScreen {
     if (this.flashTimer) clearTimeout(this.flashTimer);
     this.flashTimer = setTimeout(() => {
       this.flash = "";
-      this.render();
+      if (!this.destroyed) this.render();
     }, 3500);
     this.render();
   }
@@ -542,11 +549,14 @@ export class GameScreen {
           this.hooks.onExit();
           break;
         case "restart":
-          this.overlay.hidden = true;
-          this.recorded = false;
-          this.lastSeq = -1;
-          this.snap = null;
-          this.conn.restart?.();
+          if (this.hooks.onRestart) this.hooks.onRestart();
+          else {
+            this.overlay.hidden = true;
+            this.recorded = false;
+            this.lastSeq = -1;
+            this.snap = null;
+            this.conn.restart?.();
+          }
           break;
         case "rematch":
           this.hooks.onRematch?.();
@@ -1065,6 +1075,8 @@ export class GameScreen {
   }
 
   destroy() {
+    this.destroyed = true;
+    if (this.flashTimer) clearTimeout(this.flashTimer);
     this.unsub();
     window.removeEventListener("keydown", this.onKey);
     window.removeEventListener("resize", this.onResize);

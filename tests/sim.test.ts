@@ -178,3 +178,15 @@ describe("greater sydney", () => {
     expect(s.snapshot().mapId).toBe("greater");
   });
 });
+
+describe("line names", () => {
+  it("cleans and stores names", () => {
+    const s = Session.create(MAPS.sydney, [{ id: "p", name: "P", color: "red", hub: "central" }]);
+    s.command("p", { type: "open", section: "central~redfern" });
+    s.command("p", { type: "createLine", stations: ["central", "redfern"] });
+    const id = s.state.lines[0].id;
+    expect(s.command("p", { type: "renameLine", line: id, name: "  Dad <b>Express</b>!!  " }).ok).toBe(true);
+    expect(s.state.lines[0].name).toBe("Dad bExpressb!!");
+    expect(s.command("p", { type: "renameLine", line: id, name: "x".repeat(100) }).ok).toBe(false);
+  });
+});

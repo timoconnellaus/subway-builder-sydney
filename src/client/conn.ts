@@ -244,6 +244,7 @@ export class RemoteRoom implements GameConn {
         this.you = msg.you;
         break;
       case "lobby":
+        if (msg.lobby.phase === "lobby") this.lastSnapshot = null; // the next game starts fresh
         this.lobby = msg.lobby;
         for (const l of this.lobbyListeners) l(msg.lobby);
         break;
@@ -297,7 +298,7 @@ export class RemoteRoom implements GameConn {
     return !!this.lobby?.paused;
   }
   get mapId() {
-    return this.lastSnapshot?.mapId ?? this.lobby?.options.map ?? "sydney";
+    return this.lobby?.options.map ?? this.lastSnapshot?.mapId ?? "sydney";
   }
   setPaused(p: boolean) {
     this.send({ t: "pause", paused: p });

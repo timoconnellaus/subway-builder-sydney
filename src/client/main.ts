@@ -18,7 +18,12 @@ function route() {
   app.innerHTML = "";
   const hash = location.hash.replace(/^#\/?/, "");
   const [page, arg] = hash.split("/");
-  if (page === "play") return playLocal(arg === "continue");
+  if (page === "play") {
+    // a bare #/play resumes a saved game (reload, Back button); the Play button asks for a fresh one
+    const fresh = storage("new-game") === "1";
+    setStorage("new-game", "");
+    return playLocal(arg === "continue" || (!fresh && !!savedLocalGame()));
+  }
   if (page === "tutorial") return playTutorial();
   if (page === "room" && arg && isRoomCode(arg.toUpperCase())) return online(arg.toUpperCase());
   return menu();
@@ -149,9 +154,10 @@ function menu() {
   const nameIn = el.querySelector<HTMLInputElement>("#name")!;
   const saveName = () => setStorage("me-name", nameIn.value.trim());
   nameIn.addEventListener("change", saveName);
-  el.querySelector("#continue")?.addEventListener("click", () => go("#/play/continue"));
+  el.querySelector("#continue")?.addEventListener("click", () => go("#/play"));
   el.querySelector("#play")!.addEventListener("click", () => {
     clearLocalSave();
+    setStorage("new-game", "1");
     saveName();
     const chosen = [...el.querySelectorAll<HTMLInputElement>(".bot-opt input:checked")].map((i) => i.value);
     setStorage("bots", (chosen.length ? chosen : ["builder"]).join(","));
@@ -216,8 +222,19 @@ function playLocal(resume = false) {
     rules: loadRules(),
     map: storage("map", "sydney")
   });
-  const screen = new GameScreen(conn, { onExit: () => go("#/") });
-  app.append(screen.el);
+  let screen: GameScreen;
+  const mount = () => {
+    screen = new GameScreen(conn, {
+      onExit: () => go("#/"),
+      onRestart: () => {
+        screen.destroy();
+        conn.restart();
+        mount();
+      }
+    });
+    app.append(screen.el);
+  };
+  mount();
   cleanup = () => {
     screen.destroy();
     conn.close();
@@ -354,7 +371,16 @@ function online(code: string) {
   });
 
   let rulesSent = false;
+  let wasIn = false;
   const offLobby = room.onLobby((l) => {
+    const inRoom = l.players.some((p) => p.id === room.you);
+    if (wasIn && !inRoom && l.phase === "lobby") {
+      message = "The host removed you from this room.";
+      room.close();
+      showLobby(l);
+      return;
+    }
+    wasIn = inRoom;
     if (!rulesSent && l.host === room.you && l.phase === "lobby" && Object.keys(l.options.rules).length === 0) {
       rulesSent = true;
       const saved = loadRules();
@@ -365,8 +391,8 @@ function online(code: string) {
     if (l.phase === "lobby") showLobby(l);
     else showGame();
   });
-  const offStatus = room.onStatus((_s, msg) => {
-    if (msg) message = msg;
+  const offStatus = room.onStatus((status, msg) => {
+    message = status === "open" ? msg ?? "" : msg ?? message;
     if (room.lobby && room.lobby.phase === "lobby") showLobby(room.lobby);
   });
   wrap.innerHTML = `<div class="menu"><div class="menu-card"><p class="muted">Joining room ${code}…</p></div></div>`;

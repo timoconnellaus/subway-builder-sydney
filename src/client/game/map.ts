@@ -92,6 +92,8 @@ export class MapView {
     return [((lon - b.lon0) / (b.lon1 - b.lon0)) * this.W, ((lat - b.lat0) / (b.lat1 - b.lat0)) * this.H];
   }
 
+  ready = false;
+
   async init() {
     await this.app.init({
       background: LAND,
@@ -100,19 +102,21 @@ export class MapView {
       autoDensity: true,
       resolution: Math.min(2, window.devicePixelRatio || 1)
     });
-    if (this.destroyed) return;
+    if (this.destroyed) return this.app.destroy(true, { children: true });
     this.host.appendChild(this.app.canvas);
     const names = [
       "city", "parramatta", "airport", "liverpool",
       ...(["red", "blue", "gold", "green"] as const).flatMap((c) => [`train-suburban-${c}`, `train-metro-${c}`])
     ];
     const loaded = await Assets.load(names.map((n) => ({ alias: n, src: `/sprites/${n}.webp` })));
+    if (this.destroyed) return this.app.destroy(true, { children: true });
     for (const n of names) this.textures[n] = loaded[n];
     this.buildStatic();
     this.app.stage.addChild(this.world);
     this.fit();
     this.app.renderer.on("resize", () => this.fit(true));
     this.app.ticker.add(() => this.frame());
+    this.ready = true;
   }
 
   private buildStatic() {
@@ -188,12 +192,14 @@ export class MapView {
   }
 
   panBy(dx: number, dy: number) {
+    if (!this.ready) return;
     this.world.x += dx;
     this.world.y += dy;
     this.clampView();
   }
 
   zoomAt(sx: number, sy: number, factor: number) {
+    if (!this.ready) return;
     const nz = Math.max(0.8, Math.min(7, this.zoom * factor));
     const [wx, wy] = this.screenToWorld(sx, sy);
     this.zoom = nz;
@@ -206,6 +212,7 @@ export class MapView {
   }
 
   focus(st: StationId, zoom?: number) {
+    if (!this.ready) return;
     if (zoom) {
       this.zoom = zoom;
       this.world.scale.set(this.baseScale * zoom);
@@ -267,6 +274,7 @@ export class MapView {
 
   /** What is under a screen point: a station first, then a section. */
   pick(sx: number, sy: number): Pick {
+    if (!this.ready) return null;
     const [x, y] = this.screenToWorld(sx, sy);
     const k = this.world.scale.x;
     let best: StationId | null = null;
@@ -571,6 +579,7 @@ export class MapView {
       if (!seen.has(id)) {
         ts.sprite.destroy();
         this.trains.delete(id);
+        this.lastLoad.delete(id);
       }
     }
   }
@@ -645,10 +654,11 @@ export class MapView {
 
   destroy() {
     this.destroyed = true;
+    if (!this.ready) return; // init() will clean up when it notices
     try {
       this.app.destroy(true, { children: true });
     } catch {
-      /* not initialised */
+      /* already gone */
     }
   }
 }
