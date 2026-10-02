@@ -79,6 +79,12 @@ button { font: inherit; color: inherit; }
 .slot.empty img { filter: grayscale(0.6); opacity: 0.6; }
 .slot-actions { display: flex; flex-wrap: wrap; gap: 4px 10px; justify-content: flex-end; }
 
+details.rules { border-top: 1px solid var(--rule); padding-top: 10px; }
+details.rules summary { font-family: var(--display); font-weight: 800; cursor: pointer; }
+.rules-grid { display: grid; gap: 8px; margin-top: 10px; }
+.rules-grid .field.inline { grid-template-columns: 1fr minmax(140px, auto); }
+.rules-grid select { font-size: 15px; padding: 7px 10px; }
+
 /* ---------- game layout ---------- */
 .game { position: fixed; inset: 0; overflow: hidden; background: #ebe7de; }
 .map { position: absolute; inset: 0; touch-action: none; cursor: grab; }
@@ -97,6 +103,7 @@ button { font: inherit; color: inherit; }
 }
 .pill img { width: 22px; height: 22px; display: block; }
 .pill.money.neg { color: var(--bad); }
+.pill .rate { font-family: var(--mono); font-size: 12px; color: var(--good); font-weight: 700; }
 .pill.warn { color: var(--bad); }
 .pill.goal { flex: 0 1 320px; min-width: 180px; }
 .pill .lbl { color: var(--muted); font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; }

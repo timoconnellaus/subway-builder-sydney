@@ -26,13 +26,29 @@ export function runBots(game: Game, memory: Map<string, number>) {
     if (!p.isBot) return;
     const next = memory.get(p.id) ?? 1 + idx * 0.7;
     if (st.time < next) return;
-    memory.set(p.id, st.time + 2);
+    const skill = st.settings.botSkill ?? 2;
+    memory.set(p.id, st.time + (skill === 1 ? 4.5 : skill === 2 ? 2 : 1));
     botTurn(game, p);
   });
 }
 
 function botTurn(game: Game, p: Player) {
-  const tune = STYLES[p.botStyle ?? "builder"];
+  const base = STYLES[p.botStyle ?? "builder"];
+  const skill = game.state.settings.botSkill ?? 2;
+  // easy bots keep more money back and rarely fight; hard bots fight harder
+  const tune: StyleTuning =
+    skill === 1
+      ? { ...base, reserve: base.reserve + 300, attack: base.attack * 0.25, undercut: 0.25 }
+      : skill === 3
+        ? { ...base, reserve: Math.max(100, base.reserve - 100), attack: Math.min(1, base.attack * 1.8), undercut: base.undercut + 0.25 }
+        : base;
+  if (skill === 1 && p.botStyle === "raider" && Math.random() < 0.6) {
+    defend(game, p);
+    cover(game, p, tune);
+    manageTrains(game, p, tune);
+    open(game, p, tune);
+    return;
+  }
   defend(game, p);
   cover(game, p, tune);
   if (p.botStyle === "raider") {

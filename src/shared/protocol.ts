@@ -1,4 +1,4 @@
-import type { BotStyle, Color, Command, PlayerId, StationId } from "../sim/types";
+import type { BotStyle, Color, Command, HouseRules, PlayerId, StationId } from "../sim/types";
 import type { Snapshot } from "../sim/session";
 
 export const MAX_PLAYERS = 4;
@@ -15,6 +15,7 @@ export interface LobbyPlayer {
 
 export interface RoomOptions {
   roundMinutes: number;
+  rules: HouseRules;
 }
 
 export interface LobbyState {

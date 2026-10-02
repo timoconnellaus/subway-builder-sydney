@@ -1,4 +1,4 @@
-import { MAPS, Session, type BotStyle, type Command, type CommandResult, type PlayerId, type Snapshot } from "../sim";
+import { cleanRules, MAPS, Session, type BotStyle, type Command, type CommandResult, type HouseRules, type PlayerId, type Snapshot } from "../sim";
 import { SLOTS, type ClientMsg, type LobbyState, type ServerMsg } from "../shared/protocol";
 
 /** What the game screen needs, whether the game runs in this browser or on the server. */
@@ -20,6 +20,7 @@ export interface LocalOptions {
   name: string;
   bots: BotStyle[];
   roundMinutes: number;
+  rules: HouseRules;
 }
 
 export class LocalGame implements GameConn {
@@ -48,7 +49,7 @@ export class LocalGame implements GameConn {
         botStyle: style
       }))
     ];
-    this.session = Session.create(MAPS.sydney, players, { roundMinutes: this.opts.roundMinutes });
+    this.session = Session.create(MAPS.sydney, players, { ...cleanRules(this.opts.rules), roundMinutes: this.opts.roundMinutes });
     this.paused = false;
     if (!this.timer) {
       this.last = performance.now();

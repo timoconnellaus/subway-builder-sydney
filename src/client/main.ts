@@ -1,5 +1,6 @@
 import "./styles.css";
-import type { BotStyle } from "../sim/types";
+import { HOUSE_RULES, type BotStyle, type HouseRuleKey, type HouseRules } from "../sim/types";
+import { DEFAULT_SETTINGS } from "../sim/types";
 import { isRoomCode, SLOTS, type LobbyState } from "../shared/protocol";
 import { LocalGame, RemoteRoom } from "./conn";
 import { GameScreen, HELP_HTML } from "./game/screen";
@@ -19,6 +20,42 @@ function route() {
   return menu();
 }
 window.addEventListener("hashchange", route);
+
+function loadRules(): HouseRules {
+  try {
+    return JSON.parse(storage("rules", "{}")) as HouseRules;
+  } catch {
+    return {};
+  }
+}
+
+function ruleLabel(k: HouseRuleKey, v: number): string {
+  const r = HOUSE_RULES[k] as { values: readonly number[]; format?: string; names?: readonly string[] };
+  const i = r.values.indexOf(v);
+  if (r.names) return r.names[i];
+  if (r.format === "percent") return `${Math.round(v * 100)}%`;
+  if (r.format === "money") return `$${v.toLocaleString("en-AU")}`;
+  return String(v);
+}
+
+/** Selects for the house rules. Unset rules show the default. */
+function rulesHtml(rules: HouseRules, disabled = false): string {
+  return (Object.keys(HOUSE_RULES) as HouseRuleKey[])
+    .map((k) => {
+      const r = HOUSE_RULES[k];
+      const cur = rules[k] ?? (DEFAULT_SETTINGS[k] as number);
+      return `<label class="field inline rule"><span>${r.label}</span><select data-rule="${k}" ${disabled ? "disabled" : ""}>${(r.values as readonly number[])
+        .map((v) => `<option value="${v}" ${v === cur ? "selected" : ""}>${ruleLabel(k, v)}${v === DEFAULT_SETTINGS[k] && ruleLabel(k, v) !== "Normal" ? " (normal)" : ""}</option>`)
+        .join("")}</select></label>`;
+    })
+    .join("");
+}
+
+function readRules(root: HTMLElement): HouseRules {
+  const out: HouseRules = {};
+  root.querySelectorAll<HTMLSelectElement>("select[data-rule]").forEach((sel) => (out[sel.dataset.rule as HouseRuleKey] = Number(sel.value)));
+  return out;
+}
 
 function go(hash: string) {
   if (location.hash === hash) route();
@@ -52,6 +89,7 @@ function menu() {
         <label class="field inline"><span>Round length</span>
           <select id="round">${[300, 600, 900, 1200].map((m) => `<option value="${m}" ${String(m) === minutes ? "selected" : ""}>${m / 60} minutes</option>`).join("")}</select>
         </label>
+        <details class="rules"><summary>House rules</summary><div class="rules-grid">${rulesHtml(loadRules())}</div></details>
         <button class="btn primary big" id="play">Play</button>
       </section>
 
@@ -77,6 +115,7 @@ function menu() {
     const chosen = [...el.querySelectorAll<HTMLInputElement>(".bot-opt input:checked")].map((i) => i.value);
     setStorage("bots", (chosen.length ? chosen : ["builder"]).join(","));
     setStorage("round", el.querySelector<HTMLSelectElement>("#round")!.value);
+    setStorage("rules", JSON.stringify(readRules(el.querySelector(".rules")!)));
     go("#/play");
   });
   const err = el.querySelector<HTMLElement>("#online-err")!;
@@ -86,6 +125,7 @@ function menu() {
       const r = await fetch("/api/rooms", { method: "POST" });
       if (!r.ok) throw new Error();
       const { code } = await r.json();
+      setStorage("rules", JSON.stringify(readRules(el.querySelector(".rules")!)));
       go(`#/room/${code}`);
     } catch {
       err.hidden = false;
@@ -116,7 +156,12 @@ function menu() {
 // ---------- single player ----------
 function playLocal() {
   const bots = storage("bots", "builder,raider").split(",").filter(Boolean) as BotStyle[];
-  const conn = new LocalGame({ name: storage("me-name", "") || "You", bots: bots.slice(0, 3), roundMinutes: Number(storage("round", "900")) || 900 });
+  const conn = new LocalGame({
+    name: storage("me-name", "") || "You",
+    bots: bots.slice(0, 3),
+    roundMinutes: Number(storage("round", "900")) || 900,
+    rules: loadRules()
+  });
   const screen = new GameScreen(conn, { onExit: () => go("#/") });
   app.append(screen.el);
   cleanup = () => {
@@ -179,6 +224,7 @@ function online(code: string) {
       <label class="field inline"><span>Round length</span>
         <select id="round" ${isHost ? "" : "disabled"} data-act-change="round">${[300, 600, 900, 1200].map((m) => `<option value="${m}" ${m === l.options.roundMinutes ? "selected" : ""}>${m / 60} minutes</option>`).join("")}</select>
       </label>
+      <details class="rules" ${isHost ? "" : "open"}><summary>House rules${isHost ? "" : " (set by the host)"}</summary><div class="rules-grid">${rulesHtml(l.options.rules, !isHost)}</div></details>
       ${message ? `<p class="error">${esc(message)}</p>` : ""}
       <div class="row">
         ${isHost ? `<button class="btn primary big" data-act="start" ${l.players.length < 2 ? "disabled" : ""}>Start game</button>` : `<p class="muted">Waiting for the host to start…</p>`}
@@ -222,9 +268,20 @@ function online(code: string) {
   wrap.addEventListener("change", (e) => {
     const t = e.target as HTMLSelectElement;
     if (t.id === "round") room.send({ t: "setOptions", options: { roundMinutes: Number(t.value) } });
+    if (t.dataset.rule && room.lobby) {
+      const rules = { ...room.lobby.options.rules, [t.dataset.rule]: Number(t.value) };
+      setStorage("rules", JSON.stringify(rules));
+      room.send({ t: "setOptions", options: { rules } });
+    }
   });
 
+  let rulesSent = false;
   const offLobby = room.onLobby((l) => {
+    if (!rulesSent && l.host === room.you && l.phase === "lobby" && Object.keys(l.options.rules).length === 0) {
+      rulesSent = true;
+      const saved = loadRules();
+      if (Object.keys(saved).length) room.send({ t: "setOptions", options: { rules: saved } });
+    }
     if (l.phase === "lobby") showLobby(l);
     else showGame();
   });

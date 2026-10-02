@@ -58,6 +58,7 @@ export interface Settings {
   winShare: number; // share of sections needed for an instant win
   maxLinesPerPlayer: number;
   maxTrainsPerLine: number;
+  botSkill: 1 | 2 | 3; // 1 easy, 2 normal, 3 hard
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -83,8 +84,32 @@ export const DEFAULT_SETTINGS: Settings = {
   dwellMinutes: 0.4,
   winShare: 0.6,
   maxLinesPerPlayer: 8,
-  maxTrainsPerLine: 12
+  maxTrainsPerLine: 12,
+  botSkill: 2
 };
+
+/** Rules players may change ("house rules"), with the values offered in the menus. */
+export const HOUSE_RULES = {
+  emptyToCapture: { label: "Empty trains to capture", values: [2, 3, 4, 5] },
+  winShare: { label: "Track needed to win", values: [0.5, 0.6, 0.75], format: "percent" },
+  startMoney: { label: "Starting money", values: [2000, 3000, 5000], format: "money" },
+  trackFee: { label: "Fee for using rival track", values: [0, 4, 10], format: "money" },
+  demandPerMinute: { label: "How busy Sydney is", values: [100, 140, 200], names: ["Quiet", "Normal", "Rush hour"] },
+  botSkill: { label: "Bot skill", values: [1, 2, 3], names: ["Easy", "Normal", "Hard"] }
+} as const;
+export type HouseRuleKey = keyof typeof HOUSE_RULES;
+export type HouseRules = Partial<Record<HouseRuleKey, number>>;
+
+/** Keep only allowed house-rule values. */
+export function cleanRules(r: unknown): Partial<Settings> {
+  const out: Record<string, number> = {};
+  if (!r || typeof r !== "object") return out;
+  for (const k of Object.keys(HOUSE_RULES) as HouseRuleKey[]) {
+    const v = (r as Record<string, unknown>)[k];
+    if (typeof v === "number" && (HOUSE_RULES[k].values as readonly number[]).includes(v)) out[k] = v;
+  }
+  return out as Partial<Settings>;
+}
 
 export interface Player {
   id: PlayerId;

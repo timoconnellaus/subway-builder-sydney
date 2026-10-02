@@ -78,4 +78,18 @@ describe("room", () => {
     room.message("c2", { t: "cmd", id: 1, cmd: { type: "open", section: "central~redfern" } });
     expect(late.last("error")).toBeTruthy();
   });
+
+  it("applies allowed house rules and ignores made-up ones", () => {
+    const room = new RoomCore("RULE");
+    const a = client(room, "c1");
+    room.message("c1", { t: "hello", name: "A", token: "a" });
+    room.message("c1", { t: "setOptions", options: { rules: { emptyToCapture: 2, startMoney: 999999, botSkill: 3 } } });
+    expect(a.last("lobby")!.lobby.options.rules).toEqual({ emptyToCapture: 2, botSkill: 3 });
+    room.message("c1", { t: "addBot", style: "raider" });
+    room.message("c1", { t: "start" });
+    const snap = a.last("snap") ?? (room.tick(0.25), a.last("snap"))!;
+    expect(snap.s.settings.emptyToCapture).toBe(2);
+    expect(snap.s.settings.startMoney).toBe(3000);
+    expect(snap.s.settings.botSkill).toBe(3);
+  });
 });

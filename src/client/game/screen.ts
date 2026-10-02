@@ -35,6 +35,7 @@ export class GameScreen {
   private flashTimer: ReturnType<typeof setTimeout> | null = null;
   private panelOpen = true;
   private renderQueued = false;
+  private incomeLog: { t: number; v: number }[] = [];
 
   constructor(private conn: GameConn, private hooks: GameScreenHooks) {
     this.el = h("div", { class: "game" });
@@ -91,6 +92,11 @@ export class GameScreen {
       this.focusHome();
     }
     this.handleEvents(s);
+    const me = s.players.find((p) => p.id === this.you);
+    if (me) {
+      this.incomeLog.push({ t: s.time, v: me.income });
+      while (this.incomeLog.length > 2 && s.time - this.incomeLog[0].t > 20) this.incomeLog.shift();
+    }
     this.queueRender();
   }
 
@@ -554,6 +560,13 @@ export class GameScreen {
     if (this.mode.kind !== "idle") this.updateHighlight();
   }
 
+  private incomeRate(): number {
+    const a = this.incomeLog[0];
+    const b = this.incomeLog[this.incomeLog.length - 1];
+    if (!a || !b || b.t - a.t < 2) return 0;
+    return (b.v - a.v) / (b.t - a.t);
+  }
+
   private renderHud(s: Snapshot, me: PlayerView | undefined) {
     const need = Math.ceil(s.totalSections * s.settings.winShare);
     const owned = me?.owned ?? 0;
@@ -564,7 +577,7 @@ export class GameScreen {
       <div class="hud-l">
         <button class="hud-btn" data-act="exit" title="Main menu" aria-label="Main menu"><img src="/sprites/logo-icon.webp" alt=""></button>
         ${me ? `<div class="pill you"><img src="/sprites/badge-${me.color}.webp" alt=""><span>${esc(me.name)}</span></div>` : `<div class="pill">Watching</div>`}
-        ${me ? `<div class="pill money ${me.money < 0 ? "neg" : ""}"><img src="/sprites/money.webp" alt="">${money(me.money)}</div>` : ""}
+        ${me ? `<div class="pill money ${me.money < 0 ? "neg" : ""}" title="Money, and fares coming in each minute"><img src="/sprites/money.webp" alt="">${money(me.money)}<span class="rate">+${money(this.incomeRate())}/min</span></div>` : ""}
       </div>
       <div class="pill goal" title="Own ${need} of ${s.totalSections} sections to win">
         <span class="lbl">Track</span>

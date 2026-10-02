@@ -114,7 +114,8 @@ function patchChildren(a: Node, b: Node) {
     }
     const xe = x as Element;
     const ye = y as Element;
-    for (const attr of Array.from(xe.attributes)) if (!ye.hasAttribute(attr.name)) xe.removeAttribute(attr.name);
+    // leave a <details> open or closed as the user left it
+    for (const attr of Array.from(xe.attributes)) if (!ye.hasAttribute(attr.name) && !(attr.name === "open" && xe.tagName === "DETAILS")) xe.removeAttribute(attr.name);
     for (const attr of Array.from(ye.attributes)) if (xe.getAttribute(attr.name) !== attr.value) xe.setAttribute(attr.name, attr.value);
     if (xe instanceof HTMLInputElement && ye instanceof HTMLInputElement && document.activeElement !== xe) xe.value = ye.value;
     patchChildren(x, y);
