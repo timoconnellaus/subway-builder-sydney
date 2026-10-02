@@ -43,8 +43,17 @@ export class GameRoom extends DurableObject<Env> {
 
   private async load(code: string): Promise<RoomCore> {
     if (this.core) return this.core;
-    const saved = await this.ctx.storage.get<string>("room");
-    this.core = saved ? RoomCore.restore(saved) : new RoomCore(code);
+    let saved: string | null = null;
+    try {
+      const n = (await this.ctx.storage.get<number>("chunks")) ?? 0;
+      if (n > 0) {
+        const parts = await this.ctx.storage.get<string>(Array.from({ length: n }, (_, i) => `room:${i}`));
+        saved = Array.from({ length: n }, (_, i) => parts.get(`room:${i}`) ?? "").join("");
+      }
+      this.core = saved ? RoomCore.restore(saved) : new RoomCore(code);
+    } catch {
+      this.core = new RoomCore(code); // corrupt save: start fresh rather than lock the room
+    }
     return this.core;
   }
 
@@ -117,11 +126,18 @@ export class GameRoom extends DurableObject<Env> {
     if (now - this.lastSave > SAVE_EVERY_MS) this.save();
   }
 
+  /** Save in 100 KB chunks so a big game never hits the per-value storage limit. */
   private save() {
     if (!this.core || !this.core.dirty) return;
     this.lastSave = Date.now();
     this.core.dirty = false;
-    this.ctx.storage.put("room", this.core.serialize()).catch(() => {
+    const json = this.core.serialize();
+    const CHUNK = 100_000;
+    const entries: Record<string, string | number> = {};
+    const n = Math.ceil(json.length / CHUNK);
+    for (let i = 0; i < n; i++) entries[`room:${i}`] = json.slice(i * CHUNK, (i + 1) * CHUNK);
+    entries.chunks = n;
+    this.ctx.storage.put(entries).catch(() => {
       if (this.core) this.core.dirty = true;
     });
   }
