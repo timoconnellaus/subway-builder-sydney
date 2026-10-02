@@ -163,7 +163,7 @@ export class Game {
       if (!owner) return fail(`${this.name(stations[i])} to ${this.name(stations[i + 1])} hasn't been opened yet.`);
       if (owner === id) ownsOne = true;
     }
-    if (!ownsOne) return fail("A line must use at least one section you own.");
+    if (!ownsOne) return fail("Start the line on your own track (at least one section must be yours), then it can run onto a rival's track.");
     return { ok: true };
   }
   name(st: StationId): string {

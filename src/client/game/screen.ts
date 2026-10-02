@@ -1171,7 +1171,7 @@ export class GameScreen {
       <h3>New line</h3>
       <div class="tip">${st.length ? "Tap the next station along opened track. Tap the last station again to remove it." : "Tap the first station. It must touch opened track."}</div>
       <div class="route">${st.map((x) => `<span class="stop">${esc(this.stationName(x))}</span>`).join('<span class="dash"></span>') || '<span class="muted">No stations yet</span>'}</div>
-      ${st.length >= 2 && !ownsOne ? `<p class="muted small">A line must use at least one section you own.</p>` : ""}
+      ${st.length >= 2 && !ownsOne ? `<p class="muted small">Start the line on your own track (at least one section must be yours), then it can run onto a rival's track.</p>` : ""}
       <div class="row">
         <button class="btn primary" data-act="create" ${st.length < 2 || !ownsOne || (me?.money ?? 0) < cost ? "disabled" : ""}>Create line · ${money(cost)}</button>
         <button class="btn" data-act="undo" ${st.length ? "" : "disabled"}>Undo</button>
