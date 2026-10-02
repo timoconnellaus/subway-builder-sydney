@@ -53,8 +53,8 @@ function ruleLabel(k: HouseRuleKey, v: number): string {
 }
 
 /** Selects for the house rules. Unset rules show the default. */
-function rulesHtml(rules: HouseRules, disabled = false): string {
-  return (Object.keys(HOUSE_RULES) as HouseRuleKey[])
+function rulesHtml(rules: HouseRules, disabled = false, only?: HouseRuleKey[]): string {
+  return (only ?? (Object.keys(HOUSE_RULES) as HouseRuleKey[]))
     .map((k) => {
       const r = HOUSE_RULES[k];
       const cur = rules[k] ?? (DEFAULT_SETTINGS[k] as number);
@@ -79,6 +79,14 @@ function achievementsHtml(): string {
 
 function mapOptions(current: string): string {
   return MAP_CHOICES.map((m) => `<option value="${m.id}" ${m.id === current ? "selected" : ""}>${esc(m.name)} (${esc(m.blurb)})</option>`).join("");
+}
+
+function recordWins(): number {
+  try {
+    return (JSON.parse(storage("record", "{}")) as { wins?: number }).wins ?? 0;
+  } catch {
+    return 0;
+  }
 }
 
 function recordLine(): string {
@@ -106,6 +114,9 @@ function go(hash: string) {
 // ---------- menu ----------
 function menu() {
   const name = storage("me-name", "");
+  // new players start against easy bots until they've won a game
+  const menuRules = loadRules();
+  menuRules.botSkill ??= recordWins() > 0 ? 2 : 1;
   const saved = savedLocalGame();
   const challenge = dailyChallenge(sydneyDate());
   const bots = storage("bots", "builder,raider").split(",").filter(Boolean) as BotStyle[];
@@ -121,7 +132,7 @@ function menu() {
       ${storage("tutorial-done") !== "1" ? `<div class="newbie"><span>New to Metro Empire?</span><button class="btn primary" id="tutorial-top">Learn to play (2 minutes)</button></div>` : ""}
       ${saved ? `<button class="btn primary big" id="continue">Continue your ${saved.opts.daily ? "daily challenge" : "game"}</button>` : ""}
       ${dailyHtml(challenge)}
-      <section class="menu-sec">
+      <section class="menu-sec bots-sec">
         <h2>Play against bots</h2>
         <div class="bots">
           ${(["builder", "raider", "banker"] as BotStyle[])
@@ -139,7 +150,8 @@ function menu() {
         <label class="field inline"><span>Round length</span>
           <select id="round">${[300, 600, 900, 1200].map((m) => `<option value="${m}" ${String(m) === minutes ? "selected" : ""}>${m / 60} minutes</option>`).join("")}</select>
         </label>
-        <details class="rules"><summary>House rules</summary><div class="rules-grid">${rulesHtml(loadRules())}</div></details>
+        ${rulesHtml(menuRules, false, ["botSkill"])}
+        <details class="rules"><summary>House rules</summary><div class="rules-grid">${rulesHtml(menuRules, false, (Object.keys(HOUSE_RULES) as HouseRuleKey[]).filter((k) => k !== "botSkill"))}</div></details>
         <button class="btn primary big" id="play">Play</button>
       </section>
 
@@ -186,7 +198,7 @@ function menu() {
     setStorage("bots", (chosen.length ? chosen : ["builder"]).join(","));
     setStorage("round", el.querySelector<HTMLSelectElement>("#round")!.value);
     setStorage("map", el.querySelector<HTMLSelectElement>("#map")!.value);
-    setStorage("rules", JSON.stringify(readRules(el.querySelector(".rules")!)));
+    setStorage("rules", JSON.stringify(readRules(el.querySelector(".bots-sec")!)));
     startFresh("menu");
   });
   const err = el.querySelector<HTMLElement>("#online-err")!;
@@ -196,7 +208,7 @@ function menu() {
       const r = await fetch("/api/rooms", { method: "POST" });
       if (!r.ok) throw new Error();
       const { code } = await r.json();
-      setStorage("rules", JSON.stringify(readRules(el.querySelector(".rules")!)));
+      setStorage("rules", JSON.stringify(readRules(el.querySelector(".bots-sec")!)));
       setStorage("map", el.querySelector<HTMLSelectElement>("#map")!.value);
       go(`#/room/${code}`);
     } catch {

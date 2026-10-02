@@ -603,7 +603,7 @@ export class MapView {
         this.eventMarks.set(ev.id, label);
       }
       const mins = Math.ceil(ev.start - snap.time);
-      label.text = snap.time < ev.start ? `${ev.emoji} in ${mins}` : snap.time < ev.end ? `${ev.emoji} now!` : `${ev.emoji} heading home`;
+      label.text = snap.time < ev.start ? `${ev.emoji} in ${mins} min` : snap.time < ev.end ? `${ev.emoji} now!` : `${ev.emoji} heading home`;
       label.scale.set(this.u);
       label.position.set(x, y - 26 * this.u);
     }

@@ -650,6 +650,7 @@ export class GameScreen {
   private toast(e: GameEvent, s: Snapshot) {
     let text = "";
     let cls = "";
+    let act = ""; // a section to open when the toast is tapped
     const color = "player" in e ? s.players.find((p) => p.id === e.player)?.color : undefined;
     switch (e.kind) {
       case "capture":
@@ -673,8 +674,9 @@ export class GameScreen {
       case "empty": {
         const need = s.settings.emptyToCapture;
         if (e.player === this.you) {
-          text = `Nobody boarded your train on ${this.secName(e.section)} (${e.run} of ${need})`;
+          text = `Nobody boarded your train on ${this.secName(e.section)} (${e.run} of ${need}). Tap to defend it.`;
           cls = "bad";
+          act = e.section;
           sound.play("warn");
         } else {
           const runsThere = s.lines.some((l) => l.owner === this.you && this.lineUses(l, e.section));
@@ -707,7 +709,7 @@ export class GameScreen {
     // one toast per section for empty-train updates: replace the older one
     const key = e.kind === "empty" ? `empty-${e.section}` : "";
     if (key) this.toasts.querySelector(`[data-key="${key}"]`)?.remove();
-    const t = h("div", { class: `toast ${cls}`, "data-key": key || undefined });
+    const t = h("div", { class: `toast ${cls}`, "data-key": key || undefined, "data-act": act ? "select-section" : undefined, "data-arg": act || undefined, role: act ? "button" : undefined });
     if (color) t.style.setProperty("--c", CSS_COLORS[color]);
     t.textContent = text;
     pushToast(this.toasts, t, maxToasts(), cls.includes("big") ? 5000 : 3200);
@@ -840,7 +842,7 @@ export class GameScreen {
         ${me ? `<div class="pill money ${me.money < 0 ? "neg" : ""}" title="Money, and fares coming in each minute"><img src="/sprites/money.webp" alt="">${money(me.money)}${this.incomeRate() >= 1 ? `<span class="rate">+${money(this.incomeRate())}/min</span>` : ""}</div>` : ""}
       </div>
       <div class="pill goal" title="Own ${need} of ${s.totalSections} sections to win">
-        <span class="lbl">${me ? "Track" : shown ? esc(shown.name) : "Track"}</span>
+        <span class="lbl">${me ? "Track to win" : shown ? esc(shown.name) : "Track"}</span>
         <span class="meter"><b style="width:${pct}%;background:${shown ? CSS_COLORS[shown.color] : "#888"}"></b></span>
         <span class="mono">${owned}/${need}</span>
       </div>
@@ -881,7 +883,7 @@ export class GameScreen {
     const ranked = s.players;
     patch(
       this.board,
-      `<div class="board-title">Companies</div>` +
+      `<div class="board-row board-title"><span></span><span>Companies</span><span title="Sections owned">Track</span><span title="Passengers carried">Riders</span></div>` +
         ranked
           .map(
             (p) =>
@@ -902,6 +904,11 @@ export class GameScreen {
     else if (this.sel?.kind === "line") body = this.lineHtml(s, this.sel.id, me);
     else body = this.homeHtml(s, me);
     return head + flash + `<div class="panel-body">${body}</div>`;
+  }
+
+  /** A line's name, or its two ends. */
+  private lineTitle(l: LineView): string {
+    return l.name || `${this.stationName(l.stations[0])} – ${this.stationName(l.stations[l.stations.length - 1])}`;
   }
 
   private stationName(id: StationId) {
@@ -1021,7 +1028,10 @@ export class GameScreen {
         ? `<div class="tip">To take it, win the passengers here: when nobody boards ${esc(owner?.name ?? "the owner")}'s train ${need} times in a row, it's yours. Charge less, and run enough trains with room for everyone.</div>`
         : `<div class="tip">Run one of your lines over this section, then undercut ${esc(owner?.name ?? "the owner")}'s fare to win their passengers. You'll pay them ${money(s.settings.trackFee)} each time your train uses it.</div>`;
     } else if (ss.owner === this.you && ss.emptyRun > 0) {
-      action = `<div class="tip bad">Nobody boarded ${ss.emptyRun === 1 ? "your last train" : `your last ${ss.emptyRun} trains`} here. At ${need} in a row you lose this track. Lower your fare or add trains, fast!</div>`;
+      const mine = users.filter((l) => l.owner === this.you);
+      action =
+        `<div class="tip bad">Nobody boarded ${ss.emptyRun === 1 ? "your last train" : `your last ${ss.emptyRun} trains`} here. At ${need} in a row you lose this track. Lower your fare or add trains, fast!</div>` +
+        mine.map((l) => `<button class="btn primary wide" data-act="select-line" data-arg="${l.id}">Defend with ${esc(this.lineTitle(l))}</button>`).join("");
     } else if (ss.owner === this.you && !users.some((l) => l.owner === this.you)) {
       action = `<div class="tip">You own this track but none of your trains run on it yet.</div><button class="btn primary wide" data-act="new-line" data-arg="${sec.a},${sec.b}">Run a line here · ${money(trainCost(s, 2))}</button>`;
     }
@@ -1072,7 +1082,7 @@ export class GameScreen {
     const route = l.stations.map((st) => `<button class="stop" data-act="select-station" data-arg="${st}">${esc(this.stationName(st))}</button>`).join('<span class="dash"></span>');
     const stats = `
       <div class="stats">
-        <div><span class="v mono">${isFinite(l.headway) ? `${l.headway.toFixed(1)} min` : "–"}</span><span class="k">train every</span></div>
+        <div><span class="v mono">${isFinite(l.headway) ? `${l.headway.toFixed(1)} min` : "–"}</span><span class="k">between trains</span></div>
         <div><span class="v mono">${lf}%</span><span class="k">seats full</span></div>
         <div><span class="v mono">${l.cars * S.carSeats}</span><span class="k">seats/train</span></div>
       </div>
@@ -1090,8 +1100,7 @@ export class GameScreen {
     const last = l.stations[l.stations.length - 1];
     return `
       <button class="back" data-act="back">← Back</button>
-      <div class="owner-line"><img class="badge" src="/sprites/badge-${owner.color}.webp" alt=""><h3>${l.name ? esc(l.name) : "Your line"}</h3></div>
-      <div class="rename"><input id="line-name" data-line="${l.id}" maxlength="24" placeholder="Give it a name" value="${esc(l.name ?? "")}" aria-label="Line name"><button class="btn" data-act="rename" data-arg="${l.id}">Save name</button></div>
+      <div class="owner-line"><img class="badge" src="/sprites/badge-${owner.color}.webp" alt=""><h3>${esc(this.lineTitle(l))}</h3></div>
       <div class="route">${route}</div>
       ${stats}
       <div class="ctrl">
@@ -1107,21 +1116,22 @@ export class GameScreen {
         <button class="step" data-act="trains" data-arg="${l.id}" data-d="1" ${l.trains >= S.maxTrainsPerLine || (me?.money ?? 0) < tc ? "disabled" : ""} aria-label="More trains">+</button>
       </div>
       <div class="ctrl">
-        <span class="ctrl-k">Cars per train <small>${money(S.carCost * l.trains)} per car</small></span>
+        <span class="ctrl-k">Cars per train <small>+1 car: ${money(S.carCost * l.trains)}${l.trains > 1 ? ` (all ${l.trains} trains)` : ""}</small></span>
         <button class="step" data-act="cars" data-arg="${l.id}" data-d="-1" ${l.cars <= 1 ? "disabled" : ""} aria-label="Shorter trains">−</button>
         <span class="ctrl-v mono">${l.cars}</span>
         <button class="step" data-act="cars" data-arg="${l.id}" data-d="1" ${l.cars >= 8 || (me?.money ?? 0) < S.carCost * l.trains ? "disabled" : ""} aria-label="Longer trains">+</button>
       </div>
       <div class="ctrl">
-        <span class="ctrl-k">Speed <small>${money(S.speedCost * l.trains)} per step</small></span>
+        <span class="ctrl-k">Speed <small>${money(S.speedCost * l.trains)} a level${l.trains > 1 ? ` (all ${l.trains} trains)` : ""}</small></span>
         <div class="seg">${[1, 2, 3].map((x) => `<button data-act="speed" data-arg="${l.id}" data-d="${x}" class="${l.speed === x ? "on" : ""}" ${x < l.speed ? "disabled" : ""}>${x === 1 ? "Normal" : x === 2 ? "Fast" : "Metro"}</button>`).join("")}</div>
       </div>
-      <p class="muted small">Running cost: ${money(S.carCostPerMinute * l.cars * l.trains * 60)} per hour of game time.</p>
+      <p class="muted small">Running cost: ${fare(S.carCostPerMinute * l.cars * l.trains)}/min for ${l.trains} ${l.trains === 1 ? "train" : "trains"} of ${l.cars} ${l.cars === 1 ? "car" : "cars"}.</p>
       <div class="row">
         <button class="btn" data-act="extend" data-arg="${l.id}" data-d="start">Extend from ${esc(this.stationName(first))}</button>
         <button class="btn" data-act="extend" data-arg="${l.id}" data-d="end">Extend from ${esc(this.stationName(last))}</button>
       </div>
       ${l.stations.length > 2 ? `<div class="row small-row"><button class="link" data-act="trim" data-arg="${l.id}" data-d="start">Drop ${esc(this.stationName(first))}</button><button class="link" data-act="trim" data-arg="${l.id}" data-d="end">Drop ${esc(this.stationName(last))}</button></div>` : ""}
+      <div class="rename"><input id="line-name" data-line="${l.id}" maxlength="24" placeholder="Give it a name" value="${esc(l.name ?? "")}" aria-label="Line name"><button class="btn" data-act="rename" data-arg="${l.id}">Save name</button></div>
       <button class="btn danger wide" data-act="delete" data-arg="${l.id}">${this.confirmDelete === l.id ? "Tap again to close this line" : "Close this line"}</button>`;
   }
 
