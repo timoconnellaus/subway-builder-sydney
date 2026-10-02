@@ -1,7 +1,7 @@
 import { MAPS, type Snapshot, type StationId, type LineView, type PlayerView, type SectionId } from "../../sim";
 import type { GameEvent } from "../../sim/types";
 import type { GameConn } from "../conn";
-import { COLORS, CSS_COLORS, esc, fare, h, money, patch, remaining } from "../util";
+import { COLORS, CSS_COLORS, esc, fare, h, money, patch, remaining, setStorage, storage } from "../util";
 import { EMOTES } from "../../shared/protocol";
 import { MapView, type Pick } from "./map";
 import { sound } from "../sound";
@@ -80,7 +80,29 @@ export class GameScreen {
     this.focused = true;
     const me = this.snap.players.find((p) => p.id === this.you);
     if (me) this.map.focus(me.hub, 1.7);
+    if (me && storage("seen-intro") !== "1") this.showIntro(me);
   }
+
+  private showIntro(me: PlayerView) {
+    const wasPaused = !!this.conn.paused;
+    if (this.conn.local) this.conn.setPaused?.(true);
+    const hub = this.map.net.station[me.hub]?.name ?? me.hub;
+    this.overlay.hidden = false;
+    this.overlay.innerHTML = `
+      <div class="card intro">
+        <img class="end-badge" src="/sprites/badge-${me.color}.webp" alt="">
+        <h2>Welcome to Metro Empire</h2>
+        <p>You run a train company starting at <b>${esc(hub)}</b>. Three steps to get going:</p>
+        <ol class="how">
+          <li><b>Open track.</b> Tap a pulsing section next to ${esc(hub)} and press <b>Open</b>.</li>
+          <li><b>Run a line.</b> Press <b>New line</b> and tap stations along your track. Passengers start riding.</li>
+          <li><b>Steal track.</b> Run your trains onto a rival's line, charge less and add trains. When nobody boards their train ${this.snap?.settings.emptyToCapture ?? 3} times in a row, it's yours.</li>
+        </ol>
+        <div class="row"><button class="btn primary big" data-act="intro-done">Let's go</button></div>
+      </div>`;
+    this.introPaused = !wasPaused;
+  }
+  private introPaused = false;
 
   private layoutInsets() {
     const narrow = window.innerWidth <= 760;
@@ -438,6 +460,12 @@ export class GameScreen {
         case "close-overlay":
           this.overlay.hidden = true;
           break;
+        case "intro-done":
+          this.overlay.hidden = true;
+          setStorage("seen-intro", "1");
+          if (this.conn.local && this.introPaused) this.conn.setPaused?.(false);
+          this.render();
+          break;
       }
     };
     this.el.addEventListener("click", handler);
@@ -609,7 +637,7 @@ export class GameScreen {
       <div class="hud-l">
         <button class="hud-btn" data-act="exit" title="Main menu" aria-label="Main menu"><img src="/sprites/logo-icon.webp" alt=""></button>
         ${me ? `<div class="pill you"><img src="/sprites/badge-${me.color}.webp" alt=""><span>${esc(me.name)}</span></div>` : `<div class="pill">Watching</div>`}
-        ${me ? `<div class="pill money ${me.money < 0 ? "neg" : ""}" title="Money, and fares coming in each minute"><img src="/sprites/money.webp" alt="">${money(me.money)}<span class="rate">+${money(this.incomeRate())}/min</span></div>` : ""}
+        ${me ? `<div class="pill money ${me.money < 0 ? "neg" : ""}" title="Money, and fares coming in each minute"><img src="/sprites/money.webp" alt="">${money(me.money)}${this.incomeRate() >= 1 ? `<span class="rate">+${money(this.incomeRate())}/min</span>` : ""}</div>` : ""}
       </div>
       <div class="pill goal" title="Own ${need} of ${s.totalSections} sections to win">
         <span class="lbl">Track</span>

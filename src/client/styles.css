@@ -199,6 +199,8 @@ details.rules summary { font-family: var(--display); font-weight: 800; cursor: p
 .card h2 { font-size: 30px; font-weight: 900; }
 .card p { margin: 0; }
 .end { justify-items: center; text-align: center; }
+.intro { justify-items: center; }
+.intro .how { justify-self: stretch; }
 .end-badge { width: 96px; height: 96px; }
 .ranks { width: 100%; border-collapse: collapse; font-size: 15px; }
 .ranks th, .ranks td { padding: 6px 4px; border-bottom: 1px solid var(--rule); text-align: left; }

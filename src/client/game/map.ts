@@ -402,7 +402,7 @@ export class MapView {
       if (!sec) continue;
       const [ax, ay] = this.pos[sec.a];
       const [bx, by] = this.pos[sec.b];
-      const a = 0.35 + 0.35 * Math.sin(t / 220);
+      const a = 0.5 + 0.3 * Math.sin(t / 220);
       g.moveTo(ax, ay).lineTo(bx, by).stroke({ width: 14 * this.u, color: this.highlightColor || 0x1e2430, alpha: a, cap: "round" });
     }
     for (const c of this.candidates) {
