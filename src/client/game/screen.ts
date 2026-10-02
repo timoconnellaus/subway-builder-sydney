@@ -985,6 +985,21 @@ export class GameScreen {
     return `<p class="good small">Your trains come every ${best.headway.toFixed(1)} min, inside the ${patience.toFixed(1)} min riders will wait. Keep it up and the section should flip.</p>`;
   }
 
+  /** What the attacker is doing better on your track. */
+  private defendCheck(users: LineView[], mine: LineView[]): string {
+    const theirs = users.filter((l) => l.owner !== this.you);
+    if (!mine.length) return `<p class="bad small">You run no trains here, so every rider goes to them. Run a line over this section.</p>`;
+    if (!theirs.length) return "";
+    const theirFare = Math.min(...theirs.map((l) => l.fare));
+    const myFare = Math.min(...mine.map((l) => l.fare));
+    const theirHeadway = Math.min(...theirs.map((l) => l.headway));
+    const myHeadway = Math.min(...mine.map((l) => l.headway));
+    const tips: string[] = [];
+    if (theirFare < myFare) tips.push(`they charge ${fare(theirFare)} and you charge ${fare(myFare)}`);
+    if (theirHeadway < myHeadway) tips.push(`their trains come every ${theirHeadway.toFixed(1)} min, yours every ${isFinite(myHeadway) ? myHeadway.toFixed(1) : "–"}`);
+    return tips.length ? `<p class="bad small">Why you're losing riders: ${tips.join(", and ")}. Match their fare and add trains.</p>` : "";
+  }
+
   private speedSeg(cls: string): string {
     return `<div class="${cls}">${[1, 2, 3].map((x) => `<button data-act="speedx" data-arg="${x}" class="${this.conn.speed === x ? "on" : ""}">${x}×</button>`).join("")}</div>`;
   }
@@ -1141,6 +1156,7 @@ export class GameScreen {
       const mine = users.filter((l) => l.owner === this.you);
       action =
         `<div class="tip bad">Nobody boarded ${ss.emptyRun === 1 ? "your last train" : `your last ${ss.emptyRun} trains`} here. At ${need} in a row you lose this track. Lower your fare or add trains, fast!</div>` +
+        this.defendCheck(users, mine) +
         mine.map((l) => this.pushButton(l, "Defend")).join("");
     } else if (ss.owner === this.you && !users.some((l) => l.owner === this.you)) {
       action = `<div class="tip">You own this track but none of your trains run on it yet.</div><button class="btn primary wide" data-act="new-line" data-arg="${sec.a},${sec.b}">Run a line here · ${money(trainCost(s, 2))}</button>`;
