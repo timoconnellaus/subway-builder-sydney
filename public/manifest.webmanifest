@@ -1,7 +1,7 @@
 {
   "name": "Metro Empire",
   "short_name": "Metro Empire",
-  "description": "Own Sydney's rail network, one section at a time.",
+  "description": "Own a city's rail network, one section at a time: Sydney, Melbourne, London, New York, Tokyo and more.",
   "start_url": "/",
   "display": "standalone",
   "orientation": "any",
