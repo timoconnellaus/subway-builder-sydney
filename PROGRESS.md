@@ -73,3 +73,6 @@ Overnight build, started 2026-10-02 20:30 AEST.
   online end card, hosting messages debounced across quick reconnects. A correctness review
   caught single-player player order changing with the shared startRound (would have changed
   seeded dailies) — fixed and pinned by a test.
+- Final polish: tappable event toasts, selections scroll into view, "While you were away" on
+  rejoin, "Loading the map…", reactions pinned to the panel foot, one extendOptions() for bots and
+  panel. Final correctness review clean; deploy dry run passes (worker 213 KB, ROOMS + BOARDS).
