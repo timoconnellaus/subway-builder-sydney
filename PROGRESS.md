@@ -55,3 +55,10 @@ Overnight build, started 2026-10-02 20:30 AEST.
 - Fun-focused playtest: comeback rule (a line may start at your hub), capture confetti,
   close-race alerts, one-tap Undercut/Defend, World Tour stars (win / own the share / under 7:00),
   daily intro card, faster tutorial wait, phone speed buttons.
+- Online family playtest (laptop + iPad portrait): bots join the tapped seat, skill next to the bot
+  buttons, guests see "waiting" first, names sync as typed, bigger maps default to 10 minutes,
+  edits allowed while paused (and shown), "paused by", host-handover toast, away markers, capture
+  toasts above the sheet. The sim no longer sends a "3 of 3" warning for the run that captures.
+- New-player iPad playtest: first tour city has one Easy bot, rival-near-win warning and a rival
+  tick on the goal bar, Defend offered whenever a rival runs on your track, Extend at the top of
+  the line panel, the map pans so selections aren't under the sheet, tappable money nudge.
