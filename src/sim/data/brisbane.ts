@@ -11,7 +11,7 @@ export const BRISBANE: MapDef = {
   bounds: { lon0: 152.72, lon1: 153.33, lat0: -27.19, lat1: -27.75 },
   hubs: ["central", "airport", "ipswich", "beenleigh"],
   // extra starting money for hubs with fewer passengers nearby
-  hubBonus: { central: 0, airport: 1500, ipswich: 900, beenleigh: 1200 },
+  hubBonus: { central: 0, airport: 1500, ipswich: 1800, beenleigh: 900 },
   events: [
     { station: "milton", title: "Broncos at Suncorp Stadium", emoji: "🏉" },
     { station: "woolloongabba", title: "Lions at the Gabba", emoji: "🏉" },
