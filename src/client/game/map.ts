@@ -12,6 +12,8 @@ const PAPER = 0xfbfaf7;
 const LABEL_PX = 12; // station name font size
 const MIN_LABEL_PX = 11; // smallest a label may appear on screen
 
+const COARSE = matchMedia("(pointer: coarse)");
+
 export type Pick = { kind: "station"; id: StationId } | { kind: "section"; id: SectionId } | null;
 
 interface TrainSprite {
@@ -369,11 +371,12 @@ export class MapView {
         bestSec = sec.id;
       }
     }
-    // a direct hit on a station wins; otherwise the nearer of station or track
-    if (best && bestD <= 9) return { kind: "station", id: best };
-    if (bestSec && bestSD <= 14 && bestSD < bestD) return { kind: "section", id: bestSec };
-    if (best && bestD <= 22) return { kind: "station", id: best };
-    if (bestSec && bestSD <= 14) return { kind: "section", id: bestSec };
+    // a direct hit on a station wins; otherwise the nearer of station or track (fingers get more room)
+    const f = COARSE.matches ? 1.4 : 1;
+    if (best && bestD <= 9 * f) return { kind: "station", id: best };
+    if (bestSec && bestSD <= 14 * f && bestSD < bestD) return { kind: "section", id: bestSec };
+    if (best && bestD <= 22 * f) return { kind: "station", id: best };
+    if (bestSec && bestSD <= 14 * f) return { kind: "section", id: bestSec };
     return null;
   }
 
