@@ -1110,6 +1110,7 @@ export class GameScreen {
       ${mine.length ? `<div class="lines">${mine.map((l) => this.lineRow(s, l)).join("")}</div>` : ""}
       <button class="btn primary wide" data-act="new-line" ${mine.length >= s.settings.maxLinesPerPlayer ? "disabled" : ""}>New line · ${money(trainCost(s, 2))}</button>
       <p class="muted small">${matchMedia("(pointer: coarse)").matches ? "Drag to move the map, pinch to zoom." : "Drag to move the map, scroll to zoom."} Tap a station or a section for details.</p>
+      ${this.conn.local ? `<div class="row small-row phone-only"><span class="muted small">Speed</span><div class="seg">${[1, 2, 3].map((x) => `<button data-act="speedx" data-arg="${x}" class="${this.conn.speed === x ? "on" : ""}">${x}×</button>`).join("")}</div></div>` : ""}
       <div class="row small-row phone-only"><button class="link" data-act="mute">${sound.muted ? "🔇 Sound off" : "🔊 Sound on"}</button><button class="link" data-act="music">${sound.musicOn ? "🎵 Music on" : "🎵 Music off"}</button></div>
       ${this.conn.emote ? `<div class="emotes" aria-label="Send a reaction">${EMOTES.map((e) => `<button data-act="emote" data-arg="${e}" aria-label="Send ${e}">${e}</button>`).join("")}</div>` : ""}`;
   }
