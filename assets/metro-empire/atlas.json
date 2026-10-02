@@ -1,0 +1,339 @@
+{
+  "format": "pixel rectangles, top-left origin; frames include transparent padding",
+  "spriteCount": 37,
+  "frames": {
+    "logo-full": {
+      "sheet": "logos.png",
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "w": 1774,
+        "h": 444
+      }
+    },
+    "logo-icon": {
+      "sheet": "logos.png",
+      "frame": {
+        "x": 665,
+        "y": 444,
+        "w": 443,
+        "h": 443
+      }
+    },
+    "badge-red": {
+      "sheet": "badges.png",
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "w": 627,
+        "h": 627
+      }
+    },
+    "badge-blue": {
+      "sheet": "badges.png",
+      "frame": {
+        "x": 627,
+        "y": 0,
+        "w": 627,
+        "h": 627
+      }
+    },
+    "badge-green": {
+      "sheet": "badges.png",
+      "frame": {
+        "x": 0,
+        "y": 627,
+        "w": 627,
+        "h": 627
+      }
+    },
+    "badge-gold": {
+      "sheet": "badges.png",
+      "frame": {
+        "x": 627,
+        "y": 627,
+        "w": 627,
+        "h": 627
+      }
+    },
+    "city": {
+      "sheet": "icons.png",
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "w": 314,
+        "h": 314
+      }
+    },
+    "parramatta": {
+      "sheet": "icons.png",
+      "frame": {
+        "x": 314,
+        "y": 0,
+        "w": 313,
+        "h": 314
+      }
+    },
+    "airport": {
+      "sheet": "icons.png",
+      "frame": {
+        "x": 627,
+        "y": 0,
+        "w": 313,
+        "h": 314
+      }
+    },
+    "macquarie-park": {
+      "sheet": "icons.png",
+      "frame": {
+        "x": 940,
+        "y": 0,
+        "w": 314,
+        "h": 314
+      }
+    },
+    "liverpool": {
+      "sheet": "icons.png",
+      "frame": {
+        "x": 0,
+        "y": 314,
+        "w": 314,
+        "h": 313
+      }
+    },
+    "station": {
+      "sheet": "icons.png",
+      "frame": {
+        "x": 314,
+        "y": 314,
+        "w": 313,
+        "h": 313
+      }
+    },
+    "interchange-station": {
+      "sheet": "icons.png",
+      "frame": {
+        "x": 627,
+        "y": 314,
+        "w": 313,
+        "h": 313
+      }
+    },
+    "harbour-crossing": {
+      "sheet": "icons.png",
+      "frame": {
+        "x": 940,
+        "y": 314,
+        "w": 314,
+        "h": 313
+      }
+    },
+    "stadium-event": {
+      "sheet": "icons.png",
+      "frame": {
+        "x": 0,
+        "y": 627,
+        "w": 314,
+        "h": 313
+      }
+    },
+    "money": {
+      "sheet": "icons.png",
+      "frame": {
+        "x": 314,
+        "y": 627,
+        "w": 313,
+        "h": 313
+      }
+    },
+    "strike": {
+      "sheet": "icons.png",
+      "frame": {
+        "x": 627,
+        "y": 627,
+        "w": 313,
+        "h": 313
+      }
+    },
+    "track-works": {
+      "sheet": "icons.png",
+      "frame": {
+        "x": 940,
+        "y": 627,
+        "w": 314,
+        "h": 313
+      }
+    },
+    "capture-timer": {
+      "sheet": "icons.png",
+      "frame": {
+        "x": 0,
+        "y": 940,
+        "w": 314,
+        "h": 314
+      }
+    },
+    "toll": {
+      "sheet": "icons.png",
+      "frame": {
+        "x": 314,
+        "y": 940,
+        "w": 313,
+        "h": 314
+      }
+    },
+    "pause": {
+      "sheet": "icons.png",
+      "frame": {
+        "x": 627,
+        "y": 940,
+        "w": 313,
+        "h": 314
+      }
+    },
+    "play": {
+      "sheet": "icons.png",
+      "frame": {
+        "x": 940,
+        "y": 940,
+        "w": 314,
+        "h": 314
+      }
+    },
+    "train-suburban-neutral": {
+      "sheet": "trains.png",
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "w": 680,
+        "h": 205
+      }
+    },
+    "train-metro-neutral": {
+      "sheet": "trains.png",
+      "frame": {
+        "x": 680,
+        "y": 0,
+        "w": 500,
+        "h": 205
+      }
+    },
+    "train-tram-neutral": {
+      "sheet": "trains.png",
+      "frame": {
+        "x": 1180,
+        "y": 0,
+        "w": 356,
+        "h": 205
+      }
+    },
+    "train-suburban-red": {
+      "sheet": "trains.png",
+      "frame": {
+        "x": 0,
+        "y": 205,
+        "w": 680,
+        "h": 205
+      }
+    },
+    "train-metro-red": {
+      "sheet": "trains.png",
+      "frame": {
+        "x": 680,
+        "y": 205,
+        "w": 500,
+        "h": 205
+      }
+    },
+    "train-tram-red": {
+      "sheet": "trains.png",
+      "frame": {
+        "x": 1180,
+        "y": 205,
+        "w": 356,
+        "h": 205
+      }
+    },
+    "train-suburban-blue": {
+      "sheet": "trains.png",
+      "frame": {
+        "x": 0,
+        "y": 410,
+        "w": 680,
+        "h": 204
+      }
+    },
+    "train-metro-blue": {
+      "sheet": "trains.png",
+      "frame": {
+        "x": 680,
+        "y": 410,
+        "w": 500,
+        "h": 204
+      }
+    },
+    "train-tram-blue": {
+      "sheet": "trains.png",
+      "frame": {
+        "x": 1180,
+        "y": 410,
+        "w": 356,
+        "h": 204
+      }
+    },
+    "train-suburban-green": {
+      "sheet": "trains.png",
+      "frame": {
+        "x": 0,
+        "y": 614,
+        "w": 680,
+        "h": 205
+      }
+    },
+    "train-metro-green": {
+      "sheet": "trains.png",
+      "frame": {
+        "x": 680,
+        "y": 614,
+        "w": 500,
+        "h": 205
+      }
+    },
+    "train-tram-green": {
+      "sheet": "trains.png",
+      "frame": {
+        "x": 1180,
+        "y": 614,
+        "w": 356,
+        "h": 205
+      }
+    },
+    "train-suburban-gold": {
+      "sheet": "trains.png",
+      "frame": {
+        "x": 0,
+        "y": 819,
+        "w": 680,
+        "h": 205
+      }
+    },
+    "train-metro-gold": {
+      "sheet": "trains.png",
+      "frame": {
+        "x": 680,
+        "y": 819,
+        "w": 500,
+        "h": 205
+      }
+    },
+    "train-tram-gold": {
+      "sheet": "trains.png",
+      "frame": {
+        "x": 1180,
+        "y": 819,
+        "w": 356,
+        "h": 205
+      }
+    }
+  }
+}
