@@ -9,7 +9,7 @@ export const SYDNEY: MapDef = {
   bounds: { lon0: 150.66, lon1: 151.34, lat0: -33.655, lat1: -34.085 },
   hubs: ["central", "parramatta", "airport", "liverpool"],
   // extra starting money for hubs with fewer passengers nearby
-  hubBonus: { central: 0, parramatta: 300, airport: 2000, liverpool: 1500 },
+  hubBonus: { central: 400, parramatta: 0, airport: 2000, liverpool: 1500 },
   events: [
     { station: "randwick", title: "Swans at the SCG", emoji: "🏉" },
     { station: "randwick", title: "Cricket at the SCG", emoji: "🏏" },
