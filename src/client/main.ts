@@ -9,7 +9,7 @@ import { ACHIEVEMENTS, unlocked } from "./achievements";
 import { boardHtml, fetchBoard, localBest, today, todaysChallenge } from "./daily";
 import { dailyLabel } from "../shared/daily";
 import { GameScreen, HELP_HTML } from "./game/screen";
-import { COLOR_NAMES, CSS_COLORS, esc, patch, setStorage, storage, token } from "./util";
+import { COLOR_NAMES, colorBlind, CSS_COLORS, esc, patch, setStorage, storage, token } from "./util";
 
 const app = document.getElementById("app")!;
 let cleanup: (() => void) | null = null;
@@ -158,6 +158,7 @@ function menu() {
 
       ${storage("last-room") ? `<button class="btn" id="rejoin">Rejoin room ${esc(storage("last-room"))}</button>` : ""}
       ${achievementsHtml()}
+      <label class="cb-opt"><input type="checkbox" id="cb" ${colorBlind() ? "checked" : ""}> Colour-blind friendly colours</label>
       <div class="row center"><button class="btn" id="tutorial">Learn to play (2 minutes)</button><button class="btn" id="watch">Watch the bots</button><button class="link" id="how">How to play</button></div>
     </div>`;
   app.append(el);
@@ -230,6 +231,10 @@ function menu() {
   };
   el.querySelector("#tutorial")!.addEventListener("click", startTutorial);
   el.querySelector("#watch")!.addEventListener("click", () => go("#/watch"));
+  el.querySelector<HTMLInputElement>("#cb")!.addEventListener("change", (e) => {
+    setStorage("color-blind", (e.target as HTMLInputElement).checked ? "1" : "");
+    location.reload(); // colours are read once at start-up
+  });
   el.querySelector("#tutorial-top")?.addEventListener("click", startTutorial);
   el.querySelector("#how")!.addEventListener("click", () => {
     const ov = document.createElement("div");

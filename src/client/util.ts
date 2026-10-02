@@ -18,6 +18,29 @@ export const CSS_COLORS: Record<Color, string> = {
   gold: "#f4a300",
   green: "#2ba84a"
 };
+// Colour-blind friendly palette (Okabe–Ito): swaps green for pink and spreads the rest apart.
+const CB: Record<Color, [number, number]> = {
+  red: [0xd55e00, 0xf3c9a8],
+  blue: [0x0072b2, 0xb3d4ea],
+  gold: [0xe8c700, 0xf7eda6],
+  green: [0xcc79a7, 0xf0d2e3]
+};
+export function colorBlind(): boolean {
+  try {
+    return localStorage.getItem("color-blind") === "1";
+  } catch {
+    return false;
+  }
+}
+if (colorBlind()) {
+  for (const c of Object.keys(CB) as Color[]) {
+    COLORS[c] = CB[c][0];
+    SOFT[c] = CB[c][1];
+    CSS_COLORS[c] = `#${CB[c][0].toString(16).padStart(6, "0")}`;
+  }
+  if (typeof document !== "undefined") for (const c of Object.keys(CB) as Color[]) document.documentElement.style.setProperty(`--${c}`, CSS_COLORS[c]);
+}
+
 export const COLOR_NAMES: Record<Color, string> = { red: "Red", blue: "Blue", gold: "Gold", green: "Green" };
 
 export function h<K extends keyof HTMLElementTagNameMap>(
