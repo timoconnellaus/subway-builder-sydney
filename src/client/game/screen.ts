@@ -1017,6 +1017,8 @@ export class GameScreen {
     const owned = me.owned;
     let tip = "";
     if (me.money < 0) tip = `<b>You're spending more than you earn.</b> Take trains off quiet lines (look for low "seats full"), shorten long trains, or raise fares where nobody competes with you.`;
+    else if (owned === 0 && !this.map.net.adj[me.hub].some((e) => !s.sections[e.section].owner))
+      tip = `Rivals own all the track around <b>${esc(this.stationName(me.hub))}</b>. Fight back: press <b>New line</b>, start at ${esc(this.stationName(me.hub))} and run onto their track with a cheaper fare.`;
     else if (owned === 0) tip = `Tap a <b>dotted section</b> next to your hub, <b>${esc(this.stationName(me.hub))}</b>, then press <b>Open</b>.`;
     else if (!mine.length) tip = `Now press <b>New line</b> and tap the stations along your track to start running trains.`;
     else if (s.time < 120) tip = `Open more track and extend your lines. Busy lines need more trains.`;
@@ -1230,12 +1232,12 @@ export class GameScreen {
     if (this.mode.kind !== "build") return "";
     const st = this.mode.stations;
     const cost = trainCost(s, 2);
-    const ownsOne = st.some((x, i) => i < st.length - 1 && s.sections[this.map.sectionBetween(x, st[i + 1])!.id]?.owner === this.you);
+    const ownsOne = (!!me && st.includes(me.hub)) || st.some((x, i) => i < st.length - 1 && s.sections[this.map.sectionBetween(x, st[i + 1])!.id]?.owner === this.you);
     return `
       <h3>New line</h3>
       <div class="tip">${st.length ? "Tap the next station along opened track. Tap the last station again to remove it." : "Tap the first station. It must touch opened track."}</div>
       <div class="route">${st.map((x) => `<span class="stop">${esc(this.stationName(x))}</span>`).join('<span class="dash"></span>') || '<span class="muted">No stations yet</span>'}</div>
-      ${st.length >= 2 && !ownsOne ? `<p class="muted small">Start the line on your own track (at least one section must be yours), then it can run onto a rival's track.</p>` : ""}
+      ${st.length >= 2 && !ownsOne ? `<p class="muted small">Start the line on your own track or at your hub, then it can run onto a rival's track.</p>` : ""}
       <div class="row">
         <button class="btn primary" data-act="create" ${st.length < 2 || !ownsOne || (me?.money ?? 0) < cost ? "disabled" : ""}>Create line · ${money(cost)}</button>
         <button class="btn" data-act="undo" ${st.length ? "" : "disabled"}>Undo</button>
@@ -1311,7 +1313,7 @@ export const HELP_HTML = `
     <li><b>Fight.</b> You can run trains on a rival's track (you pay them a small fee). Passengers wait for a cheaper train if it's coming soon and has room: <b>1 minute for every 50 cents</b> they save.</li>
     <li><b>Capture.</b> When nobody boards the owner's train on a section 3 times in a row (because they all took yours), the section is yours.</li>
     <li><b>Win.</b> Own 60% of the network, or own the most track when time runs out.</li>
-    <li><b>Home hubs.</b> Only you can open the track touching your hub, so nobody can box you in at the start.</li>
+    <li><b>Home hubs.</b> Only you can open the track touching your hub, and you can always start a line there, even if rivals have taken all your track.</li>
   </ol>
   <p class="muted small">Passengers pick routes by fare plus time (50 cents a minute), and changing trains costs them 4 minutes.</p>
   <p class="muted small">Keys: <b>N</b> new line · <b>Space</b> pause · <b>1 2 3</b> speed · <b>+ −</b> zoom · arrows move · <b>H</b> home · <b>Esc</b> cancel</p>`;

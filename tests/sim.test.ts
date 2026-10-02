@@ -327,3 +327,22 @@ describe("easy bots", () => {
     expect(tuning("raider", 2)).toMatchObject({ fareFloor: 0, retake: true });
   });
 });
+
+describe("comeback", () => {
+  it("a company with no track can still run a line from its hub onto rival track", () => {
+    const s = Session.create(
+      MAPS.sydney,
+      [
+        { id: "A", name: "A", color: "red", hub: "central" },
+        { id: "B", name: "B", color: "blue", hub: "parramatta" }
+      ],
+      { events: 0 }
+    );
+    s.state.sections["central~redfern"].owner = "B";
+    s.state.sections["ashfield~redfern"].owner = "B";
+    s.state.netVersion++;
+    expect(s.command("A", { type: "createLine", stations: ["central", "redfern", "ashfield"] }).ok).toBe(true);
+    // but not somewhere else entirely on rival track
+    expect(s.command("A", { type: "createLine", stations: ["redfern", "ashfield"] }).ok).toBe(false);
+  });
+});

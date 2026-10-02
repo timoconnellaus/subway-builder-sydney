@@ -163,7 +163,10 @@ export class Game {
       if (!owner) return fail(`${this.name(stations[i])} to ${this.name(stations[i + 1])} hasn't been opened yet.`);
       if (owner === id) ownsOne = true;
     }
-    if (!ownsOne) return fail("Start the line on your own track (at least one section must be yours), then it can run onto a rival's track.");
+    // your home hub counts as your own, so a company that has lost all its track can still fight back from home
+    const home = this.player(id)?.hub;
+    if (!ownsOne && !(home && stations.includes(home)))
+      return fail("Start the line on your own track or at your hub, then it can run onto a rival's track.");
     return { ok: true };
   }
   name(st: StationId): string {
