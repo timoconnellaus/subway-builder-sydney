@@ -32,6 +32,8 @@ export interface MapDef {
   bounds: { lon0: number; lon1: number; lat0: number; lat1: number };
   hubs: StationId[];
   hubBonus?: Record<StationId, number>;
+  // coastline and rivers for drawing: an ocean polygon plus ribbons of [lon, lat, half-width]
+  water?: { ocean: [number, number][]; ribbons: [number, number, number][][] };
   stations: StationDef[];
   sections: SectionDef[];
 }

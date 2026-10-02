@@ -54,7 +54,7 @@ export class GameScreen {
     this.coach = h("div", { class: "coach", hidden: true, "aria-live": "polite" });
     if ((conn as { tutorial?: boolean }).tutorial) this.step = 0;
     this.el.append(this.mapHost, this.tip, this.hud, this.board, this.coach, this.panel, this.toasts, this.overlay);
-    this.map = new MapView(this.mapHost, MAPS.sydney);
+    this.map = new MapView(this.mapHost, MAPS[conn.mapId] ?? MAPS.sydney);
     this.map.you = conn.you;
     if (!conn.local) this.map.delay = 300;
     this.bindInput();

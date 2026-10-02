@@ -75,6 +75,7 @@ export interface TrainView {
 }
 
 export interface Snapshot {
+  mapId: string;
   time: number;
   duration: number;
   phase: GameState["phase"];
@@ -110,6 +111,7 @@ export function toSnapshot(game: Game): Snapshot {
   }
   const lineById = new Map(st.lines.map((l) => [l.id, l]));
   return {
+    mapId: st.mapId,
     time: st.time,
     duration: st.settings.roundMinutes,
     phase: st.phase,

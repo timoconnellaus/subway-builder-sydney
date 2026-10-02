@@ -3,7 +3,7 @@ import { HOUSE_RULES, type BotStyle, type HouseRuleKey, type HouseRules } from "
 import { DEFAULT_SETTINGS } from "../sim/types";
 import { isRoomCode, SLOTS, type LobbyState } from "../shared/protocol";
 import qrcode from "qrcode-generator";
-import { MAPS } from "../sim";
+import { MAP_CHOICES, MAPS } from "../sim";
 import { clearLocalSave, LocalGame, RemoteRoom, savedLocalGame } from "./conn";
 import { GameScreen, HELP_HTML } from "./game/screen";
 import { COLOR_NAMES, CSS_COLORS, esc, patch, setStorage, storage, token } from "./util";
@@ -60,6 +60,10 @@ function readRules(root: HTMLElement): HouseRules {
   return out;
 }
 
+function mapOptions(current: string): string {
+  return MAP_CHOICES.map((m) => `<option value="${m.id}" ${m.id === current ? "selected" : ""}>${esc(m.name)}: ${esc(m.blurb)}</option>`).join("");
+}
+
 function recordLine(): string {
   try {
     const r = JSON.parse(storage("record", "{}")) as { played?: number; wins?: number; best?: number };
@@ -108,6 +112,9 @@ function menu() {
             .join("")}
         </div>
         ${recordLine()}
+        <label class="field inline"><span>Map</span>
+          <select id="map">${mapOptions(storage("map", "sydney"))}</select>
+        </label>
         <label class="field inline"><span>Round length</span>
           <select id="round">${[300, 600, 900, 1200].map((m) => `<option value="${m}" ${String(m) === minutes ? "selected" : ""}>${m / 60} minutes</option>`).join("")}</select>
         </label>
@@ -140,6 +147,7 @@ function menu() {
     const chosen = [...el.querySelectorAll<HTMLInputElement>(".bot-opt input:checked")].map((i) => i.value);
     setStorage("bots", (chosen.length ? chosen : ["builder"]).join(","));
     setStorage("round", el.querySelector<HTMLSelectElement>("#round")!.value);
+    setStorage("map", el.querySelector<HTMLSelectElement>("#map")!.value);
     setStorage("rules", JSON.stringify(readRules(el.querySelector(".rules")!)));
     go("#/play");
   });
@@ -151,6 +159,7 @@ function menu() {
       if (!r.ok) throw new Error();
       const { code } = await r.json();
       setStorage("rules", JSON.stringify(readRules(el.querySelector(".rules")!)));
+      setStorage("map", el.querySelector<HTMLSelectElement>("#map")!.value);
       go(`#/room/${code}`);
     } catch {
       err.hidden = false;
@@ -192,7 +201,8 @@ function playLocal(resume = false) {
     name: storage("me-name", "") || "You",
     bots: bots.slice(0, 3),
     roundMinutes: Number(storage("round", "900")) || 900,
-    rules: loadRules()
+    rules: loadRules(),
+    map: storage("map", "sydney")
   });
   const screen = new GameScreen(conn, { onExit: () => go("#/") });
   app.append(screen.el);
@@ -270,6 +280,9 @@ function online(code: string) {
         <div class="share"><input readonly value="${esc(link)}" aria-label="Invite link"><button class="btn" data-act="copy">Copy link</button></div></div>
       </div>
       <div class="slots">${slots}</div>
+      <label class="field inline"><span>Map</span>
+        <select id="map" ${isHost ? "" : "disabled"}>${mapOptions(l.options.map ?? "sydney")}</select>
+      </label>
       <label class="field inline"><span>Round length</span>
         <select id="round" ${isHost ? "" : "disabled"} data-act-change="round">${[300, 600, 900, 1200].map((m) => `<option value="${m}" ${m === l.options.roundMinutes ? "selected" : ""}>${m / 60} minutes</option>`).join("")}</select>
       </label>
@@ -317,6 +330,10 @@ function online(code: string) {
   wrap.addEventListener("change", (e) => {
     const t = e.target as HTMLSelectElement;
     if (t.id === "round") room.send({ t: "setOptions", options: { roundMinutes: Number(t.value) } });
+    if (t.id === "map") {
+      setStorage("map", t.value);
+      room.send({ t: "setOptions", options: { map: t.value } });
+    }
     if (t.dataset.rule && room.lobby) {
       const rules = { ...room.lobby.options.rules, [t.dataset.rule]: Number(t.value) };
       setStorage("rules", JSON.stringify(rules));
@@ -330,6 +347,8 @@ function online(code: string) {
       rulesSent = true;
       const saved = loadRules();
       if (Object.keys(saved).length) room.send({ t: "setOptions", options: { rules: saved } });
+      const savedMap = storage("map", "sydney");
+      if (savedMap !== l.options.map) room.send({ t: "setOptions", options: { map: savedMap } });
     }
     if (l.phase === "lobby") showLobby(l);
     else showGame();

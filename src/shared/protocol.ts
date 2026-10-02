@@ -16,6 +16,7 @@ export interface LobbyPlayer {
 export interface RoomOptions {
   roundMinutes: number;
   rules: HouseRules;
+  map: string;
 }
 
 export interface LobbyState {

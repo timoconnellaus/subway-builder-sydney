@@ -156,3 +156,25 @@ describe("editing lines", () => {
     expect(s.state.players[0].carried).toBeGreaterThan(0);
   });
 });
+
+describe("greater sydney", () => {
+  it("is a connected network and bots can play it", async () => {
+    const { MAPS: maps } = await import("../src/sim");
+    const map = maps.greater;
+    const net = buildNetwork(map);
+    const seen = new Set(["central"]);
+    const stack = ["central"];
+    while (stack.length) {
+      const s = stack.pop()!;
+      for (const e of net.adj[s]) if (!seen.has(e.to)) (seen.add(e.to), stack.push(e.to));
+    }
+    expect(seen.size).toBe(net.stations.length);
+    const s = Session.create(map, [
+      { id: "a", name: "A", color: "red", hub: "central", isBot: true, botStyle: "builder" },
+      { id: "b", name: "B", color: "blue", hub: "parramatta", isBot: true, botStyle: "raider" }
+    ], { roundMinutes: 300 });
+    s.tick(300);
+    expect(s.state.phase).toBe("over");
+    expect(s.snapshot().mapId).toBe("greater");
+  });
+});

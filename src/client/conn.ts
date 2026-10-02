@@ -23,6 +23,7 @@ export function clearLocalSave() {
 /** What the game screen needs, whether the game runs in this browser or on the server. */
 export interface GameConn {
   readonly you: PlayerId;
+  readonly mapId: string;
   readonly local: boolean;
   onSnapshot(cb: (s: Snapshot) => void): () => void;
   command(cmd: Command): Promise<CommandResult>;
@@ -45,6 +46,7 @@ export interface LocalOptions {
   roundMinutes: number;
   rules: HouseRules;
   tutorial?: boolean;
+  map?: string;
 }
 
 export class LocalGame implements GameConn {
@@ -83,6 +85,9 @@ export class LocalGame implements GameConn {
   get tutorial() {
     return !!this.opts.tutorial;
   }
+  get mapId() {
+    return this.opts.tutorial ? "sydney" : this.opts.map && MAPS[this.opts.map] ? this.opts.map : "sydney";
+  }
 
   restart() {
     if (this.opts.tutorial) return this.startTutorial();
@@ -97,7 +102,7 @@ export class LocalGame implements GameConn {
         botStyle: style
       }))
     ];
-    this.session = Session.create(MAPS.sydney, players, { ...cleanRules(this.opts.rules), roundMinutes: this.opts.roundMinutes });
+    this.session = Session.create(MAPS[this.mapId], players, { ...cleanRules(this.opts.rules), roundMinutes: this.opts.roundMinutes });
     this.paused = false;
     if (!this.timer) {
       this.last = performance.now();
@@ -290,6 +295,9 @@ export class RemoteRoom implements GameConn {
 
   get paused() {
     return !!this.lobby?.paused;
+  }
+  get mapId() {
+    return this.lastSnapshot?.mapId ?? this.lobby?.options.map ?? "sydney";
   }
   setPaused(p: boolean) {
     this.send({ t: "pause", paused: p });

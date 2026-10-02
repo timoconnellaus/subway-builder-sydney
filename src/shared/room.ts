@@ -71,7 +71,7 @@ export function checkMessage(raw: unknown): ClientMsg | null {
 export class RoomCore {
   private members: Member[] = [];
   private host: PlayerId | null = null;
-  private options: RoomOptions = { roundMinutes: 900, rules: {} };
+  private options: RoomOptions = { roundMinutes: 900, rules: {}, map: "sydney" };
   private phase: LobbyState["phase"] = "lobby";
   private session: Session | null = null;
   private conns = new Map<string, { conn: Conn; player: PlayerId | null; greeted: boolean; bucket: number; last: number }>();
@@ -87,7 +87,7 @@ export class RoomCore {
     const r = new RoomCore(s.code);
     r.members = s.members.map((m) => ({ ...m, connected: m.isBot }));
     r.host = s.host;
-    r.options = { roundMinutes: s.options.roundMinutes ?? 900, rules: s.options.rules ?? {} };
+    r.options = { roundMinutes: s.options.roundMinutes ?? 900, rules: s.options.rules ?? {}, map: s.options.map ?? "sydney" };
     r.phase = s.phase;
     r.nextPlayer = s.nextPlayer;
     r.paused = !!s.paused;
@@ -223,6 +223,7 @@ export class RoomCore {
         const rm = msg.options.roundMinutes;
         if (rm && [300, 600, 900, 1200].includes(rm)) this.options.roundMinutes = rm;
         if (msg.options.rules) this.options.rules = cleanRules(msg.options.rules) as RoomOptions["rules"];
+        if (typeof msg.options.map === "string" && Object.prototype.hasOwnProperty.call(MAPS, msg.options.map)) this.options.map = msg.options.map;
         break;
       }
       case "start": {
@@ -298,7 +299,7 @@ export class RoomCore {
   }
 
   private startGame() {
-    const map = MAPS.sydney;
+    const map = MAPS[this.options.map] ?? MAPS.sydney;
     const sorted = [...this.members].sort((a, b) => a.slot - b.slot);
     this.session = Session.create(
       map,

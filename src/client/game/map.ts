@@ -1,11 +1,9 @@
 import { Application, Assets, Container, Graphics, Sprite, Text, Texture } from "pixi.js";
 import { Delaunay } from "d3-delaunay";
-import { buildNetwork, sectionBetween, SYDNEY_WATER, type MapDef, type Network, type Snapshot, type StationId } from "../../sim";
+import { buildNetwork, sectionBetween, type MapDef, type Network, type Snapshot, type StationId } from "../../sim";
 import type { Color, PlayerId, SectionId } from "../../sim/types";
 import { COLORS, SOFT } from "../util";
 
-const W = 1000;
-const H = 760;
 const LAND = 0xebe7de;
 const WATER = 0x9cc8e8;
 const INK = 0x1e2430;
@@ -70,9 +68,17 @@ export class MapView {
   delay = 120; // ms of interpolation delay
   insets = { left: 0, top: 0, right: 0, bottom: 0 };
 
+  private W = 1000;
+  private H = 760;
+
   constructor(private host: HTMLElement, private map: MapDef) {
     this.net = buildNetwork(map);
     const b = map.bounds;
+    // keep the map's true proportions: height follows from the latitude span
+    const midLat = ((b.lat0 + b.lat1) / 2) * (Math.PI / 180);
+    this.H = Math.round((this.W * Math.abs(b.lat1 - b.lat0)) / (Math.abs(b.lon1 - b.lon0) * Math.cos(midLat)));
+    const W = this.W;
+    const H = this.H;
     for (const s of map.stations) {
       this.pos[s.id] = [((s.lon - b.lon0) / (b.lon1 - b.lon0)) * W, ((s.lat - b.lat0) / (b.lat1 - b.lat0)) * H];
     }
@@ -83,7 +89,7 @@ export class MapView {
 
   project(lon: number, lat: number): [number, number] {
     const b = this.map.bounds;
-    return [((lon - b.lon0) / (b.lon1 - b.lon0)) * W, ((lat - b.lat0) / (b.lat1 - b.lat0)) * H];
+    return [((lon - b.lon0) / (b.lon1 - b.lon0)) * this.W, ((lat - b.lat0) / (b.lat1 - b.lat0)) * this.H];
   }
 
   async init() {
@@ -110,11 +116,12 @@ export class MapView {
   }
 
   private buildStatic() {
+    const { W, H } = this;
     const land = new Graphics().rect(-W, -H, W * 3, H * 3).fill(LAND);
     const water = new Graphics();
-    const ocean = SYDNEY_WATER.ocean.map(([lo, la]) => this.project(lo, la));
-    water.poly(ocean.flat()).fill(WATER);
-    for (const rib of [SYDNEY_WATER.harbour, SYDNEY_WATER.middleHarbour, ...SYDNEY_WATER.rivers]) {
+    const ocean = (this.map.water?.ocean ?? []).map(([lo, la]) => this.project(lo, la));
+    if (ocean.length) water.poly(ocean.flat()).fill(WATER);
+    for (const rib of this.map.water?.ribbons ?? []) {
       const L: number[] = [];
       const R: [number, number][] = [];
       for (const [lo, la, w] of rib) {
@@ -159,6 +166,7 @@ export class MapView {
 
   /** Fit the whole map into the view. */
   fit(keep = false) {
+    const { W, H } = this;
     const { left, top, right, bottom } = this.insets;
     const sw = Math.max(200, this.app.screen.width - left - right);
     const sh = Math.max(200, this.app.screen.height - top - bottom);
@@ -216,6 +224,7 @@ export class MapView {
   }
 
   private clampView() {
+    const { W, H } = this;
     const k = this.world.scale.x;
     const sw = this.app.screen.width;
     const sh = this.app.screen.height;
