@@ -203,6 +203,20 @@ export class GameScreen {
       sound.play("warn");
     }
     if (me && me.money > 200) this.warnedBroke = false;
+    // the last two minutes: call out a close race (when it changes, at most every 20 game minutes)
+    if (me && this.step < 0 && s.phase === "running" && s.duration - s.time < 120 && s.time - this.raceAt > 20) {
+      const rivals = s.players.filter((p) => p.id !== me.id).sort((a, b) => b.owned - a.owned);
+      const top = rivals[0];
+      let msg = "";
+      if (top && top.owned > me.owned && top.owned - me.owned <= 2) msg = `You're ${top.owned - me.owned} behind ${top.name}! Grab one more section to catch up.`;
+      else if (top && me.owned >= top.owned && me.owned - top.owned <= 1) msg = me.owned === top.owned ? `Neck and neck with ${top.name}! Every section counts.` : `${top.name} is only 1 section behind you. Hold on!`;
+      if (msg && msg !== this.raceMsg) {
+        this.raceMsg = msg;
+        this.raceAt = s.time;
+        this.toastText(`⏱️ ${msg}`, "big event");
+        sound.play("warn");
+      }
+    }
     // money sitting idle wins nothing: nudge once in a while
     if (me && this.conn.local && this.step < 0 && me.money > RICH && s.time - this.richNudgeAt > 120) {
       this.richNudgeAt = s.time;
@@ -716,7 +730,12 @@ export class GameScreen {
       case "capture":
         text = `${this.pname(s, e.player)} captured ${this.secName(e.section)}${e.from ? ` from ${this.pname(s, e.from)}` : ""}!`;
         cls = e.player === this.you ? "big good" : e.from === this.you ? "big bad" : "big";
-        if (e.player === this.you) sound.play("capture");
+        if (e.player === this.you) {
+          sound.play("capture");
+          const me = s.players.find((p) => p.id === this.you);
+          if (me) this.map.celebrate(e.section, COLORS[me.color]);
+          this.goalPulseUntil = performance.now() + 1400;
+        }
         else if (e.from === this.you) sound.play("lost");
         break;
       case "open": {
@@ -776,6 +795,9 @@ export class GameScreen {
   }
 
   private warnedBroke = false;
+  private raceAt = -Infinity;
+  private raceMsg = "";
+  private goalPulseUntil = 0; // the track bar pulses after one of your captures
   private richNudgeAt = 60; // no nudge in the first couple of minutes
 
   private toastText(text: string, cls = "") {
@@ -832,6 +854,7 @@ export class GameScreen {
       <div class="card end">
         ${winner ? `<img class="end-badge" src="/sprites/badge-${winner.color}.webp" alt="">` : ""}
         <h2>${youWon ? "You win!" : winner ? `${esc(winner.name)} wins` : "Round over"}</h2>
+        ${!youWon && me && winner && winner.owned - me.owned === 1 ? `<p class="so-close">So close! You lost by just 1 section.</p>` : ""}
         <p class="muted">${reason && reason.kind === "win" && reason.reason === "share" ? `${youWon ? "You own" : "They own"} ${Math.round(s.settings.winShare * 100)}% of ${esc(MAPS[s.mapId]?.name ?? "the")}'s network.` : "Most track when the clock ran out (passengers break a tie)."}</p>
         ${historyChart(s)}
         ${me && this.conn.tour !== undefined ? this.tourEnd(this.conn.tour, youWon, replay) : ""}
@@ -929,7 +952,7 @@ export class GameScreen {
         ${me ? `<div class="pill you"><img src="/sprites/badge-${me.color}.webp" alt=""><span>${esc(me.name)}</span></div>` : `<div class="pill">Watching</div>`}
         ${me ? `<div class="pill money ${me.money < 0 ? "neg" : ""}" title="Money, and fares coming in each minute"><img src="/sprites/money.webp" alt="">${money(me.money)}${this.incomeRate() >= 1 ? `<span class="rate">+${money(this.incomeRate())}/min</span>` : ""}</div>` : ""}
       </div>
-      <div class="pill goal" title="Own ${need} of ${s.totalSections} sections to win">
+      <div class="pill goal ${performance.now() < this.goalPulseUntil ? "pulse" : ""}" title="Own ${need} of ${s.totalSections} sections to win">
         <span class="lbl">${me ? "Track to win" : shown ? esc(shown.name) : "Track"}</span>
         <span class="meter"><b style="width:${pct}%;background:${shown ? CSS_COLORS[shown.color] : "#888"}"></b></span>
         <span class="mono">${owned}/${need}</span>

@@ -66,6 +66,7 @@ export class MapView {
   private floatLayer = new Container();
   private eventMarks = new Map<number, Text>();
   private flashes = new Map<SectionId, { at: number; color: number }>();
+  private confetti: { x: number; y: number; vx: number; vy: number; color: number; born: number }[] = [];
   private owners: Record<SectionId, PlayerId | null> = {};
   you: PlayerId = "";
   delay = 120; // ms of interpolation delay
@@ -547,6 +548,16 @@ export class MapView {
       const k = age / 1.6;
       m.moveTo(ax, ay).lineTo(bx, by).stroke({ width: (14 + 40 * k) * this.u, color: f.color, alpha: 0.6 * (1 - k), cap: "round" });
     }
+    // confetti from your captures: a burst that falls and fades
+    const now = performance.now();
+    this.confetti = this.confetti.filter((p) => now - p.born < 1500);
+    for (const p of this.confetti) {
+      const age = (now - p.born) / 1000;
+      const x = p.x + p.vx * age;
+      const y = p.y + p.vy * age + 90 * age * age * this.u;
+      const size = 5 * this.u;
+      m.rect(x - size / 2, y - size / 2, size, size * 1.6).fill({ color: p.color, alpha: 1 - age / 1.5 });
+    }
     // selection
     const s = this.selectG;
     s.clear();
@@ -690,11 +701,28 @@ export class MapView {
     }
   }
 
-  private float(text: string, x: number, y: number, color: number) {
+  /** A capture of yours: confetti over the section and a big "+1 TRACK". */
+  celebrate(section: SectionId, color: number) {
+    const sec = this.net.section[section];
+    if (!sec) return;
+    const [ax, ay] = this.pos[sec.a];
+    const [bx, by] = this.pos[sec.b];
+    const x = (ax + bx) / 2;
+    const y = (ay + by) / 2;
+    const colors = [color, color, 0xf4a300, 0xffffff, INK];
+    for (let i = 0; i < 46; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const v = (45 + Math.random() * 110) * this.u;
+      this.confetti.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 40 * this.u, color: colors[i % colors.length], born: performance.now() });
+    }
+    this.float("+1 TRACK!", x, y, color, 24);
+  }
+
+  private float(text: string, x: number, y: number, color: number, size = 14) {
     if (this.floats.length > 24) return;
     const t = new Text({
       text,
-      style: { fontFamily: "Overpass, Arial, sans-serif", fontWeight: "900", fontSize: 14, fill: color, stroke: { color: 0xffffff, width: 4, join: "round" } },
+      style: { fontFamily: "Overpass, Arial, sans-serif", fontWeight: "900", fontSize: size, fill: color, stroke: { color: 0xffffff, width: 4, join: "round" } },
       resolution: 3
     });
     t.anchor.set(0.5);
