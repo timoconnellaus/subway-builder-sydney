@@ -26,8 +26,11 @@ always start a line at your own hub, so a company that loses all its track can f
 - **Daily challenge:** one setup per Sydney day (your hub, the bots, a twist like "Rush hour" or
   "Toll roads"), the same random seed for everyone, and a shared leaderboard. Fastest win ranks first.
   Saturdays are in a world city, Sundays on Greater Sydney.
-- **Online:** create a room, share the link or the four-letter code, and add bots to any empty seats.
-  Close the tab and come back: you rejoin as the same player.
+- **Online:** create a room, share the link or the four-letter code (or scan the QR code on an
+  iPad), and add bots to any empty seat. Close the tab and come back: you rejoin as the same player
+  and hear what you missed. If the host drops out, someone else takes charge until they're back.
+  The host can pause; everyone can still change fares and trains while paused. The end card says
+  who beat whom among the people playing.
 
 Install it from the browser (Add to Home Screen) and single-player games keep working offline.
 Works with a mouse or touch: drag to pan, scroll or pinch to zoom, tap stations and sections.
