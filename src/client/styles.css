@@ -193,6 +193,9 @@ details.rules summary { font-family: var(--display); font-weight: 800; cursor: p
 .step:hover:not([disabled]) { background: #fff; }
 .step[disabled] { opacity: 0.3; cursor: not-allowed; }
 .small-row { justify-content: space-between; }
+.rename { display: flex; gap: 6px; }
+.rename input { flex: 1; min-width: 0; font: 600 15px var(--body); padding: 8px 10px; border: 2px solid var(--rule); border-radius: 10px; background: var(--paper); }
+.rename input:focus { border-color: var(--ink); outline: none; }
 .h2h { width: 100%; border-collapse: collapse; font-size: 14px; }
 .h2h th, .h2h td { padding: 5px 4px; border-bottom: 1px solid var(--rule); text-align: left; }
 .h2h th { font-family: var(--display); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }

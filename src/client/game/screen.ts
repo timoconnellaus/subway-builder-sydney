@@ -519,6 +519,14 @@ export class GameScreen {
           this.updateHighlight();
           this.render();
           break;
+        case "rename": {
+          const input = this.panel.querySelector<HTMLInputElement>("#line-name");
+          if (input) {
+            await this.run({ type: "renameLine", line: arg, name: input.value });
+            input.blur();
+          }
+          break;
+        }
         case "trim":
           await this.run({ type: "trimLine", line: arg, end: btn.dataset.d as "start" | "end" });
           break;
@@ -583,6 +591,13 @@ export class GameScreen {
       }
     };
     this.el.addEventListener("click", handler);
+    this.panel.addEventListener("keydown", (e) => {
+      const t = e.target as HTMLInputElement;
+      if (t.id === "line-name" && e.key === "Enter") {
+        e.preventDefault();
+        void this.run({ type: "renameLine", line: t.dataset.line ?? "", name: t.value }).then(() => t.blur());
+      }
+    });
   }
 
   // ---------- events ----------
@@ -889,7 +904,7 @@ export class GameScreen {
     const lf = Math.round(l.loadFactor * 100);
     return `<button class="line-row" data-act="select-line" data-arg="${l.id}" data-key="${l.id}">
       <span class="chip" style="--c:${owner ? CSS_COLORS[owner.color] : "#888"}"></span>
-      <span class="lr-name">${esc(this.stationName(l.stations[0]))} → ${esc(this.stationName(l.stations[l.stations.length - 1]))}</span>
+      <span class="lr-name">${l.name ? esc(l.name) : `${esc(this.stationName(l.stations[0]))} → ${esc(this.stationName(l.stations[l.stations.length - 1]))}`}</span>
       <span class="lr-meta mono">${l.trains}🚆 ${fare(l.fare)}</span>
       <span class="load"><b style="width:${lf}%"></b></span>
     </button>`;
@@ -1003,7 +1018,8 @@ export class GameScreen {
       <div class="loadbar"><b style="width:${lf}%"></b></div>`;
     if (!mine) {
       return `<button class="back" data-act="back">← Back</button>
-        <div class="owner-line"><img class="badge" src="/sprites/badge-${owner.color}.webp" alt=""><h3>${esc(owner.name)}'s line</h3></div>
+        <div class="owner-line"><img class="badge" src="/sprites/badge-${owner.color}.webp" alt=""><h3>${l.name ? esc(l.name) : `${esc(owner.name)}'s line`}</h3></div>
+        ${l.name ? `<div class="tag">${esc(owner.name)}</div>` : ""}
         <div class="route">${route}</div>
         ${stats}
         <div class="stats"><div><span class="v mono">${fare(l.fare)}</span><span class="k">per ride</span></div><div><span class="v mono">${l.trains}</span><span class="k">trains</span></div><div><span class="v mono">${l.speed}</span><span class="k">speed</span></div></div>`;
@@ -1013,7 +1029,8 @@ export class GameScreen {
     const last = l.stations[l.stations.length - 1];
     return `
       <button class="back" data-act="back">← Back</button>
-      <div class="owner-line"><img class="badge" src="/sprites/badge-${owner.color}.webp" alt=""><h3>Your line</h3></div>
+      <div class="owner-line"><img class="badge" src="/sprites/badge-${owner.color}.webp" alt=""><h3>${l.name ? esc(l.name) : "Your line"}</h3></div>
+      <div class="rename"><input id="line-name" data-line="${l.id}" maxlength="24" placeholder="Give it a name" value="${esc(l.name ?? "")}" aria-label="Line name"><button class="btn" data-act="rename" data-arg="${l.id}">Save name</button></div>
       <div class="route">${route}</div>
       ${stats}
       <div class="ctrl">
