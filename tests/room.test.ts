@@ -194,6 +194,21 @@ describe("hardening", () => {
     expect(restored.lobby().paused).toBe(true);
   });
 
+  it("shows a player going away while the game is paused", () => {
+    const room = new RoomCore("AWAY");
+    const a = client(room, "c1");
+    const b = client(room, "c2");
+    room.message("c1", { t: "hello", name: "A", token: "a" });
+    room.message("c2", { t: "hello", name: "B", token: "b" });
+    room.message("c1", { t: "start" });
+    room.message("c1", { t: "pause", paused: true });
+    const bId = b.last("welcome")!.you;
+    room.disconnect("c2");
+    room.tick(0.25);
+    expect(a.last("snap")!.s.players.find((p) => p.id === bId)!.connected).toBe(false);
+    expect(a.last("lobby")!.lobby.players.find((p) => p.id === bId)!.connected).toBe(false);
+  });
+
   it("moves a five-minute round to ten on a bigger map", () => {
     const room = new RoomCore("LONG");
     const a = client(room, "c1");
