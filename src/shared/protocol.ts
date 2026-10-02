@@ -69,6 +69,12 @@ export function cleanPlayerName(name: unknown): string {
   return typeof name === "string" ? name.replace(/[^\p{L}\p{N} '._-]/gu, "").trim().slice(0, 16) : "";
 }
 
+export const BOT_TIPS: Record<BotStyle, string> = {
+  builder: "Spreads fast, defends weakly",
+  raider: "Undercuts your busiest track",
+  banker: "Grabs the centre, lives off fees"
+};
+
 export const BOT_NAMES: Record<BotStyle, string> = {
   builder: "The Builder",
   raider: "The Raider",

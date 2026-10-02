@@ -45,7 +45,7 @@ export const STEPS: TutorialStep[] = [
   },
   {
     title: "Add a train",
-    text: "Tap your line in the panel and press <b>+</b> next to <b>Trains</b>. More trains means shorter waits.",
+    text: "In your line's panel, press <b>+</b> next to <b>Trains</b> (tap the line in the list if the panel isn't showing). More trains means shorter waits.",
     done: (s, you) => s.lines.some((l) => l.owner === you && l.trains >= 2)
   },
   {

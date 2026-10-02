@@ -1,8 +1,8 @@
 import { byStanding, MAPS, type Snapshot, type StationId, type LineView, type PlayerView, type SectionId } from "../../sim";
 import { ruleLabel, type GameEvent } from "../../sim/types";
 import type { GameConn } from "../conn";
-import { COLORS, CSS_COLORS, esc, fare, h, money, patch, readRecord, remaining, setStorage, storage } from "../util";
-import { EMOTES } from "../../shared/protocol";
+import { COLORS, CSS_COLORS, esc, fare, h, isNarrow, money, patch, readRecord, remaining, setStorage, storage } from "../util";
+import { BOT_TIPS, EMOTES } from "../../shared/protocol";
 import { MapView, type Pick } from "./map";
 import { sound } from "../sound";
 import { STEPS } from "./tutorial";
@@ -15,7 +15,7 @@ type Mode = { kind: "idle" } | { kind: "build"; stations: StationId[] } | { kind
 
 type Sel = Pick | { kind: "line"; id: string };
 
-const maxToasts = () => (window.innerWidth <= 760 ? 2 : 3);
+const maxToasts = () => (isNarrow() ? 2 : 3);
 
 /** Show a toast at the top of a stack, keep at most `max`, and fade it out after `ms`. */
 function pushToast(stack: HTMLElement, t: HTMLElement, max: number, ms: number) {
@@ -105,8 +105,9 @@ export class GameScreen {
     if (!this.mapReady || !this.snap || this.focused) return;
     this.focused = true;
     const me = this.snap.players.find((p) => p.id === this.you);
-    if (me) this.map.focus(me.hub, this.map.zoomFor(me.hub, window.innerWidth <= 760 ? 3 : 1.7));
+    if (me) this.map.focus(me.hub, this.map.zoomFor(me.hub, isNarrow() ? (window.innerWidth > 600 ? 2 : 3) : 1.7));
     if (me && this.conn.local && storage("seen-intro") !== "1" && this.step < 0) this.showIntro(me);
+    else if (me && this.conn.tour !== undefined && this.snap.time < 1) this.showTourIntro(this.conn.tour);
   }
 
   private showIntro(me: PlayerView) {
@@ -130,8 +131,28 @@ export class GameScreen {
   }
   private introPaused = false;
 
+  /** Arriving in a World Tour city: who you're up against, before the clock starts. */
+  private showTourIntro(stop: number) {
+    const s = this.snap!;
+    const wasPaused = !!this.conn.paused;
+    this.conn.setPaused?.(true);
+    const rivals = s.players.filter((p) => p.isBot);
+    this.overlay.hidden = false;
+    this.overlay.innerHTML = `
+      <div class="card intro">
+        <h2>✈️ Welcome to ${esc(stopName(stop))}</h2>
+        <p>World Tour, city ${stop + 1} of ${TOUR.length} · ${esc(ruleLabel("botSkill", s.settings.botSkill))} bots</p>
+        <ul class="rivals">${rivals
+          .map((p) => `<li><img src="/sprites/badge-${p.color}.webp" alt=""><b>${esc(p.name)}</b> at ${esc(this.stationName(p.hub))}${p.botStyle ? ` <span class="muted">· ${esc(BOT_TIPS[p.botStyle])}</span>` : ""}</li>`)
+          .join("")}</ul>
+        <p>Own ${Math.round(s.settings.winShare * 100)}% of the track to win, or own the most when the ${Math.round(s.settings.roundMinutes / 60)} minutes are up.</p>
+        <div class="row"><button class="btn primary big" data-act="intro-done">Let's go</button></div>
+      </div>`;
+    this.introPaused = !wasPaused;
+  }
+
   private layoutInsets() {
-    const narrow = window.innerWidth <= 760;
+    const narrow = isNarrow();
     const panel = this.panel.getBoundingClientRect();
     // keep what the tutorial coach points at clear of the coach card
     const coach = this.coach.hidden ? null : this.coach.getBoundingClientRect();
@@ -172,6 +193,11 @@ export class GameScreen {
       sound.play("warn");
     }
     if (me && me.money > 200) this.warnedBroke = false;
+    // money sitting idle wins nothing: nudge once in a while
+    if (me && this.conn.local && me.money > 3500 && s.time - this.richNudgeAt > 120) {
+      this.richNudgeAt = s.time;
+      this.toastText(`You have ${money(me.money)} in the bank. Spend it: open more track, or add trains to steal a rival's passengers!`, "good");
+    }
     if (me) {
       this.incomeLog.push({ t: s.time, v: me.income });
       while (this.incomeLog.length > 2 && s.time - this.incomeLog[0].t > 20) this.incomeLog.shift();
@@ -730,6 +756,7 @@ export class GameScreen {
   }
 
   private warnedBroke = false;
+  private richNudgeAt = 60; // no nudge in the first couple of minutes
 
   private toastText(text: string, cls = "") {
     const t = h("div", { class: `toast ${cls}` });
@@ -787,7 +814,8 @@ export class GameScreen {
         <h2>${youWon ? "You win!" : winner ? `${esc(winner.name)} wins` : "Round over"}</h2>
         <p class="muted">${reason && reason.kind === "win" && reason.reason === "share" ? `${youWon ? "You own" : "They own"} ${Math.round(s.settings.winShare * 100)}% of ${esc(MAPS[s.mapId]?.name ?? "the")}'s network.` : "Most track when the clock ran out (passengers break a tie)."}</p>
         ${historyChart(s)}
-        ${me && this.conn.tour !== undefined ? this.tourEnd(this.conn.tour, youWon, replay) : me && this.conn.local ? `<p class="end-tip">💡 ${this.endTip(s, me, youWon)}</p>` : ""}
+        ${me && this.conn.tour !== undefined ? this.tourEnd(this.conn.tour, youWon, replay) : ""}
+        ${me && this.conn.local && !(this.conn.tour !== undefined && youWon) ? `<p class="end-tip">💡 ${this.endTip(s, me, youWon)}</p>` : ""}
         <table class="ranks">
           <thead><tr><th></th><th>Company</th><th>Track</th><th>Passengers</th><th>Money</th></tr></thead>
           <tbody>${ranked
@@ -890,7 +918,7 @@ export class GameScreen {
         <div class="pill mono ${left < 120 ? "warn" : ""}" title="Time left">${remaining(left)}</div>
         ${this.conn.canPause?.() ? `<button class="hud-btn" data-act="pause" aria-label="${this.conn.paused ? "Resume" : "Pause"}" title="${this.conn.paused ? "Resume" : "Pause"}"><img src="/sprites/${this.conn.paused ? "play" : "pause"}.webp" alt=""></button>` : ""}
         ${local ? `<div class="seg small">${[1, 2, 3].map((x) => `<button data-act="speedx" data-arg="${x}" class="${this.conn.speed === x ? "on" : ""}">${x}×</button>`).join("")}</div>` : ""}
-        <button class="hud-btn ${sound.musicOn ? "" : "off"}" data-act="music" aria-label="${sound.musicOn ? "Music off" : "Music on"}" title="${sound.musicOn ? "Music off" : "Music on"}">🎵</button>
+        <button class="hud-btn music ${sound.musicOn ? "" : "off"}" data-act="music" aria-pressed="${sound.musicOn}" title="${sound.musicOn ? "Music is on (tap to stop)" : "Music is off (tap to play)"}">🎵</button>
         <button class="hud-btn" data-act="mute" aria-label="${sound.muted ? "Sound on" : "Sound off"}" title="${sound.muted ? "Sound on" : "Sound off"}">${sound.muted ? "🔇" : "🔊"}</button>
         <button class="hud-btn" data-act="help" aria-label="How to play">?</button>
       </div>`;
@@ -972,13 +1000,14 @@ export class GameScreen {
     else if (owned === 0) tip = `Tap a <b>dotted section</b> next to your hub, <b>${esc(this.stationName(me.hub))}</b>, then press <b>Open</b>.`;
     else if (!mine.length) tip = `Now press <b>New line</b> and tap the stations along your track to start running trains.`;
     else if (s.time < 120) tip = `Open more track and extend your lines. Busy lines need more trains.`;
+    else if (me.money > 3500) tip = `You have <b>${money(me.money)}</b> to spend. Open more track and add trains: money in the bank doesn't win.`;
     else tip = `Run a line onto a rival's track, then cut your fare and add trains to win their passengers.`;
     return `
       <h3>Your lines</h3>
       <div class="tip">${tip}</div>
       ${mine.length ? `<div class="lines">${mine.map((l) => this.lineRow(s, l)).join("")}</div>` : ""}
       <button class="btn primary wide" data-act="new-line" ${mine.length >= s.settings.maxLinesPerPlayer ? "disabled" : ""}>New line · ${money(trainCost(s, 2))}</button>
-      <p class="muted small">Drag to move the map. Scroll or pinch to zoom. Tap a station or a section for details.</p>
+      <p class="muted small">${matchMedia("(pointer: coarse)").matches ? "Drag to move the map, pinch to zoom." : "Drag to move the map, scroll to zoom."} Tap a station or a section for details.</p>
       <div class="row small-row phone-only"><button class="link" data-act="mute">${sound.muted ? "🔇 Sound off" : "🔊 Sound on"}</button><button class="link" data-act="music">${sound.musicOn ? "🎵 Music on" : "🎵 Music off"}</button></div>
       ${this.conn.emote ? `<div class="emotes" aria-label="Send a reaction">${EMOTES.map((e) => `<button data-act="emote" data-arg="${e}" aria-label="Send ${e}">${e}</button>`).join("")}</div>` : ""}`;
   }
@@ -1220,16 +1249,17 @@ export class GameScreen {
 function historyChart(s: Snapshot): string {
   const h = s.history;
   if (!h || h.length < 2) return "";
-  const W = 460, H = 150, L = 30, B = 22, T = 8, R = 8;
+  // labels sit outside the plot so lines never cross them: title above, "win" to the right
+  const W = 460, H = 160, L = 30, B = 22, T = 22, R = 34;
   const tMax = h[h.length - 1].t || 1;
-  const yMax = Math.max(4, ...h.flatMap((x) => x.owned));
+  const need = Math.ceil(s.totalSections * s.settings.winShare);
+  const yMax = Math.max(4, need, ...h.flatMap((x) => x.owned));
   const X = (t: number) => L + (t / tMax) * (W - L - R);
   const Y = (v: number) => T + (1 - v / yMax) * (H - T - B);
-  const need = Math.ceil(s.totalSections * s.settings.winShare);
   let out = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Track owned by each company over the round">`;
   for (const v of [0, Math.round(yMax / 2), yMax]) out += `<line x1="${L}" x2="${W - R}" y1="${Y(v)}" y2="${Y(v)}" stroke="#d9d5cc"/><text x="${L - 6}" y="${Y(v) + 4}" text-anchor="end">${v}</text>`;
-  if (need <= yMax) out += `<line x1="${L}" x2="${W - R}" y1="${Y(need)}" y2="${Y(need)}" stroke="#1e2430" stroke-dasharray="4 4"/><text x="${W - R}" y="${Y(need) - 4}" text-anchor="end">win</text>`;
-  out += `<text x="${(L + W - R) / 2}" y="${H - 4}" text-anchor="middle">time →</text><text x="${L}" y="10" text-anchor="start">track owned</text>`;
+  out += `<line x1="${L}" x2="${W - R}" y1="${Y(need)}" y2="${Y(need)}" stroke="#1e2430" stroke-dasharray="4 4"/><text x="${W - R + 4}" y="${Y(need) + 4}" text-anchor="start">win</text>`;
+  out += `<text x="${(L + W - R) / 2}" y="${H - 4}" text-anchor="middle">time →</text><text x="${L}" y="12" text-anchor="start">track owned</text>`;
   s.players.forEach((p, i) => {
     const d = h.map((x, k) => `${k ? "L" : "M"}${X(x.t).toFixed(1)},${Y(x.owned[i] ?? 0).toFixed(1)}`).join("");
     out += `<path d="${d}" fill="none" stroke="${CSS_COLORS[p.color]}" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>`;

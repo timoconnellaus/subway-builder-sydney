@@ -1,6 +1,6 @@
 import { runBots } from "./bots";
 import { createGame, Game, type PlayerSetup } from "./game";
-import type { Color, Command, CommandResult, GameEvent, GameState, Line, MapDef, PlayerId, SectionId, Settings, StationId } from "./types";
+import type { BotStyle, Color, Command, CommandResult, GameEvent, GameState, Line, MapDef, PlayerId, SectionId, Settings, StationId } from "./types";
 
 /** A running game plus its bots. Used by both the browser (single player) and the server (online). */
 export class Session {
@@ -48,6 +48,7 @@ export interface PlayerView {
   carried: number;
   income: number;
   isBot: boolean;
+  botStyle?: BotStyle;
   connected: boolean;
   owned: number;
 }
@@ -125,6 +126,7 @@ export function toSnapshot(game: Game): Snapshot {
       carried: p.carried,
       income: Math.round(p.income),
       isBot: p.isBot,
+      botStyle: p.botStyle,
       connected: p.connected,
       owned: game.ownedCount(p.id)
     })),

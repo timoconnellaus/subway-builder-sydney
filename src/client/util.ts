@@ -155,3 +155,7 @@ export function readRecord(): PlayRecord {
     return { played: 0, wins: 0, best: 0 };
   }
 }
+
+/** Phones and portrait tablets use the bottom-sheet layout (keep in step with styles.css). */
+export const NARROW_QUERY = "(max-width: 760px), (orientation: portrait) and (max-width: 1100px)";
+export const isNarrow = () => window.matchMedia(NARROW_QUERY).matches;

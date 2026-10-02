@@ -1,7 +1,7 @@
 import "./styles.css";
 import { HOUSE_RULES, ruleLabel, type BotStyle, type HouseRuleKey, type HouseRules } from "../sim/types";
 import { DEFAULT_SETTINGS } from "../sim/types";
-import { BOT_NAMES, cleanPlayerName, isRoomCode, SLOTS, type LobbyState } from "../shared/protocol";
+import { BOT_NAMES, BOT_TIPS, cleanPlayerName, isRoomCode, SLOTS, type LobbyState } from "../shared/protocol";
 import qrcode from "qrcode-generator";
 import { MAP_CHOICES, MAPS, stationName } from "../sim";
 import { clearLocalSave, LocalGame, RemoteRoom, savedLocalGame, type LocalOptions } from "./conn";
@@ -122,6 +122,8 @@ function menu() {
   const menuRules = effectiveRules();
   const saved = savedLocalGame();
   const challenge = dailyChallenge(sydneyDate());
+  // new players see the World Tour (easy bots first) before the daily challenge
+  const newPlayer = tourProgress() === 0 && readRecord().wins === 0;
   const bots = storage("bots", "builder,raider").split(",").filter(Boolean) as BotStyle[];
   const minutes = storage("round", "900");
   const el = document.createElement("div");
@@ -134,8 +136,7 @@ function menu() {
 
       ${storage("tutorial-done") !== "1" ? `<div class="newbie"><span>New to Metro Empire?</span><button class="btn primary" id="tutorial-top">Learn to play (2 minutes)</button></div>` : ""}
       ${saved ? `<button class="btn primary big" id="continue">Continue your ${saved.opts.daily ? "daily challenge" : saved.opts.tour !== undefined ? `World Tour game (${esc(stopName(saved.opts.tour))})` : "game"}</button>` : ""}
-      ${dailyHtml(challenge)}
-      ${tourHtml()}
+      ${newPlayer ? tourHtml() + dailyHtml(challenge) : dailyHtml(challenge) + tourHtml()}
       <section class="menu-sec bots-sec">
         <h2>Play against bots</h2>
         <div class="bots">
@@ -143,7 +144,7 @@ function menu() {
             .map(
               (b, i) => `<label class="bot-opt"><input type="checkbox" value="${b}" ${bots.includes(b) ? "checked" : ""}>
               <img src="/sprites/badge-${SLOTS[i + 1].color}.webp" alt=""><span><b>${b === "builder" ? "The Builder" : b === "raider" ? "The Raider" : "The Banker"}</b>
-              <small>${b === "builder" ? "Spreads fast, defends weakly" : b === "raider" ? "Undercuts your busiest track" : "Grabs the centre, lives off fees"}</small></span></label>`
+              <small>${BOT_TIPS[b]}</small></span></label>`
             )
             .join("")}
         </div>
