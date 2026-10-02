@@ -59,6 +59,7 @@ export class MapView {
   highlight: StationId[] = []; // route preview or selected line
   highlightColor = INK;
   candidates: StationId[] = []; // stations you can tap next while building
+  private nearby = ""; // stations on or next to your network, always labelled (joined ids)
   hintSections: SectionId[] = []; // sections to pulse as a hint (e.g. track you can open)
   private floats: { text: Text; born: number; x: number; y: number }[] = [];
   private lastLoad = new Map<string, number>();
@@ -284,25 +285,57 @@ export class MapView {
     }
     // labels grow a little with zoom, but never smaller than 11px on screen (small phone maps)
     const inv = Math.max(1 / Math.max(1, z * 0.75), MIN_LABEL_PX / (LABEL_PX * this.world.scale.x));
+    // the route being built is always named; your network's neighbourhood is named when it fits
     const forced = new Set([...this.highlight, ...this.candidates]);
+    const nearby = new Set(this.nearby ? this.nearby.split(",") : []);
     for (const l of this.labels) {
       l.text.scale.set(inv);
-      l.text.visible = l.major || this.world.scale.x > 1.15 || z >= 2.5 || forced.has(l.station);
+      l.text.visible = l.major || this.world.scale.x > 1.15 || z >= 2.5 || forced.has(l.station) || nearby.has(l.station);
     }
-    this.hideOverlappingLabels(forced);
+    this.hideOverlappingLabels(forced, nearby);
   }
 
   /** Drop labels that would sit on top of a more important one (labels are kept in priority order). */
-  private hideOverlappingLabels(forced: Set<StationId>) {
+  private hideOverlappingLabels(forced: Set<StationId>, nearby: Set<StationId>) {
     const placed: { x0: number; y0: number; x1: number; y1: number }[] = [];
     const pad = 2 / this.world.scale.x; // a couple of screen pixels apart
-    for (const l of this.labels) {
+    // forced first, then hubs, then stations near you, then the rest by importance
+    const tier = (l: (typeof this.labels)[number]) => (forced.has(l.station) ? 0 : l.rank >= 1000 ? 1 : nearby.has(l.station) ? 2 : 3);
+    const order = [...this.labels].sort((a, b) => tier(a) - tier(b) || b.rank - a.rank);
+    // ordinary labels also keep off other stations' dots
+    const dot = 6 / this.world.scale.x;
+    const dots = this.map.stations.map((st) => {
+      const [x, y] = this.pos[st.id];
+      return { id: st.id, x0: x - dot, y0: y - dot, x1: x + dot, y1: y + dot };
+    });
+    for (const l of order) {
       if (!l.text.visible) continue;
       const t = l.text;
-      const w = t.width;
-      const h = t.height;
-      const r = { x0: t.x - t.anchor.x * w - pad, y0: t.y - t.anchor.y * h - pad, x1: t.x + (1 - t.anchor.x) * w + pad, y1: t.y + (1 - t.anchor.y) * h + pad };
-      if (!forced.has(l.station) && placed.some((p) => r.x0 < p.x1 && r.x1 > p.x0 && r.y0 < p.y1 && r.y1 > p.y0)) {
+      const st = this.net.station[l.station];
+      const [x, y] = this.pos[st.id];
+      const gap = (st.icon ? 22 : 9) * this.u;
+      const box = () => {
+        const w = t.width;
+        const h = t.height;
+        return { x0: t.x - t.anchor.x * w - pad, y0: t.y - t.anchor.y * h - pad, x1: t.x + (1 - t.anchor.x) * w + pad, y1: t.y + (1 - t.anchor.y) * h + pad };
+      };
+      const free = (r: ReturnType<typeof box>) => {
+        const hits = (p: { x0: number; y0: number; x1: number; y1: number }) => r.x0 < p.x1 && r.x1 > p.x0 && r.y0 < p.y1 && r.y1 > p.y0;
+        return !placed.some(hits) && !(tier(l) >= 2 && dots.some((d) => d.id !== l.station && hits(d)));
+      };
+      // the station's own side first, then the others
+      const pref = st.label ?? "r";
+      let r: ReturnType<typeof box> | null = null;
+      for (const side of [pref, ...(["r", "l", "t", "b"] as const).filter((x) => x !== pref)]) {
+        placeLabel(t, side, x, y, gap);
+        const b = box();
+        if (forced.has(l.station) || free(b)) {
+          r = b;
+          break;
+        }
+      }
+      if (!r) {
+        placeLabel(t, pref, x, y, gap);
         t.visible = false;
         continue;
       }
@@ -680,6 +713,14 @@ export class MapView {
       f.text.alpha = 1 - age / 1.2;
       return true;
     });
+  }
+
+  /** Keep the names of these stations visible even where labels crowd (your network and its edges). */
+  setNearby(stations: Iterable<StationId>) {
+    const key = [...stations].sort().join(",");
+    if (key === this.nearby) return;
+    this.nearby = key;
+    if (this.ready) this.updateLabelScale();
   }
 
   setHighlight(stations: StationId[], color: number, candidates: StationId[] = []) {

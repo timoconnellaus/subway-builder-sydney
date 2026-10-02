@@ -172,6 +172,14 @@ export class GameScreen {
     const first = !this.snap;
     this.snap = s;
     this.map.push(s);
+    const meNow = s.players.find((p) => p.id === this.you);
+    if (meNow) {
+      // name every station on your network and one step beyond it
+      const near = new Set<StationId>([meNow.hub]);
+      for (const sec of this.map.net.sections) if (s.sections[sec.id].owner === meNow.id) (near.add(sec.a), near.add(sec.b));
+      for (const st of [...near]) for (const e of this.map.net.adj[st]) near.add(e.to);
+      this.map.setNearby(near);
+    }
     if (first) {
       this.lastSeq = s.eventSeq;
       this.focusHome();
