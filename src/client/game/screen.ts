@@ -438,8 +438,9 @@ export class GameScreen {
     if (sel) this.panelOpen = true;
     this.updateHighlight();
     this.render();
-    // on a phone or iPad the sheet now covers the lower part of the map: keep the selection in view
-    if (isNarrow() && sel && sel.kind !== "line") {
+    // keep the selection in view: the phone/iPad sheet may now cover it, or it was picked from a
+    // toast or the panel and is off screen (a no-op when it's already visible)
+    if (sel && sel.kind !== "line") {
       this.layoutInsets();
       const sec = sel.kind === "section" ? this.map.net.section[sel.id] : null;
       this.map.reveal(sec ? [sec.a, sec.b] : [sel.id]);
@@ -826,6 +827,7 @@ export class GameScreen {
       }
       case "event": {
         const where = this.map.net.station[e.event.station]?.name ?? e.event.station;
+        tap = { "data-act": "select-station", "data-arg": e.event.station, role: "button" }; // tap to see where
         if (e.phase === "soon") {
           text = `${e.event.emoji} ${e.event.title} soon! Crowds are heading to ${where}.`;
           cls = "big event";
