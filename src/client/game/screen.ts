@@ -3,6 +3,7 @@ import type { GameEvent } from "../../sim/types";
 import type { GameConn } from "../conn";
 import { COLORS, CSS_COLORS, esc, fare, h, money, patch, remaining } from "../util";
 import { MapView, type Pick } from "./map";
+import { sound } from "../sound";
 
 type Mode = { kind: "idle" } | { kind: "build"; stations: StationId[] } | { kind: "extend"; line: string; end: "start" | "end" };
 
@@ -266,7 +267,12 @@ export class GameScreen {
     this.busy = true;
     const r = await this.conn.command(cmd);
     this.busy = false;
-    if (!r.ok) this.say(r.error);
+    if (!r.ok) {
+      this.say(r.error);
+      sound.play("error");
+    } else if (cmd.type === "open") sound.play("open");
+    else if (cmd.type === "createLine" || cmd.type === "extendLine") sound.play("line");
+    else sound.play("click");
     this.render();
     return r.ok;
   }
@@ -398,6 +404,10 @@ export class GameScreen {
         case "help":
           this.showHelp();
           break;
+        case "mute":
+          sound.toggle();
+          this.render();
+          break;
         case "close-overlay":
           this.overlay.hidden = true;
           break;
@@ -440,6 +450,8 @@ export class GameScreen {
       case "capture":
         text = `${this.pname(s, e.player)} captured ${this.secName(e.section)}${e.from ? ` from ${this.pname(s, e.from)}` : ""}!`;
         cls = e.player === this.you ? "big good" : e.from === this.you ? "big bad" : "big";
+        if (e.player === this.you) sound.play("capture");
+        else if (e.from === this.you) sound.play("lost");
         break;
       case "open": {
         if (e.player === this.you) return;
@@ -458,21 +470,27 @@ export class GameScreen {
         if (e.player === this.you) {
           text = `Nobody boarded your train on ${this.secName(e.section)} (${e.run} of ${need})`;
           cls = "bad";
+          sound.play("warn");
         } else {
           const runsThere = s.lines.some((l) => l.owner === this.you && this.lineUses(l, e.section));
           if (!runsThere) return;
           text = `Nobody boarded ${this.pname(s, e.player)}'s train on ${this.secName(e.section)} (${e.run} of ${need})`;
           cls = "good";
+          sound.play("good");
         }
         break;
       }
       case "win":
+        if (e.player === this.you) sound.play("win");
         this.showEnd(s);
         return;
       default:
         return;
     }
-    const t = h("div", { class: `toast ${cls}` });
+    // one toast per section for empty-train updates: replace the older one
+    const key = e.kind === "empty" ? `empty-${e.section}` : "";
+    if (key) this.toasts.querySelector(`[data-key="${key}"]`)?.remove();
+    const t = h("div", { class: `toast ${cls}`, "data-key": key || undefined });
     if (color) t.style.setProperty("--c", CSS_COLORS[color]);
     t.textContent = text;
     this.toasts.prepend(t);
@@ -561,6 +579,7 @@ export class GameScreen {
                <div class="seg small">${[1, 2, 3].map((x) => `<button data-act="speedx" data-arg="${x}" class="${this.conn.speed === x ? "on" : ""}">${x}×</button>`).join("")}</div>`
             : ""
         }
+        <button class="hud-btn" data-act="mute" aria-label="${sound.muted ? "Sound on" : "Sound off"}" title="${sound.muted ? "Sound on" : "Sound off"}">${sound.muted ? "🔇" : "🔊"}</button>
         <button class="hud-btn" data-act="help" aria-label="How to play">?</button>
       </div>`;
     patch(this.hud, html);

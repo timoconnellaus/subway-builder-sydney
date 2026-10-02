@@ -51,6 +51,8 @@ export class MapView {
   private colorOf: Record<PlayerId, Color> = {};
   private slotOf: Record<PlayerId, number> = {};
   private zoom = 1;
+  private u = 1; // symbol scale: map symbols shrink a little as you zoom in so they don't balloon
+  private lastSnap: Snapshot | null = null;
   private baseScale = 1;
   private destroyed = false;
   selected: Pick = null;
@@ -143,6 +145,7 @@ export class MapView {
         icon.scale.set(k);
         icon.position.set(x, y);
         tile.label = `hub-${s.id}`;
+        icon.label = `icon-${s.id}`;
         this.hubLayer.addChild(tile, icon);
       }
     }
@@ -220,6 +223,26 @@ export class MapView {
 
   private updateLabelScale() {
     const z = this.zoom;
+    const u = 1 / Math.pow(Math.max(1, z), 0.7);
+    if (Math.abs(u - this.u) / this.u > 0.04) {
+      this.u = u;
+      for (const c of this.hubLayer.children) {
+        if (c.label?.startsWith("hub-")) c.scale.set(u);
+        if (c.label?.startsWith("icon-")) {
+          const sp = c as Sprite;
+          sp.scale.set((22 / Math.max(sp.texture.width, sp.texture.height)) * u);
+        }
+      }
+      if (this.lastSnap) {
+        this.drawOwnership(this.lastSnap);
+        this.drawWaiting(this.lastSnap);
+      }
+      for (const l of this.labels) {
+        const st = this.map.stations.find((x) => x.id === l.station)!;
+        const [x, y] = this.pos[st.id];
+        l.text.position.set(x + (st.icon ? 22 : 9) * u, y);
+      }
+    }
     const inv = 1 / Math.max(1, z * 0.75);
     for (const l of this.labels) {
       l.text.scale.set(inv);
@@ -264,6 +287,7 @@ export class MapView {
   }
 
   push(snap: Snapshot) {
+    this.lastSnap = snap;
     const now = performance.now();
     this.frames.push({ at: now, snap });
     while (this.frames.length > 3) this.frames.shift();
@@ -317,11 +341,11 @@ export class MapView {
       const st = snap.sections[sec.id];
       const col = this.ownerColor(st?.owner ?? null);
       if (!col) {
-        dotted(g, ax, ay, bx, by, 9, 2.2, NEUTRAL);
+        dotted(g, ax, ay, bx, by, 9 * this.u, 2.2 * this.u, NEUTRAL);
         continue;
       }
-      g.moveTo(ax, ay).lineTo(bx, by).stroke({ width: 13, color: PAPER, cap: "round" });
-      g.moveTo(ax, ay).lineTo(bx, by).stroke({ width: 8, color: COLORS[col], cap: "round" });
+      g.moveTo(ax, ay).lineTo(bx, by).stroke({ width: 13 * this.u, color: PAPER, cap: "round" });
+      g.moveTo(ax, ay).lineTo(bx, by).stroke({ width: 8 * this.u, color: COLORS[col], cap: "round" });
     }
     // stations
     const s = this.stationsG;
@@ -329,7 +353,7 @@ export class MapView {
     for (const st of this.map.stations) {
       if (st.icon) continue;
       const [x, y] = this.pos[st.id];
-      s.circle(x, y, 6).fill(PAPER).stroke({ width: 3, color: INK });
+      s.circle(x, y, 6 * this.u).fill(PAPER).stroke({ width: 3 * this.u, color: INK });
     }
     // hub rings in owner colour
     for (const st of this.map.stations) {
@@ -353,7 +377,8 @@ export class MapView {
       for (let i = 0; i < dots; i++) {
         const row = Math.floor(i / 6);
         const col = i % 6;
-        g.circle(x - 8 + col * 3.4, y + 10 + row * 3.4, 1.3).fill(INK);
+        const u = this.u;
+        g.circle(x + (-8 + col * 3.4) * u, y + (10 + row * 3.4) * u, 1.3 * u).fill(INK);
       }
     }
   }
@@ -365,13 +390,13 @@ export class MapView {
       for (let i = 0; i < this.highlight.length - 1; i++) {
         const [ax, ay] = this.pos[this.highlight[i]];
         const [bx, by] = this.pos[this.highlight[i + 1]];
-        g.moveTo(ax, ay).lineTo(bx, by).stroke({ width: 20, color: this.highlightColor, alpha: 0.28, cap: "round" });
+        g.moveTo(ax, ay).lineTo(bx, by).stroke({ width: 20 * this.u, color: this.highlightColor, alpha: 0.28, cap: "round" });
       }
     }
     for (const c of this.candidates) {
       const [x, y] = this.pos[c];
-      const r = 11 + Math.sin(t / 180) * 2;
-      g.circle(x, y, r).stroke({ width: 3, color: this.highlightColor, alpha: 0.8 });
+      const r = (11 + Math.sin(t / 180) * 2) * this.u;
+      g.circle(x, y, r).stroke({ width: 3 * this.u, color: this.highlightColor, alpha: 0.8 });
     }
     // contested sections: pulsing marker with the empty-run dots
     const m = this.markers;
@@ -384,15 +409,16 @@ export class MapView {
       const mx = (ax + bx) / 2;
       const my = (ay + by) / 2;
       const pulse = 0.5 + 0.5 * Math.sin(t / 250);
-      m.moveTo(ax, ay).lineTo(bx, by).stroke({ width: 16, color: 0xffffff, alpha: 0.25 + pulse * 0.25, cap: "round" });
+      const u = this.u;
+      m.moveTo(ax, ay).lineTo(bx, by).stroke({ width: 16 * u, color: 0xffffff, alpha: 0.25 + pulse * 0.25, cap: "round" });
       const need = snap.settings.emptyToCapture;
-      const w = need * 7 + 6;
-      m.roundRect(mx - w / 2, my - 7, w, 14, 7).fill({ color: INK, alpha: 0.9 });
+      const w = (need * 7 + 6) * u;
+      m.roundRect(mx - w / 2, my - 7 * u, w, 14 * u, 7 * u).fill({ color: INK, alpha: 0.9 });
       const col = this.ownerColor(st.owner);
       for (let i = 0; i < need; i++) {
-        const cx = mx - w / 2 + 6.5 + i * 7;
-        if (i < st.emptyRun) m.circle(cx, my, 2.6).fill(col ? COLORS[col] : PAPER);
-        else m.circle(cx, my, 2.6).stroke({ width: 1.4, color: col ? COLORS[col] : PAPER });
+        const cx = mx - w / 2 + (6.5 + i * 7) * u;
+        if (i < st.emptyRun) m.circle(cx, my, 2.6 * u).fill(col ? COLORS[col] : PAPER);
+        else m.circle(cx, my, 2.6 * u).stroke({ width: 1.4 * u, color: col ? COLORS[col] : PAPER });
       }
     }
     // selection
@@ -400,12 +426,12 @@ export class MapView {
     s.clear();
     if (this.selected?.kind === "station") {
       const [x, y] = this.pos[this.selected.id];
-      s.circle(x, y, 14).stroke({ width: 3, color: INK });
+      s.circle(x, y, 14 * this.u).stroke({ width: 3 * this.u, color: INK });
     } else if (this.selected?.kind === "section") {
       const sec = this.net.section[this.selected.id];
       const [ax, ay] = this.pos[sec.a];
       const [bx, by] = this.pos[sec.b];
-      s.moveTo(ax, ay).lineTo(bx, by).stroke({ width: 22, color: INK, alpha: 0.18, cap: "round" });
+      s.moveTo(ax, ay).lineTo(bx, by).stroke({ width: 22 * this.u, color: INK, alpha: 0.18, cap: "round" });
     }
   }
 
