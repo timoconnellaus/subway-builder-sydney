@@ -297,3 +297,7 @@ input.need { border-color: var(--bad); box-shadow: 0 0 0 3px rgba(214, 40, 57, 0
 .cb-opt { display: flex; gap: 8px; align-items: center; justify-content: center; font-size: 14px; color: var(--muted); }
 .toast[data-act] { pointer-events: auto; cursor: pointer; }
 .board-title span:nth-child(n + 3) { text-align: right; font-size: 10px; letter-spacing: 0.04em; }
+/* small phones: drop the income rate so the top bar stays on one row */
+@media (max-width: 430px) {
+  .pill .rate { display: none; }
+}

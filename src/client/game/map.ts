@@ -267,10 +267,11 @@ export class MapView {
         placeLabel(l.text, st.label, x, y, (st.icon ? 22 : 9) * u);
       }
     }
-    const inv = 1 / Math.max(1, z * 0.75);
+    // labels grow a little with zoom, but never smaller than 11px on screen (small phone maps)
+    const inv = Math.max(1 / Math.max(1, z * 0.75), 11 / (12 * this.world.scale.x));
     for (const l of this.labels) {
       l.text.scale.set(inv);
-      l.text.visible = l.major || this.world.scale.x > 1.15 || this.highlight.includes(l.station) || this.candidates.includes(l.station);
+      l.text.visible = l.major || this.world.scale.x > 1.15 || z >= 2.5 || this.highlight.includes(l.station) || this.candidates.includes(l.station);
     }
   }
 

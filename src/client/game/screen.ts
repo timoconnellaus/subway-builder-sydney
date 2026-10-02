@@ -706,8 +706,8 @@ export class GameScreen {
       default:
         return;
     }
-    // one toast per section for empty-train updates: replace the older one
-    const key = e.kind === "empty" ? `empty-${e.section}` : "";
+    // one toast per section for empty-train updates, and per city event: replace the older one
+    const key = e.kind === "empty" ? `empty-${e.section}` : e.kind === "event" ? `event-${e.event.id}` : "";
     if (key) this.toasts.querySelector(`[data-key="${key}"]`)?.remove();
     const t = h("div", { class: `toast ${cls}`, "data-key": key || undefined, "data-act": act ? "select-section" : undefined, "data-arg": act || undefined, role: act ? "button" : undefined });
     if (color) t.style.setProperty("--c", CSS_COLORS[color]);
