@@ -33,7 +33,7 @@ export function endHtml(s: Snapshot, c: EndContext): string {
           !youWon && me && winner && winner.owned - me.owned <= 1
             ? `<p class="so-close">${winner.owned === me.owned ? "So close! Level on track, beaten on passengers." : "So close! You lost by just 1 section."}</p>`
             : !youWon && me && me.owned > 0
-              ? `<p class="so-close">Good effort! You built ${me.owned} ${me.owned === 1 ? "section" : "sections"} and carried ${me.carried.toLocaleString("en-AU")} passengers. Have another go!</p>`
+              ? `<p class="so-close cheer">Good effort! You built ${me.owned} ${me.owned === 1 ? "section" : "sections"} and carried ${me.carried.toLocaleString("en-AU")} passengers. Have another go!</p>`
               : ""
         }
         <p class="muted">${reason && reason.kind === "win" && reason.reason === "share" ? `${youWon ? "You own" : "They own"} ${Math.round(s.settings.winShare * 100)}% of ${esc(MAPS[s.mapId]?.name ?? "the")}'s network.` : "Most track when the clock ran out (passengers break a tie)."}</p>

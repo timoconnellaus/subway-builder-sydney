@@ -3,6 +3,7 @@
   --bg: #f3f1ec;
   --paper: #fbfaf7;
   --cream: #fff7e0; /* tips, events, waiting notes */
+  --sheet: 44%; /* height of the bottom sheet on phones and portrait tablets */
   --ink: #1e2430;
   --muted: #5d6573;
   --rule: #d9d5cc;
@@ -269,7 +270,7 @@ details.rules summary { font-family: var(--display); font-weight: 800; cursor: p
 
 /* ---------- phones ---------- */
 @media (max-width: 760px), (orientation: portrait) and (max-width: 1100px) {
-  .panel { left: 0; right: 0; top: auto; bottom: 0; width: auto; max-height: 44%; border-radius: 18px 18px 0 0; padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .panel { left: 0; right: 0; top: auto; bottom: 0; width: auto; max-height: var(--sheet); border-radius: 18px 18px 0 0; padding-bottom: env(safe-area-inset-bottom, 0px); }
   .panel-toggle { display: block; border: 0; background: var(--chip); width: 100%; padding: 4px 0; font-size: 16px; cursor: pointer; }
   .panel-closed .panel .panel-body, .panel-closed .panel .flash { display: none; }
   .board { bottom: auto; top: calc(env(safe-area-inset-top, 0px) + 108px); left: 8px; min-width: 0; padding: 4px 8px; display: flex; gap: 10px; border-radius: 10px; }
@@ -284,9 +285,9 @@ details.rules summary { font-family: var(--display); font-weight: 800; cursor: p
   .pill { padding: 6px 10px; font-size: 14px; }
   .pill.you span { display: none; }
   .toasts { top: calc(env(safe-area-inset-top, 0px) + 140px); right: 12px; }
-  /* above the bottom sheet, under the toasts, so it can't hide behind the panel */
-  .trophy-toasts { bottom: auto; top: calc(env(safe-area-inset-top, 0px) + 96px); left: 50%; width: max-content; max-width: calc(100% - 24px); }
-  .coach { top: auto; bottom: calc(44% + 8px); left: 8px; right: 8px; width: auto; min-width: 0; padding: 10px 12px; }
+  /* just above the bottom sheet (and drawn over it), clear of the scoreboard and toasts */
+  .trophy-toasts { bottom: calc(var(--sheet) + 8px); left: 50%; width: max-content; max-width: calc(100% - 24px); }
+  .coach { top: auto; bottom: calc(var(--sheet) + 8px); left: 8px; right: 8px; width: auto; min-width: 0; padding: 10px 12px; }
   .coach h3 { font-size: 16px; }
   .coach p { font-size: 13px; }
   .toast { font-size: 13px; padding: 7px 10px; }
@@ -314,6 +315,13 @@ input.need { border-color: var(--bad); box-shadow: 0 0 0 3px rgba(214, 40, 57, 0
 }
 .end-tip { margin: 6px 0; padding: 8px 12px; background: #fff7e3; border-radius: 10px; font-size: 15px; }
 @media (max-width: 480px) {
+  :root { --sheet: 50%; }
+  .slot.empty { grid-template-columns: 44px 1fr; }
+  .slot-actions { grid-column: 1 / -1; justify-content: flex-start; }
+  .ranks th { font-size: 11px; letter-spacing: 0.03em; }
+  .ranks td:nth-child(2) { white-space: nowrap; }
+  .ranks .num { padding-left: 10px; }
+  .rivals li .muted { flex-basis: 100%; padding-left: 34px; }
   .share-wrap { grid-template-columns: 1fr; justify-items: center; }
   .share-wrap .qr { width: 112px; }
   .share { width: 100%; }
@@ -361,6 +369,7 @@ input.need { border-color: var(--bad); box-shadow: 0 0 0 3px rgba(214, 40, 57, 0
 .pill.goal.pulse { animation: goal-pulse 0.7s ease-out 2; }
 @keyframes goal-pulse { 0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(43, 168, 74, 0.6); } 50% { transform: scale(1.06); box-shadow: 0 0 0 10px rgba(43, 168, 74, 0); } 100% { transform: scale(1); } }
 .so-close { margin: 0; font-family: var(--display); font-weight: 900; color: var(--bad); font-size: 18px; }
+.so-close.cheer { color: var(--blue); font-size: 16px; }
 .push { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .stars { color: #e8a200; letter-spacing: 0.05em; font-size: 22px; line-height: 1; }
 .stamp .stars { font-size: 13px; letter-spacing: 0; }
