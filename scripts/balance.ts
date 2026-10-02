@@ -8,7 +8,7 @@ const overrides: Partial<Settings> = {};
 const mapId = args.find((a) => a.startsWith("map="))?.slice(4) ?? "sydney";
 for (const a of args) {
   const m = a.match(/^(\w+)=([\d.]+)$/);
-  if (a.startsWith("map=")) continue;
+  if (a.startsWith("map=") || a.startsWith("players=")) continue;
   if (m) (overrides as Record<string, number>)[m[1]] = Number(m[2]);
 }
 
@@ -17,14 +17,15 @@ const hubs = ["central", "parramatta", "airport", "liverpool"];
 const colors = ["red", "blue", "gold", "green"] as const;
 const totals = { captures: 0, opens: 0, earlyWins: 0, endMinutes: 0 };
 const hubWins: Record<string, number> = {};
+const hubStats: Record<string, { carried: number; owned: number }> = {};
 
 for (let g = 0; g < games; g++) {
-  const n = 3;
+  const n = Number(args.find((a) => a.startsWith("players="))?.slice(8) ?? 3);
   const s = Session.create(
     MAPS[mapId],
     // rotate styles across hubs each game so hub advantage shows up separately from bot style
     Array.from({ length: n }, (_, i) => {
-      const style = styles[(i + g) % n];
+      const style = styles[(i + g) % Math.min(n, 3)];
       return { id: `P${i + 1}`, name: `${style}@${hubs[i]}`.slice(0, 8), color: colors[i], hub: hubs[i], isBot: true, botStyle: style };
     }),
     overrides
@@ -58,7 +59,13 @@ for (let g = 0; g < games; g++) {
   if (s.state.time < s.state.settings.roundMinutes - 1) totals.earlyWins++;
   const winner = s.state.players.find((p) => p.id === s.state.winner);
   hubWins[winner?.hub ?? "none"] = (hubWins[winner?.hub ?? "none"] ?? 0) + 1;
+  for (const p of s.state.players) {
+    const h = (hubStats[p.hub] ??= { carried: 0, owned: 0 });
+    h.carried += p.carried / games;
+    h.owned += s.game.ownedCount(p.id) / games;
+  }
   console.log(`winner: ${winner?.botStyle} at ${winner?.hub} (${Math.round(s.state.time)} min), captures: ${captures}  carried: ${s.state.players.map((p) => `${p.hub}=${p.carried}/${s.game.ownedCount(p.id)}`).join(" ")}`);
 }
 console.log("wins by hub:", JSON.stringify(hubWins));
+console.log("average at the end:", Object.entries(hubStats).map(([h, v]) => `${h} carried ${Math.round(v.carried)} owned ${v.owned.toFixed(1)}`).join(", "));
 console.log(`\nAverage over ${games}: captures ${(totals.captures / games).toFixed(1)}, early wins ${totals.earlyWins}, length ${(totals.endMinutes / games).toFixed(0)} min`);
