@@ -293,3 +293,4 @@ details.rules summary { font-family: var(--display); font-weight: 800; cursor: p
 .daily-end { width: 100%; border: 2px solid var(--gold); border-radius: 12px; padding: 10px 12px; margin: 10px 0; background: #fffaf0; }
 .daily-end h3 { font-size: 15px; margin-bottom: 4px; }
 .daily-end p { margin: 4px 0; }
+input.need { border-color: var(--bad); box-shadow: 0 0 0 3px rgba(214, 40, 57, 0.2); }

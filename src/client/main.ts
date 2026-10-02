@@ -166,6 +166,14 @@ function menu() {
   nameIn.addEventListener("change", saveName);
   el.querySelector("#continue")?.addEventListener("click", () => go(savedLocalGame()?.opts.daily === today() ? "#/daily" : "#/play"));
   el.querySelector("#daily")!.addEventListener("click", () => {
+    if (!nameIn.value.trim()) {
+      // the leaderboard needs a name
+      nameIn.classList.add("need");
+      nameIn.placeholder = "Type your name for the leaderboard";
+      nameIn.scrollIntoView({ block: "center", behavior: "smooth" });
+      nameIn.focus();
+      return;
+    }
     clearLocalSave();
     setStorage("new-game", "1");
     saveName();
