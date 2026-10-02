@@ -1,5 +1,5 @@
-import { cleanRules, createTutorial, MAPS, Session, type BotStyle, type Command, type CommandResult, type HouseRules, type PlayerId, type Snapshot } from "../sim";
-import { BOT_NAMES, botSeats, seat, type ClientMsg, type LobbyState, type ServerMsg } from "../shared/protocol";
+import { createTutorial, MAPS, Session, type BotStyle, type Command, type CommandResult, type HouseRules, type PlayerId, type Snapshot } from "../sim";
+import { BOT_NAMES, botSeats, startRound, type ClientMsg, type LobbyState, type ServerMsg } from "../shared/protocol";
 import type { GameState } from "../sim";
 import { setStorage, storage } from "./util";
 
@@ -27,6 +27,7 @@ export interface GameConn {
   readonly local: boolean;
   readonly daily?: string;
   readonly tour?: number; // World Tour stop being played
+  readonly tutorial?: boolean;
   onSnapshot(cb: (s: Snapshot) => void): () => void;
   command(cmd: Command): Promise<CommandResult>;
   close(): void;
@@ -110,16 +111,10 @@ export class LocalGame implements GameConn {
     if (this.opts.tutorial) return this.startTutorial();
     // you take your seat (default the first); bots fill the other seats in order
     const slot = this.opts.watch ? -1 : (this.opts.slot ?? 0);
-    const human = slot < 0 ? [] : [{ id: "P1", name: this.opts.name || "You", ...seat(this.mapId, slot) }];
+    const human = slot < 0 ? [] : [{ id: "P1", name: this.opts.name || "You", slot }];
     const free = botSeats(slot, this.opts.bots.length);
-    const bots = this.opts.bots.map((style, i) => ({
-      id: `P${i + 1 + human.length}`,
-      name: BOT_NAMES[style],
-      ...seat(this.mapId, free[i]),
-      isBot: true,
-      botStyle: style
-    }));
-    this.session = Session.create(MAPS[this.mapId], [...human, ...bots], { ...cleanRules(this.opts.rules), roundMinutes: this.opts.roundMinutes }, this.opts.seed);
+    const bots = this.opts.bots.map((style, i) => ({ id: `P${i + 1 + human.length}`, name: BOT_NAMES[style], slot: free[i], botStyle: style }));
+    this.session = startRound(this.mapId, [...human, ...bots], this.opts.rules, this.opts.roundMinutes, this.opts.seed);
     this.begin();
   }
 
@@ -203,7 +198,7 @@ export class RemoteRoom implements GameConn {
   private closed = false;
   private retry = 0;
   private pingTimer: ReturnType<typeof setInterval> | null = null;
-  latency = 0;
+  latency = 0; // round trip of the keepalive ping, in ms (handy when debugging)
 
   constructor(public code: string, private name: string, private token: string) {
     this.open();

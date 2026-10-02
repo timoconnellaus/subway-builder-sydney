@@ -1,6 +1,6 @@
 import type { BotStyle, Color, Command, HouseRules, PlayerId, StationId } from "../sim/types";
 import type { Snapshot } from "../sim/session";
-import { MAPS } from "../sim";
+import { cleanRules, MAPS, Session } from "../sim";
 
 export const MAX_PLAYERS = 4;
 
@@ -60,6 +60,33 @@ export type ServerMsg =
 export const SLOTS: { color: Color }[] = [{ color: "red" }, { color: "blue" }, { color: "gold" }, { color: "green" }];
 
 /** The seats bots take when you sit in `slot` (-1 for none): the others, in order. */
+/** Round lengths a game can be set to, in game minutes. */
+export const ROUND_CHOICES = [300, 600, 900, 1200] as const;
+/** Five minutes is only enough for a real fight on the small Sydney map. */
+export function minRoundFor(mapId: string): number {
+  return mapId === "sydney" ? 300 : 600;
+}
+
+/** Someone taking part in a new round: a seat number, plus a bot style for bots. */
+export interface RoundSeat {
+  id: PlayerId;
+  name: string;
+  slot: number;
+  botStyle?: BotStyle;
+}
+
+/** Start a round: seats become colours and hubs on the map, house rules are cleaned. Used by
+ * single player and online rooms alike. */
+export function startRound(mapId: string, seats: RoundSeat[], rules: HouseRules, roundMinutes: number, seed?: number): Session {
+  const map = MAPS[mapId] ?? MAPS.sydney;
+  return Session.create(
+    map,
+    [...seats].sort((a, b) => a.slot - b.slot).map((m) => ({ id: m.id, name: m.name, ...seat(map.id, m.slot), isBot: !!m.botStyle, botStyle: m.botStyle })),
+    { ...cleanRules(rules), roundMinutes },
+    seed
+  );
+}
+
 export function botSeats(slot: number, count: number): number[] {
   return SLOTS.map((_, i) => i).filter((i) => i !== slot).slice(0, count);
 }

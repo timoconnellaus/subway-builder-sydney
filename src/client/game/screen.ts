@@ -66,7 +66,7 @@ export class GameScreen {
     this.overlay = h("div", { class: "overlay", hidden: true });
     this.tip = h("div", { class: "maptip", hidden: true });
     this.coach = h("div", { class: "coach", hidden: true, "aria-live": "polite" });
-    if ((conn as { tutorial?: boolean }).tutorial) this.step = 0;
+    if (conn.tutorial) this.step = 0;
     this.el.append(this.mapHost, this.tip, this.hud, this.board, this.coach, this.panel, this.toasts, this.trophies, this.overlay);
     this.map = new MapView(this.mapHost, MAPS[conn.mapId] ?? MAPS.sydney);
     this.map.you = conn.you;

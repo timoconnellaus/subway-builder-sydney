@@ -1,7 +1,7 @@
 import "./styles.css";
 import { HOUSE_RULES, ruleLabel, type BotStyle, type HouseRuleKey, type HouseRules } from "../sim/types";
 import { DEFAULT_SETTINGS } from "../sim/types";
-import { BOT_NAMES, BOT_TIPS, botSeats, cleanPlayerName, isRoomCode, SLOTS, type LobbyState } from "../shared/protocol";
+import { BOT_NAMES, BOT_TIPS, botSeats, cleanPlayerName, isRoomCode, minRoundFor, ROUND_CHOICES, SLOTS, type LobbyState } from "../shared/protocol";
 import qrcode from "qrcode-generator";
 import { MAP_CHOICES, MAPS, stationName } from "../sim";
 import { clearLocalSave, LocalGame, RemoteRoom, savedLocalGame, type LocalOptions } from "./conn";
@@ -121,6 +121,10 @@ function recordLine(): string {
   return `<p class="record">Your record: <b>${r.wins}</b> ${r.wins === 1 ? "win" : "wins"} from <b>${r.played}</b> ${r.played === 1 ? "game" : "games"} · best <b>${r.best.toLocaleString("en-AU")}</b> passengers</p>`;
 }
 
+function roundOptions(current: number): string {
+  return ROUND_CHOICES.map((m) => `<option value="${m}" ${m === current ? "selected" : ""}>${m / 60} minutes</option>`).join("");
+}
+
 function qrSvg(text: string): string {
   const qr = qrcode(0, "M");
   qr.addData(text);
@@ -173,7 +177,7 @@ function menu() {
           <select id="seat">${seatOptions(storage("map", "sydney"), Number(storage("seat", "0")) || 0)}</select>
         </label>
         <label class="field inline"><span>Round length</span>
-          <select id="round">${[300, 600, 900, 1200].map((m) => `<option value="${m}" ${String(m) === minutes ? "selected" : ""}>${m / 60} minutes</option>`).join("")}</select>
+          <select id="round">${roundOptions(Number(minutes))}</select>
         </label>
         ${rulesHtml(menuRules, false, ["botSkill"])}
         <details class="rules"><summary>House rules</summary><div class="rules-grid">${rulesHtml(menuRules, false, OTHER_RULES)}</div></details>
@@ -461,12 +465,14 @@ function online(code: string) {
     wrap.append(screen.el);
   };
 
+  // the invite link and its QR code never change for this room
+  const link = `${location.origin}/#/room/${code}`;
+  const qr = qrSvg(link);
   const lobbyHtml = (l: LobbyState) => {
     const isHost = l.host === room.you;
-    const link = `${location.origin}/#/room/${l.room}`;
+    const map = MAPS[l.options.map] ?? MAPS.sydney;
     const slots = SLOTS.map((slot, i) => {
       const p = l.players.find((x) => x.color === slot.color);
-      const map = MAPS[l.options.map] ?? MAPS.sydney;
       const hubName = stationName(map, map.hubs[i]);
       const bonus = map.hubBonus?.[map.hubs[i]] ?? 0;
       const bonusText = bonus ? ` · +$${bonus.toLocaleString("en-AU")} to start` : "";
@@ -486,7 +492,7 @@ function online(code: string) {
       <img class="logo small" src="/sprites/logo-full.webp" alt="Metro Empire">
       <div class="room-code"><span class="muted">Room</span><b class="mono">${l.room}</b></div>
       <div class="share-wrap">
-        <div class="qr" title="Scan to join on a phone or tablet">${qrSvg(link)}</div>
+        <div class="qr" title="Scan to join on a phone or tablet">${qr}</div>
         <div class="share-text"><p class="muted small">Send this link, or scan the code on a phone or iPad.</p>
         <div class="share"><input readonly value="${esc(link)}" aria-label="Invite link"><button class="btn" data-act="copy">Copy link</button></div></div>
       </div>
@@ -498,9 +504,9 @@ function online(code: string) {
         <select id="map" ${isHost ? "" : "disabled"}>${mapOptions(l.options.map ?? "sydney")}</select>
       </label>
       <label class="field inline"><span>Round length</span>
-        <select id="round" ${isHost ? "" : "disabled"} data-act-change="round">${[300, 600, 900, 1200].map((m) => `<option value="${m}" ${m === l.options.roundMinutes ? "selected" : ""}>${m / 60} minutes</option>`).join("")}</select>
+        <select id="round" ${isHost ? "" : "disabled"} data-act-change="round">${roundOptions(l.options.roundMinutes)}</select>
       </label>
-      ${l.options.roundMinutes <= 300 && l.options.map !== "sydney" ? `<p class="muted small">Bigger maps need 10 minutes or more for a real fight.</p>` : ""}
+      ${l.options.roundMinutes < minRoundFor(l.options.map) ? `<p class="muted small">Bigger maps need 10 minutes or more for a real fight.</p>` : ""}
       <details class="rules"><summary>House rules${isHost ? "" : " (set by the host)"}</summary><div class="rules-grid">${rulesHtml(l.options.rules, !isHost, isHost ? OTHER_RULES : RULE_KEYS)}</div></details>
       ${message ? `<p class="error">${esc(message)}</p>` : ""}
       <div class="row">

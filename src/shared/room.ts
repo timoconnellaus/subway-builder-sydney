@@ -4,8 +4,10 @@ import {
   EMOTES,
   MAX_PLAYERS,
   cleanPlayerName,
-  seat,
+  minRoundFor,
+  ROUND_CHOICES,
   SLOTS,
+  startRound,
   type ClientMsg,
   type LobbyPlayer,
   type LobbyState,
@@ -255,12 +257,11 @@ export class RoomCore {
       case "setOptions": {
         if (!isHost || this.phase !== "lobby") return;
         const rm = msg.options.roundMinutes;
-        if (rm && [300, 600, 900, 1200].includes(rm)) this.options.roundMinutes = rm;
+        if (rm && (ROUND_CHOICES as readonly number[]).includes(rm)) this.options.roundMinutes = rm;
         if (msg.options.rules) this.options.rules = cleanRules(msg.options.rules) as RoomOptions["rules"];
         if (typeof msg.options.map === "string" && Object.prototype.hasOwnProperty.call(MAPS, msg.options.map)) {
           this.options.map = msg.options.map;
-          // five minutes is only enough for a fight on the small Sydney map
-          if (!rm && this.options.map !== "sydney" && this.options.roundMinutes < 600) this.options.roundMinutes = 600;
+          if (!rm) this.options.roundMinutes = Math.max(this.options.roundMinutes, minRoundFor(this.options.map));
         }
         break;
       }
@@ -345,14 +346,9 @@ export class RoomCore {
   }
 
   private startGame() {
-    const map = MAPS[this.options.map] ?? MAPS.sydney;
-    const sorted = [...this.members].sort((a, b) => a.slot - b.slot);
-    this.session = Session.create(
-      map,
-      sorted.map((m) => ({ id: m.id, name: m.name, ...seat(map.id, m.slot), isBot: m.isBot, botStyle: m.botStyle })),
-      { ...cleanRules(this.options.rules), roundMinutes: this.options.roundMinutes }
-    );
-    for (const p of this.session.state.players) p.connected = p.isBot || this.members.find((m) => m.id === p.id)!.connected;
+    const session = startRound(this.options.map, this.members, this.options.rules, this.options.roundMinutes);
+    this.session = session;
+    for (const p of session.state.players) p.connected = p.isBot || this.members.find((m) => m.id === p.id)!.connected;
     this.phase = "game";
   }
 
