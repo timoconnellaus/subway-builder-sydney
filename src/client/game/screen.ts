@@ -1107,7 +1107,9 @@ export class GameScreen {
     else if (this.sel?.kind === "section") body = this.sectionHtml(s, this.sel.id, me);
     else if (this.sel?.kind === "line") body = this.lineHtml(s, this.sel.id, me);
     else body = this.homeHtml(s, me);
-    return head + flash + `<div class="panel-body">${body}</div>`;
+    // online reactions stay at the foot of the panel whatever it shows
+    const emotes = this.conn.emote ? `<div class="emotes" aria-label="Send a reaction">${EMOTES.map((e) => `<button data-act="emote" data-arg="${e}" aria-label="Send ${e}">${e}</button>`).join("")}</div>` : "";
+    return head + flash + `<div class="panel-body">${body}</div>` + emotes;
   }
 
   /** One tap to fight for a section with a line: 25¢ cheaper and one more train. */
@@ -1210,8 +1212,7 @@ export class GameScreen {
       <button class="btn primary wide" data-act="new-line" ${mine.length >= s.settings.maxLinesPerPlayer ? "disabled" : ""}>New line · ${money(trainCost(s, 2))}</button>
       <p class="muted small">${isCoarse() ? "Drag to move the map, pinch to zoom." : "Drag to move the map, scroll to zoom."} Tap a station or a section for details.</p>
       ${this.conn.local ? `<div class="row small-row phone-only"><span class="muted small">Speed</span>${this.speedSeg("seg")}</div>` : ""}
-      <div class="row small-row phone-only"><button class="link" data-act="mute">${sound.muted ? "🔇 Sound off" : "🔊 Sound on"}</button><button class="link" data-act="music">${sound.musicOn ? "🎵 Music on" : "🎵 Music off"}</button></div>
-      ${this.conn.emote ? `<div class="emotes" aria-label="Send a reaction">${EMOTES.map((e) => `<button data-act="emote" data-arg="${e}" aria-label="Send ${e}">${e}</button>`).join("")}</div>` : ""}`;
+      <div class="row small-row phone-only"><button class="link" data-act="mute">${sound.muted ? "🔇 Sound off" : "🔊 Sound on"}</button><button class="link" data-act="music">${sound.musicOn ? "🎵 Music on" : "🎵 Music off"}</button></div>`;
   }
 
   private lineRow(s: Snapshot, l: LineView): string {

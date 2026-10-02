@@ -247,6 +247,7 @@ details.rules summary { font-family: var(--display); font-weight: 800; cursor: p
 
 .paused-banner { position: absolute; left: 50%; top: 64px; transform: translateX(-50%); background: var(--ink); color: var(--paper); font-family: var(--display); font-weight: 900; font-size: 20px; padding: 8px 18px; border-radius: 12px; letter-spacing: 0.06em; text-transform: uppercase; }
 .emotes { display: flex; gap: 6px; flex-wrap: wrap; }
+.panel > .emotes { padding: 8px 16px; border-top: 1px solid var(--rule); flex: none; }
 .emotes button { font-size: 22px; width: 44px; height: 44px; border-radius: 12px; border: 2px solid var(--rule); background: var(--bg); cursor: pointer; }
 .emotes button:hover { border-color: var(--ink); }
 .toast.emote { font-size: 16px; }
@@ -318,6 +319,8 @@ input.need { border-color: var(--bad); box-shadow: 0 0 0 3px rgba(214, 40, 57, 0
 .end-tip { margin: 6px 0; padding: 8px 12px; background: #fff7e3; border-radius: 10px; font-size: 15px; }
 @media (max-width: 480px) {
   :root { --sheet: 50%; }
+  .panel > .emotes { padding: 6px 12px; }
+  .panel > .emotes button { width: 38px; height: 38px; font-size: 19px; }
   .slot.empty { grid-template-columns: 44px 1fr; }
   .slot-actions { grid-column: 1 / -1; justify-content: flex-start; }
   .ranks th { font-size: 11px; letter-spacing: 0.03em; }
