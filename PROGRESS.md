@@ -62,3 +62,9 @@ Overnight build, started 2026-10-02 20:30 AEST.
 - New-player iPad playtest: first tour city has one Easy bot, rival-near-win warning and a rival
   tick on the goal bar, Defend offered whenever a rival runs on your track, Extend at the top of
   the line panel, the map pans so selections aren't under the sheet, tappable money nudge.
+- Re-playtest of tour city 1: now winnable by a new player. Follow-ups: hub-locked sections say so
+  up front, "Extend <line> here" before buying a new line, dead-end extend explained, phone layout
+  fixes (trophy cards, lobby seats, end table), encouraging loss card.
+- Shared rules moved into the sim/shared code: networkOf, hubLock, winNeed, openPrice (network.ts)
+  and startRound, ROUND_CHOICES, minRoundFor (protocol.ts) — no client copies of game rules.
+- Three more cities: Brisbane, Seoul and Madrid (13 maps), balance-checked with bot games.
