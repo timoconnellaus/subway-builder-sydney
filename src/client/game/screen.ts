@@ -694,7 +694,7 @@ export class GameScreen {
           cls = "big event";
           sound.play("warn");
         } else if (e.phase === "start") {
-          text = `${e.event.emoji} ${e.event.title} has started at ${where}.`;
+          text = `${e.event.emoji} ${e.event.title} has started${e.event.title.includes(where) ? "" : ` at ${where}`}.`;
           cls = "event";
         } else return;
         break;
@@ -774,6 +774,7 @@ export class GameScreen {
         <h2>${youWon ? "You win!" : winner ? `${esc(winner.name)} wins` : "Round over"}</h2>
         <p class="muted">${reason && reason.kind === "win" && reason.reason === "share" ? `${youWon ? "You own" : "They own"} ${Math.round(s.settings.winShare * 100)}% of ${esc(MAPS[s.mapId]?.name ?? "the")}'s network.` : "Most passengers carried when the clock ran out."}</p>
         ${historyChart(s)}
+        ${me && this.conn.local ? `<p class="end-tip">💡 ${this.endTip(s, me, youWon)}</p>` : ""}
         ${this.conn.daily && me ? `<div class="daily-end"><h3>Daily challenge · ${esc(this.conn.daily)}</h3><div id="daily-board"><p class="muted">Saving your score…</p></div></div>` : ""}
         <table class="ranks">
           <thead><tr><th></th><th>Company</th><th>Track</th><th>Passengers</th><th>Money</th></tr></thead>
@@ -791,6 +792,18 @@ export class GameScreen {
         </div>
       </div>`;
     if (this.conn.daily && me) this.sendDaily(this.conn.daily, me.name, dailyScore(youWon, s.time, me.owned / s.totalSections));
+  }
+
+  /** One piece of advice for next time, based on how the round went. */
+  private endTip(s: Snapshot, me: PlayerView, won: boolean): string {
+    const mine = s.lines.filter((l) => l.owner === me.id);
+    const trains = mine.reduce((a, l) => a + l.trains, 0);
+    const skill = s.settings.botSkill;
+    if (won) return skill < 3 ? `Great win! Try ${skill === 1 ? "Normal" : "Hard"} bots next time.` : "You beat the hard bots. Try the daily challenge, or a world city!";
+    if (me.money > 3000) return `You finished with ${money(me.money)} unspent. Money in the bank doesn't win passengers: buy more trains and open more track.`;
+    if (me.owned < 4) return "Open track early. Every section you own earns you fees when rivals use it, and counts towards the win.";
+    if (mine.length && trains / mine.length < 2.5) return "Your lines had few trains, so rivals could win your passengers. Two or three trains per line keeps them loyal.";
+    return "When a 'Nobody boarded your train' warning pops up, tap it and defend: lower that line's fare or add trains.";
   }
 
   private dailySent = false;
@@ -1186,7 +1199,7 @@ function historyChart(s: Snapshot): string {
   let out = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Track owned by each company over the round">`;
   for (const v of [0, Math.round(yMax / 2), yMax]) out += `<line x1="${L}" x2="${W - R}" y1="${Y(v)}" y2="${Y(v)}" stroke="#d9d5cc"/><text x="${L - 6}" y="${Y(v) + 4}" text-anchor="end">${v}</text>`;
   if (need <= yMax) out += `<line x1="${L}" x2="${W - R}" y1="${Y(need)}" y2="${Y(need)}" stroke="#1e2430" stroke-dasharray="4 4"/><text x="${W - R}" y="${Y(need) - 4}" text-anchor="end">win</text>`;
-  out += `<text x="${(L + W - R) / 2}" y="${H - 4}" text-anchor="middle">time →</text>`;
+  out += `<text x="${(L + W - R) / 2}" y="${H - 4}" text-anchor="middle">time →</text><text x="${L}" y="10" text-anchor="start">track owned</text>`;
   s.players.forEach((p, i) => {
     const d = h.map((x, k) => `${k ? "L" : "M"}${X(x.t).toFixed(1)},${Y(x.owned[i] ?? 0).toFixed(1)}`).join("");
     out += `<path d="${d}" fill="none" stroke="${CSS_COLORS[p.color]}" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>`;

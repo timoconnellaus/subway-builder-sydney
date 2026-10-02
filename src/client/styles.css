@@ -301,3 +301,4 @@ input.need { border-color: var(--bad); box-shadow: 0 0 0 3px rgba(214, 40, 57, 0
 @media (max-width: 430px) {
   .pill .rate { display: none; }
 }
+.end-tip { margin: 6px 0; padding: 8px 12px; background: #fff7e3; border-radius: 10px; font-size: 15px; }
