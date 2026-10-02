@@ -71,6 +71,10 @@ button { font: inherit; color: inherit; }
 .lobby .room-code { display: flex; align-items: baseline; gap: 12px; }
 .lobby .room-code b { font-size: 44px; letter-spacing: 0.15em; }
 .share { display: flex; gap: 8px; }
+.share-wrap { display: grid; grid-template-columns: 112px 1fr; gap: 14px; align-items: center; }
+.share-wrap .share-text { display: grid; gap: 8px; min-width: 0; }
+.qr { background: #fff; border-radius: 10px; padding: 4px; border: 1px solid var(--rule); }
+.qr svg { display: block; width: 100%; height: auto; }
 .share input { flex: 1; min-width: 0; font: 600 14px var(--mono); padding: 10px; border: 2px solid var(--rule); border-radius: 10px; background: var(--paper); }
 .slots { display: grid; gap: 8px; }
 .slot { display: grid; grid-template-columns: 44px 1fr auto; gap: 12px; align-items: center; background: var(--paper); border: 2px solid var(--c); border-radius: 14px; padding: 10px 12px; }

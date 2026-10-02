@@ -2,6 +2,8 @@ import "./styles.css";
 import { HOUSE_RULES, type BotStyle, type HouseRuleKey, type HouseRules } from "../sim/types";
 import { DEFAULT_SETTINGS } from "../sim/types";
 import { isRoomCode, SLOTS, type LobbyState } from "../shared/protocol";
+import qrcode from "qrcode-generator";
+import { MAPS } from "../sim";
 import { clearLocalSave, LocalGame, RemoteRoom, savedLocalGame } from "./conn";
 import { GameScreen, HELP_HTML } from "./game/screen";
 import { COLOR_NAMES, CSS_COLORS, esc, patch, setStorage, storage, token } from "./util";
@@ -65,6 +67,13 @@ function recordLine(): string {
   } catch {
     return "";
   }
+}
+
+function qrSvg(text: string): string {
+  const qr = qrcode(0, "M");
+  qr.addData(text);
+  qr.make();
+  return qr.createSvgTag({ cellSize: 4, margin: 2, scalable: true });
 }
 
 function go(hash: string) {
@@ -227,17 +236,23 @@ function online(code: string) {
     const link = `${location.origin}/#/room/${l.room}`;
     const slots = SLOTS.map((slot, i) => {
       const p = l.players.find((x) => x.color === slot.color);
-      const hubName = slot.hub[0].toUpperCase() + slot.hub.slice(1);
+      const hubName = MAPS.sydney.stations.find((s) => s.id === slot.hub)?.name ?? slot.hub;
+      const bonus = MAPS.sydney.hubBonus?.[slot.hub] ?? 0;
+      const bonusText = bonus ? ` · +$${bonus.toLocaleString("en-AU")} to start` : "";
       if (p)
-        return `<div class="slot" data-key="s${i}" style="--c:${CSS_COLORS[slot.color]}"><img src="/sprites/badge-${slot.color}.webp" alt=""><div><b>${esc(p.name)}${p.id === room.you ? " (you)" : ""}</b><small>${COLOR_NAMES[slot.color]} · starts at ${hubName}${p.id === l.host ? " · host" : ""}${!p.connected && !p.isBot ? " · away" : ""}</small></div>${isHost && p.id !== room.you ? `<button class="link" data-act="kick" data-arg="${p.id}">Remove</button>` : ""}</div>`;
-      return `<div class="slot empty" data-key="s${i}" style="--c:${CSS_COLORS[slot.color]}"><img src="/sprites/badge-${slot.color}.webp" alt=""><div><b>Empty seat</b><small>${COLOR_NAMES[slot.color]} · starts at ${hubName}</small></div>
+        return `<div class="slot" data-key="s${i}" style="--c:${CSS_COLORS[slot.color]}"><img src="/sprites/badge-${slot.color}.webp" alt=""><div><b>${esc(p.name)}${p.id === room.you ? " (you)" : ""}</b><small>${COLOR_NAMES[slot.color]} · starts at ${hubName}${bonusText}${p.id === l.host ? " · host" : ""}${!p.connected && !p.isBot ? " · away" : ""}</small></div>${isHost && p.id !== room.you ? `<button class="link" data-act="kick" data-arg="${p.id}">Remove</button>` : ""}</div>`;
+      return `<div class="slot empty" data-key="s${i}" style="--c:${CSS_COLORS[slot.color]}"><img src="/sprites/badge-${slot.color}.webp" alt=""><div><b>Empty seat</b><small>${COLOR_NAMES[slot.color]} · starts at ${hubName}${bonusText}</small></div>
         <div class="slot-actions">${l.phase === "lobby" && l.players.some((x) => x.id === room.you) ? `<button class="link" data-act="slot" data-arg="${i}">Sit here</button>` : ""}
         ${isHost ? `<button class="link" data-act="bot" data-arg="builder">+ Builder</button><button class="link" data-act="bot" data-arg="raider">+ Raider</button><button class="link" data-act="bot" data-arg="banker">+ Banker</button>` : ""}</div></div>`;
     }).join("");
     return `<div class="menu-card lobby">
       <img class="logo small" src="/sprites/logo-full.webp" alt="Metro Empire">
       <div class="room-code"><span class="muted">Room</span><b class="mono">${l.room}</b></div>
-      <div class="share"><input readonly value="${esc(link)}" aria-label="Invite link"><button class="btn" data-act="copy">Copy link</button></div>
+      <div class="share-wrap">
+        <div class="qr" title="Scan to join on a phone or tablet">${qrSvg(link)}</div>
+        <div class="share-text"><p class="muted small">Send this link, or scan the code on a phone or iPad.</p>
+        <div class="share"><input readonly value="${esc(link)}" aria-label="Invite link"><button class="btn" data-act="copy">Copy link</button></div></div>
+      </div>
       <div class="slots">${slots}</div>
       <label class="field inline"><span>Round length</span>
         <select id="round" ${isHost ? "" : "disabled"} data-act-change="round">${[300, 600, 900, 1200].map((m) => `<option value="${m}" ${m === l.options.roundMinutes ? "selected" : ""}>${m / 60} minutes</option>`).join("")}</select>
