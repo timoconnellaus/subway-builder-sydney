@@ -209,6 +209,29 @@ export class Game {
         st.netVersion++;
         return { ok: true };
       }
+      case "trimLine": {
+        const line = this.ownLine(playerId, cmd.line);
+        if (!line) return fail("That isn't your line.");
+        if (line.stations.length <= 2) return fail("A line needs at least two stations.");
+        const next = cmd.end === "end" ? line.stations.slice(0, -1) : line.stations.slice(1);
+        const r = this.validateRoute(playerId, next);
+        if (!r.ok) return r;
+        const last = next.length - 1;
+        for (const t of this.trainsOf(line)) {
+          if (cmd.end === "start") t.at -= 1;
+          // a train on the removed piece jumps to the new end and lets everyone off there
+          if (t.at < 0 || t.at > last || (t.phase === "move" && (t.at + t.dir < 0 || t.at + t.dir > last))) {
+            t.at = Math.max(0, Math.min(last, t.at));
+            t.phase = "dwell";
+            t.timer = S.dwellMinutes;
+            t.dir = t.at === 0 ? 1 : -1;
+            this.unload(t, next[t.at]);
+          }
+        }
+        line.stations = next;
+        st.netVersion++;
+        return { ok: true };
+      }
       case "deleteLine": {
         const line = this.ownLine(playerId, cmd.line);
         if (!line) return fail("That isn't your line.");
@@ -322,6 +345,28 @@ export class Game {
       groups: []
     });
     line.trains++;
+  }
+
+  /** Put everyone on a train off at a station; they re-plan from there. */
+  private unload(t: Train, station: StationId) {
+    const st = this.state;
+    for (const gid of t.groups) {
+      const g = st.groups[gid];
+      if (!g) continue;
+      g.train = null;
+      g.since = st.time;
+      const dest = g.path[g.path.length - 1];
+      const fresh = dest === station ? null : this.router.path(st, station, dest);
+      if (!fresh) {
+        delete st.groups[gid];
+        continue;
+      }
+      g.path = fresh;
+      g.i = 0;
+      st.waiting[station].push(gid);
+    }
+    t.groups = [];
+    t.load = 0;
   }
 
   private removeTrain(t: Train, line: Line) {

@@ -133,3 +133,26 @@ describe("bots", () => {
     expect(JSON.stringify(snap).length).toBeLessThan(200_000);
   });
 });
+
+describe("editing lines", () => {
+  it("shortens a line without losing trains or passengers' sanity", () => {
+    const s = Session.create(MAPS.sydney, [{ id: "p", name: "P", color: "red", hub: "central" }], { startMoney: 50000 });
+    for (const sec of ["central~redfern", "ashfield~redfern", "ashfield~strathfield"]) s.command("p", { type: "open", section: sec });
+    expect(s.command("p", { type: "createLine", stations: ["central", "redfern", "ashfield", "strathfield"] }).ok).toBe(true);
+    const id = s.state.lines[0].id;
+    s.command("p", { type: "setTrains", line: id, trains: 6 });
+    s.tick(37);
+    expect(s.command("p", { type: "trimLine", line: id, end: "end" }).ok).toBe(true);
+    expect(s.command("p", { type: "trimLine", line: id, end: "start" }).ok).toBe(true);
+    expect(s.command("p", { type: "trimLine", line: id, end: "start" }).ok).toBe(false);
+    const line = s.state.lines[0];
+    expect(line.stations).toEqual(["redfern", "ashfield"]);
+    for (const t of s.state.trains) {
+      expect(t.at).toBeGreaterThanOrEqual(0);
+      expect(t.at).toBeLessThan(line.stations.length);
+    }
+    s.tick(60);
+    for (const t of s.state.trains) expect(t.at).toBeLessThan(line.stations.length);
+    expect(s.state.players[0].carried).toBeGreaterThan(0);
+  });
+});

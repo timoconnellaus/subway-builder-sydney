@@ -412,6 +412,9 @@ export class GameScreen {
           this.updateHighlight();
           this.render();
           break;
+        case "trim":
+          await this.run({ type: "trimLine", line: arg, end: btn.dataset.d as "start" | "end" });
+          break;
         case "delete":
           if (this.confirmDelete === arg) {
             if (await this.run({ type: "deleteLine", line: arg })) this.select(null);
@@ -843,6 +846,7 @@ export class GameScreen {
         <button class="btn" data-act="extend" data-arg="${l.id}" data-d="start">Extend from ${esc(this.stationName(first))}</button>
         <button class="btn" data-act="extend" data-arg="${l.id}" data-d="end">Extend from ${esc(this.stationName(last))}</button>
       </div>
+      ${l.stations.length > 2 ? `<div class="row small-row"><button class="link" data-act="trim" data-arg="${l.id}" data-d="start">Drop ${esc(this.stationName(first))}</button><button class="link" data-act="trim" data-arg="${l.id}" data-d="end">Drop ${esc(this.stationName(last))}</button></div>` : ""}
       <button class="btn danger wide" data-act="delete" data-arg="${l.id}">${this.confirmDelete === l.id ? "Tap again to close this line" : "Close this line"}</button>`;
   }
 

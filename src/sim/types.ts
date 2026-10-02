@@ -200,6 +200,7 @@ export type Command =
   | { type: "open"; section: SectionId }
   | { type: "createLine"; stations: StationId[] }
   | { type: "extendLine"; line: LineId; station: StationId; end: "start" | "end" }
+  | { type: "trimLine"; line: LineId; end: "start" | "end" }
   | { type: "deleteLine"; line: LineId }
   | { type: "setFare"; line: LineId; fare: number }
   | { type: "setTrains"; line: LineId; trains: number }
