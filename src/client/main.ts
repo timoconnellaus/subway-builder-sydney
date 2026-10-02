@@ -469,10 +469,10 @@ function online(code: string) {
       const bonusText = bonus ? ` · +$${bonus.toLocaleString("en-AU")} to start` : "";
       const won = p ? l.wins?.[p.id] ?? 0 : 0;
       if (p)
-        return `<div class="slot" data-key="s${i}" style="--c:${CSS_COLORS[slot.color]}"><img src="/sprites/badge-${slot.color}.webp" alt=""><div><b>${esc(p.name)}${p.id === room.you ? " (you)" : ""}${l.rounds ? ` · ${won} ${won === 1 ? "win" : "wins"}` : ""}</b><small>${COLOR_NAMES[slot.color]} · starts at ${hubName}${bonusText}${p.id === l.host ? " · host" : ""}${!p.connected && !p.isBot ? " · away" : ""}</small></div>${isHost && p.id !== room.you ? `<button class="link" data-act="kick" data-arg="${p.id}">Remove</button>` : ""}</div>`;
+        return `<div class="slot" data-key="s${i}" style="--c:${CSS_COLORS[slot.color]}"><img src="/sprites/badge-${slot.color}.webp" alt=""><div><b>${esc(p.name)}${p.id === room.you ? " (you)" : ""}${l.rounds ? ` · ${won} ${won === 1 ? "win" : "wins"}` : ""}</b><small>${COLOR_NAMES[slot.color]} · starts at ${hubName}${bonusText}${p.id === l.host ? " · host" : ""}${p.isBot ? ` · ${ruleLabel("botSkill", l.options.rules.botSkill ?? DEFAULT_SETTINGS.botSkill)}` : ""}${!p.connected && !p.isBot ? " · away" : ""}</small></div>${isHost && p.id !== room.you ? `<button class="link" data-act="kick" data-arg="${p.id}">Remove</button>` : ""}</div>`;
       return `<div class="slot empty" data-key="s${i}" style="--c:${CSS_COLORS[slot.color]}"><img src="/sprites/badge-${slot.color}.webp" alt=""><div><b>Empty seat</b><small>${COLOR_NAMES[slot.color]} · starts at ${hubName}${bonusText}</small></div>
         <div class="slot-actions">${l.phase === "lobby" && l.players.some((x) => x.id === room.you) ? `<button class="link" data-act="slot" data-arg="${i}">Sit here</button>` : ""}
-        ${isHost ? `<button class="link" data-act="bot" data-arg="builder">+ Builder</button><button class="link" data-act="bot" data-arg="raider">+ Raider</button><button class="link" data-act="bot" data-arg="banker">+ Banker</button>` : ""}</div></div>`;
+        ${isHost ? (["builder", "raider", "banker"] as const).map((b) => `<button class="link" data-act="bot" data-arg="${b}" data-slot="${i}" title="${BOT_TIPS[b]}">+ ${b[0].toUpperCase()}${b.slice(1)}</button>`).join("") : ""}</div></div>`;
     }).join("");
     return `<div class="menu-card lobby">
       <img class="logo small" src="/sprites/logo-full.webp" alt="Metro Empire">
@@ -482,18 +482,21 @@ function online(code: string) {
         <div class="share-text"><p class="muted small">Send this link, or scan the code on a phone or iPad.</p>
         <div class="share"><input readonly value="${esc(link)}" aria-label="Invite link"><button class="btn" data-act="copy">Copy link</button></div></div>
       </div>
+      ${isHost ? "" : `<p class="waiting">Waiting for the host to start…</p>`}
       <div class="slots">${slots}</div>
-      ${l.players.some((p) => p.id === room.you) ? `<label class="field inline"><span>Your name</span><input id="lobby-name" maxlength="16" placeholder="Type your name" value="${esc(l.players.find((p) => p.id === room.you)!.name)}" autocomplete="nickname"></label>` : ""}
+      ${isHost ? rulesHtml(l.options.rules, false, ["botSkill"]) : ""}
+      ${l.players.some((p) => p.id === room.you) ? `<label class="field inline"><span>Your name</span><input id="lobby-name" maxlength="16" placeholder="Type your name" value="${storage("me-name", "") ? esc(l.players.find((p) => p.id === room.you)!.name) : ""}" autocomplete="nickname"></label>` : ""}
       <label class="field inline"><span>Map</span>
         <select id="map" ${isHost ? "" : "disabled"}>${mapOptions(l.options.map ?? "sydney")}</select>
       </label>
       <label class="field inline"><span>Round length</span>
         <select id="round" ${isHost ? "" : "disabled"} data-act-change="round">${[300, 600, 900, 1200].map((m) => `<option value="${m}" ${m === l.options.roundMinutes ? "selected" : ""}>${m / 60} minutes</option>`).join("")}</select>
       </label>
-      <details class="rules" ${isHost ? "" : "open"}><summary>House rules${isHost ? "" : " (set by the host)"}</summary><div class="rules-grid">${rulesHtml(l.options.rules, !isHost)}</div></details>
+      ${l.options.roundMinutes <= 300 && l.options.map !== "sydney" ? `<p class="muted small">Bigger maps need 10 minutes or more for a real fight.</p>` : ""}
+      <details class="rules"><summary>House rules${isHost ? "" : " (set by the host)"}</summary><div class="rules-grid">${rulesHtml(l.options.rules, !isHost, isHost ? RULE_KEYS.filter((k) => k !== "botSkill") : RULE_KEYS)}</div></details>
       ${message ? `<p class="error">${esc(message)}</p>` : ""}
       <div class="row">
-        ${isHost ? `<button class="btn primary big" data-act="start" ${l.players.length < 2 ? "disabled" : ""}>Start game</button>` : `<p class="muted">Waiting for the host to start…</p>`}
+        ${isHost ? `<button class="btn primary big" data-act="start" ${l.players.length < 2 ? "disabled" : ""}>Start game</button>` : ""}
         <button class="btn ghost" data-act="leave">Leave</button>
       </div>
       ${room.status !== "open" ? `<p class="muted small">Connecting…</p>` : ""}
@@ -506,7 +509,7 @@ function online(code: string) {
     const arg = b.dataset.arg ?? "";
     switch (b.dataset.act) {
       case "bot":
-        room.send({ t: "addBot", style: arg as BotStyle });
+        room.send({ t: "addBot", style: arg as BotStyle, slot: Number(b.dataset.slot) });
         break;
       case "kick":
         room.send({ t: "removePlayer", id: arg });
@@ -531,17 +534,30 @@ function online(code: string) {
       }
     }
   }
+  // names go out as they're typed, a moment after the last key
+  let nameTimer = 0;
+  const sendName = (value: string) => {
+    clearTimeout(nameTimer);
+    const name = cleanPlayerName(value);
+    if (!name || name === room.lobby?.players.find((p) => p.id === room.you)?.name) return;
+    setStorage("me-name", name);
+    room.setName(name);
+  };
+  wrap.addEventListener("input", (e) => {
+    const t = e.target as HTMLInputElement;
+    if (t.id !== "lobby-name") return;
+    clearTimeout(nameTimer);
+    nameTimer = window.setTimeout(() => sendName(t.value), 400);
+  });
   wrap.addEventListener("change", (e) => {
     const t = e.target as HTMLSelectElement;
-    const name = t.id === "lobby-name" ? cleanPlayerName(t.value) : "";
-    if (name) {
-      setStorage("me-name", name);
-      room.setName(name);
-    }
+    if (t.id === "lobby-name") sendName(t.value);
     if (t.id === "round") room.send({ t: "setOptions", options: { roundMinutes: Number(t.value) } });
     if (t.id === "map") {
       setStorage("map", t.value);
-      room.send({ t: "setOptions", options: { map: t.value } });
+      // five minutes is only enough on the small Sydney map
+      const longer = t.value !== "sydney" && (room.lobby?.options.roundMinutes ?? 0) <= 300 ? { roundMinutes: 600 } : {};
+      room.send({ t: "setOptions", options: { map: t.value, ...longer } });
     }
     if (t.dataset.rule && room.lobby) {
       const rules = { ...room.lobby.options.rules, [t.dataset.rule]: Number(t.value) };

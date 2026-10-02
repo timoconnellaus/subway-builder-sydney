@@ -1,6 +1,7 @@
 import { MAPS, type Snapshot, type StationId, type LineView, type PlayerView, type SectionId } from "../../sim";
 import type { GameEvent } from "../../sim/types";
 import type { GameConn } from "../conn";
+import type { LobbyState } from "../../shared/protocol";
 import { COLORS, CSS_COLORS, esc, fare, h, isNarrow, isTablet, money, patch, readRecord, remaining, setStorage, storage } from "../util";
 import { EMOTES } from "../../shared/protocol";
 import { MapView, type Pick } from "./map";
@@ -74,8 +75,10 @@ export class GameScreen {
     this.bindPanel();
     const offSnap = conn.onSnapshot((s) => this.onSnap(s));
     const offEmote = conn.onEmote?.((from, e) => this.showEmote(from, e));
-    const lobbyConn = conn as unknown as { onLobby?: (cb: () => void) => () => void };
-    const offLobby = lobbyConn.onLobby?.(() => this.queueRender());
+    const offLobby = conn.onLobby?.((l) => {
+      this.lobbyChanged(l);
+      this.queueRender();
+    });
     this.unsub = () => {
       offSnap();
       offEmote?.();
@@ -93,6 +96,17 @@ export class GameScreen {
   }
 
   private onResize = () => this.layoutInsets();
+
+  private lobbyState: LobbyState | null = null;
+  /** Online: explain hosting changes, since the host's pause button moves with them. */
+  private lobbyChanged(l: LobbyState) {
+    const was = this.lobbyState;
+    this.lobbyState = l;
+    if (!was || l.phase !== "game" || was.host === l.host) return;
+    const name = (id: string | null) => l.players.find((p) => p.id === id)?.name ?? "The host";
+    if (l.host === this.you) this.toastText(`${name(was.host)} is away, so you're in charge: you can pause the game.`);
+    else if (was.host === this.you) this.toastText(`${name(l.host)} is back and in charge again.`);
+  }
   private mapReady = false;
   private focused = false;
 
@@ -700,12 +714,15 @@ export class GameScreen {
     this.lastSeq = s.eventSeq;
     if (fresh <= 0) return;
     const evs = s.events.slice(-Math.min(fresh, s.events.length));
-    for (const e of evs) this.toast(e, s);
+    // a capture in the same batch makes its "nobody boarded" warnings old news
+    const captured = new Set(evs.flatMap((e) => (e.kind === "capture" ? [e.section] : [])));
+    for (const e of evs) if (!(e.kind === "empty" && captured.has(e.section))) this.toast(e, s);
   }
 
-  private pname(s: Snapshot, id: string | null): string {
+  /** A player's name for a toast; `you` is lowercase unless it starts the sentence. */
+  private pname(s: Snapshot, id: string | null, subject = true): string {
     if (!id) return "nobody";
-    if (id === this.you) return "You";
+    if (id === this.you) return subject ? "You" : "you";
     return s.players.find((p) => p.id === id)?.name ?? "Someone";
   }
 
@@ -723,7 +740,7 @@ export class GameScreen {
     const color = "player" in e ? s.players.find((p) => p.id === e.player)?.color : undefined;
     switch (e.kind) {
       case "capture":
-        text = `${this.pname(s, e.player)} captured ${this.secName(e.section)}${e.from ? ` from ${this.pname(s, e.from)}` : ""}!`;
+        text = `${this.pname(s, e.player)} captured ${this.secName(e.section)}${e.from ? ` from ${this.pname(s, e.from, false)}` : ""}!`;
         cls = e.player === this.you ? "big good" : e.from === this.you ? "big bad" : "big";
         if (e.player === this.you) {
           sound.play("capture");
@@ -905,13 +922,20 @@ export class GameScreen {
       </div>
       <div class="hud-r">
         <div class="pill mono ${left < 120 ? "warn" : ""}" title="Time left">${remaining(left)}</div>
-        ${this.conn.canPause?.() ? `<button class="hud-btn" data-act="pause" aria-label="${this.conn.paused ? "Resume" : "Pause"}" title="${this.conn.paused ? "Resume" : "Pause"}"><img src="/sprites/${this.conn.paused ? "play" : "pause"}.webp" alt=""></button>` : ""}
+        ${s.phase === "running" && this.conn.canPause?.() ? `<button class="hud-btn" data-act="pause" aria-label="${this.conn.paused ? "Resume" : "Pause"}" title="${this.conn.paused ? "Resume" : "Pause"}"><img src="/sprites/${this.conn.paused ? "play" : "pause"}.webp" alt=""></button>` : ""}
         ${local ? this.speedSeg("seg small") : ""}
         <button class="hud-btn music ${sound.musicOn ? "" : "off"}" data-act="music" aria-pressed="${sound.musicOn}" title="${sound.musicOn ? "Music is on (tap to stop)" : "Music is off (tap to play)"}">🎵</button>
         <button class="hud-btn" data-act="mute" aria-label="${sound.muted ? "Sound on" : "Sound off"}" title="${sound.muted ? "Sound on" : "Sound off"}">${sound.muted ? "🔇" : "🔊"}</button>
         <button class="hud-btn" data-act="help" aria-label="How to play">?</button>
       </div>`;
-    patch(this.hud, html + (this.conn.paused && s.phase === "running" ? `<div class="paused-banner">Paused${this.conn.local || this.conn.canPause?.() ? "" : " by the host"}</div>` : ""));
+    patch(this.hud, html + (this.conn.paused && s.phase === "running" ? `<div class="paused-banner">Paused${this.pausedByText()}</div>` : ""));
+  }
+
+  private pausedByText(): string {
+    const by = this.lobbyState?.pausedBy;
+    if (this.conn.local || !by) return "";
+    if (by === this.you) return " by you";
+    return ` by ${esc(this.lobbyState?.players.find((p) => p.id === by)?.name ?? "the host")}`;
   }
 
   private renderCoach(s: Snapshot) {
@@ -947,7 +971,7 @@ export class GameScreen {
         ranked
           .map(
             (p) =>
-              `<div class="board-row ${p.id === this.you ? "me" : ""}" data-key="${p.id}"><img src="/sprites/badge-${p.color}.webp" alt=""><span class="nm">${esc(p.name)}${!p.connected && !p.isBot ? " · away" : ""}</span><span class="mono" title="Sections owned">${p.owned}</span><span class="mono dim" title="Passengers carried">${compact(p.carried)}</span></div>`
+              `<div class="board-row ${p.id === this.you ? "me" : ""} ${!p.connected && !p.isBot ? "away" : ""}" data-key="${p.id}" title="${esc(p.name)}${!p.connected && !p.isBot ? " (away)" : ""}"><img src="/sprites/badge-${p.color}.webp" alt=""><span class="nm">${esc(p.name)}${!p.connected && !p.isBot ? " · away" : ""}</span><span class="mono" title="Sections owned">${p.owned}</span><span class="mono dim" title="Passengers carried">${compact(p.carried)}</span></div>`
           )
           .join("")
     );

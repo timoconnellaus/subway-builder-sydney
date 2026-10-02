@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ServerMsg } from "../src/shared/protocol";
+import { SLOTS, type ServerMsg } from "../src/shared/protocol";
 import { RoomCore } from "../src/shared/room";
 
 function client(room: RoomCore, id: string) {
@@ -176,7 +176,7 @@ describe("hardening", () => {
     expect(f.last("lobby")!.lobby.host).toBe(f.last("welcome")!.you);
   });
 
-  it("refuses building while paused", () => {
+  it("lets players fix fares and build while paused, and says who paused", () => {
     const room = new RoomCore("PAUS");
     const a = client(room, "c1");
     room.message("c1", { t: "hello", name: "A", token: "a" });
@@ -184,9 +184,20 @@ describe("hardening", () => {
     room.message("c1", { t: "start" });
     room.message("c1", { t: "pause", paused: true });
     room.message("c1", { t: "cmd", id: 1, cmd: { type: "open", section: "central~redfern" } });
-    expect(a.last("ack")).toEqual({ t: "ack", id: 1, ok: false, error: "The game is paused." });
+    expect(a.last("ack")).toEqual({ t: "ack", id: 1, ok: true });
+    expect(a.last("lobby")!.lobby.pausedBy).toBe(a.last("welcome")!.you);
     const restored = RoomCore.restore(room.serialize());
     expect(restored.lobby().paused).toBe(true);
+  });
+
+  it("puts a bot in the seat the host picked", () => {
+    const room = new RoomCore("SLOT");
+    const a = client(room, "c1");
+    room.message("c1", { t: "hello", name: "A", token: "a" });
+    room.message("c1", { t: "addBot", style: "builder", slot: 2 });
+    room.message("c1", { t: "addBot", style: "raider", slot: 2 }); // taken: first free seat instead
+    const seats = a.last("lobby")!.lobby.players.map((p) => [p.botStyle ?? "human", p.color]);
+    expect(seats).toEqual([["human", SLOTS[0].color], ["raider", SLOTS[1].color], ["builder", SLOTS[2].color]]);
   });
 
   it("frees lobby seats of players who left a minute ago", () => {

@@ -75,6 +75,7 @@ button { font: inherit; color: inherit; }
 .bot-opt img { width: 40px; height: 40px; }
 .bot-opt small { display: block; color: var(--muted); font-size: 13px; }
 
+.waiting { font-family: var(--display); font-weight: 800; color: var(--ink); background: #fff7e0; border-radius: 10px; padding: 8px 12px; margin: 0; }
 .lobby .room-code { display: flex; align-items: baseline; gap: 12px; }
 .lobby .room-code b { font-size: 44px; letter-spacing: 0.15em; }
 .share { display: flex; gap: 8px; }
@@ -208,7 +209,7 @@ details.rules summary { font-family: var(--display); font-weight: 800; cursor: p
 .h2h td .chip { vertical-align: -2px; }
 
 /* toasts stay over the map, clear of the side panel (350px + gaps) */
-.toasts { position: absolute; top: 70px; left: 12px; right: 374px; display: grid; gap: 8px; justify-items: center; pointer-events: none; }
+.toasts { position: absolute; z-index: 6; top: 70px; left: 12px; right: 374px; display: grid; gap: 8px; justify-items: center; pointer-events: none; }
 .toasts > * { max-width: 560px; }
 .toast {
   background: var(--paper); border-left: 6px solid var(--c, var(--ink)); border-radius: 10px; padding: 9px 14px; font-weight: 700; font-size: 15px;
@@ -216,6 +217,8 @@ details.rules summary { font-family: var(--display); font-weight: 800; cursor: p
 }
 .toast.big { font-family: var(--display); font-weight: 900; font-size: 19px; padding: 12px 18px; }
 .toast.good { background: #e6f6ea; }
+.toast.big.good { animation: pop 0.25s ease-out, cheer 0.6s ease-in-out 0.25s 2; }
+@keyframes cheer { 50% { transform: scale(1.06); } }
 .toast.bad { background: #fde8ea; }
 .toast.event { background: #fff7e0; border-left-color: var(--gold); }
 .toast.out { opacity: 0; transform: translateY(-6px); }
@@ -255,7 +258,7 @@ details.rules summary { font-family: var(--display); font-weight: 800; cursor: p
 .coach-step { font-family: var(--display); font-weight: 800; font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; color: #ffd166; }
 .row.center { justify-content: center; }
 
-.trophy-toasts { position: absolute; left: calc((100% - 362px) / 2); transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom, 0px) + 14px); display: grid; gap: 6px; justify-items: center; pointer-events: none; }
+.trophy-toasts { position: absolute; z-index: 6; left: calc((100% - 362px) / 2); transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom, 0px) + 14px); display: grid; gap: 6px; justify-items: center; pointer-events: none; }
 .trophy { display: flex; gap: 10px; align-items: center; background: var(--ink); color: var(--paper); border-radius: 12px; padding: 8px 14px; box-shadow: 0 6px 20px rgba(30, 36, 48, 0.25); animation: pop 0.25s ease-out; transition: opacity 0.5s; }
 .trophy .e { font-size: 26px; }
 .trophy b { display: block; font-family: var(--display); color: #ffd166; }
@@ -271,18 +274,22 @@ details.rules summary { font-family: var(--display); font-weight: 800; cursor: p
   .board-row { display: flex; gap: 4px; align-items: center; }
   .board-row img { width: 18px; height: 18px; }
   .board-row .nm, .board-row .dim, .board-title { display: none; }
+  .board-row.away img { opacity: 0.4; }
+  .board-row.away::after { content: "💤"; font-size: 12px; }
   .hud .seg.small, .hud [data-act="mute"], .hud [data-act="music"] { display: none; }
   .pill.goal { order: 3; flex-basis: 100%; }
   .hud { gap: 6px; padding-inline: 8px; }
   .pill { padding: 6px 10px; font-size: 14px; }
   .pill.you span { display: none; }
   .toasts { top: calc(env(safe-area-inset-top, 0px) + 140px); right: 12px; }
-  .trophy-toasts { bottom: calc(44% + 8px); left: 50%; }
+  /* above the bottom sheet, under the toasts, so it can't hide behind the panel */
+  .trophy-toasts { bottom: auto; top: calc(env(safe-area-inset-top, 0px) + 96px); left: 50%; width: max-content; max-width: calc(100% - 24px); }
   .coach { top: auto; bottom: calc(44% + 8px); left: 8px; right: 8px; width: auto; min-width: 0; padding: 10px 12px; }
   .coach h3 { font-size: 16px; }
   .coach p { font-size: 13px; }
   .toast { font-size: 13px; padding: 7px 10px; }
   .toast.big { font-size: 15px; padding: 9px 12px; }
+  .toast.big.good { font-size: 18px; padding: 11px 14px; }
   .stats .v { font-size: 15px; }
 }
 

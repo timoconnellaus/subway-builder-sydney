@@ -26,6 +26,7 @@ export interface LobbyState {
   options: RoomOptions;
   phase: "lobby" | "game" | "over";
   paused: boolean;
+  pausedBy?: PlayerId | null; // who pressed pause (not saved: a restored room just says "Paused")
   wins: Record<PlayerId, number>; // rounds won in this room
   rounds: number;
 }
@@ -34,7 +35,7 @@ export const EMOTES = ["👍", "😂", "😮", "😡", "🚆", "🎉"] as const;
 
 export type ClientMsg =
   | { t: "hello"; name: string; token: string }
-  | { t: "addBot"; style: BotStyle }
+  | { t: "addBot"; style: BotStyle; slot?: number }
   | { t: "removePlayer"; id: PlayerId }
   | { t: "setSlot"; slot: number }
   | { t: "setName"; name: string }

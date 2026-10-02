@@ -87,6 +87,7 @@ export class RoomCore {
   private conns = new Map<string, { conn: Conn; player: PlayerId | null; greeted: boolean; bucket: number; last: number }>();
   private nextPlayer = 1;
   private paused = false;
+  private pausedBy: PlayerId | null = null;
   private wins: Record<PlayerId, number> = {};
   private rounds = 0;
   private lastEmote = new Map<string, number>();
@@ -200,7 +201,6 @@ export class RoomCore {
     switch (msg.t) {
       case "cmd": {
         if (!this.session || this.phase !== "game") return send({ t: "ack", id: msg.id, ok: false, error: "The game hasn't started." });
-        if (this.paused) return send({ t: "ack", id: msg.id, ok: false, error: "The game is paused." });
         const r = this.session.command(me, msg.cmd);
         this.dirty = true;
         return send(r.ok ? { t: "ack", id: msg.id, ok: true } : { t: "ack", id: msg.id, ok: false, error: r.error });
@@ -208,7 +208,9 @@ export class RoomCore {
       case "addBot": {
         if (!isHost || this.phase !== "lobby") return;
         if (!Object.prototype.hasOwnProperty.call(BOT_NAMES, msg.style)) return;
-        const slot = this.freeSlot();
+        // the row the host tapped, or the first free seat
+        const want = msg.slot;
+        const slot = typeof want === "number" && Number.isInteger(want) && want >= 0 && want < SLOTS.length && !this.members.some((m) => m.slot === want) ? want : this.freeSlot();
         if (slot < 0) return send({ t: "error", message: "The room is full." });
         this.members.push({
           id: `P${this.nextPlayer++}`,
@@ -265,11 +267,13 @@ export class RoomCore {
         this.phase = "lobby";
         this.session = null;
         this.paused = false;
+        this.pausedBy = null;
         break;
       }
       case "pause": {
         if (!isHost || this.phase !== "game") return;
         this.paused = !!msg.paused;
+        this.pausedBy = this.paused ? me : null;
         break;
       }
       case "emote": {
@@ -349,6 +353,7 @@ export class RoomCore {
       options: this.options,
       phase: this.phase,
       paused: this.paused,
+      pausedBy: this.pausedBy,
       wins: this.wins,
       rounds: this.rounds
     };
