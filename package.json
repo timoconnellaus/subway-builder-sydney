@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "dev:worker": "wrangler dev --port 8787",
-    "build": "tsc --noEmit -p tsconfig.json && vite build",
+    "build": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.worker.json && vite build",
     "preview": "npm run build && wrangler dev --port 8787",
     "deploy": "npm run build && wrangler deploy",
     "test": "vitest run",
