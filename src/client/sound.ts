@@ -15,6 +15,30 @@ const SOUNDS: Record<string, Note[]> = {
   win: [[523, 0, 0.15, "triangle"], [659, 0.15, 0.15, "triangle"], [784, 0.3, 0.15, "triangle"], [1047, 0.45, 0.5, "triangle"]]
 };
 
+/** One enveloped note. */
+function tone(ctx: AudioContext, freq: number, at: number, dur: number, type: OscillatorType, gain: number, attack: number) {
+  const osc = ctx.createOscillator();
+  const g = ctx.createGain();
+  osc.type = type;
+  osc.frequency.value = freq;
+  g.gain.setValueAtTime(0, at);
+  g.gain.linearRampToValueAtTime(gain, at + attack);
+  g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+  osc.connect(g).connect(ctx.destination);
+  osc.start(at);
+  osc.stop(at + dur + 0.05);
+}
+
+// background music: C – G – Am – F at 96 bpm, each chord as a rising and falling arpeggio
+const EIGHTH = 60 / 96 / 2;
+const CHORDS = [
+  [261.6, 329.6, 392.0, 523.3],
+  [196.0, 246.9, 293.7, 392.0],
+  [220.0, 261.6, 329.6, 440.0],
+  [174.6, 220.0, 261.6, 349.2]
+];
+const ARPEGGIO = [0, 1, 2, 3, 2, 1, 2, 1];
+
 class Sound {
   private ctx: AudioContext | null = null;
   muted = storage("muted") === "1";
@@ -36,24 +60,13 @@ class Sound {
     const ctx = this.ensure();
     if (!ctx) return;
     const t0 = ctx.currentTime + 0.01;
-    for (const [freq, start, dur, type = "sine", gain = 0.08] of SOUNDS[name]) {
-      const osc = ctx.createOscillator();
-      const g = ctx.createGain();
-      osc.type = type;
-      osc.frequency.value = freq;
-      g.gain.setValueAtTime(0, t0 + start);
-      g.gain.linearRampToValueAtTime(gain, t0 + start + 0.01);
-      g.gain.exponentialRampToValueAtTime(0.0001, t0 + start + dur);
-      osc.connect(g).connect(ctx.destination);
-      osc.start(t0 + start);
-      osc.stop(t0 + start + dur + 0.02);
-    }
+    for (const [freq, start, dur, type = "sine", gain = 0.08] of SOUNDS[name]) tone(ctx, freq, t0 + start, dur, type, gain, 0.01);
   }
 
   toggle() {
     this.muted = !this.muted;
     setStorage("muted", this.muted ? "1" : "0");
-    if (this.muted) this.stopMusic();
+    if (this.muted) this.stopMusic(false);
     else {
       this.play("click");
       if (this.musicOn) this.startMusic();
@@ -70,56 +83,50 @@ class Sound {
     this.musicOn = !this.musicOn;
     setStorage("music", this.musicOn ? "1" : "0");
     if (this.musicOn) this.startMusic();
-    else this.stopMusic();
+    else this.stopMusic(false);
   }
 
+  private inGame = false; // music only plays on the game screen
+
+  /** Start (or, from a tap, unlock) the music. Safe to call repeatedly. */
   startMusic() {
-    if (!this.musicOn || this.musicTimer) return;
-    const ctx = this.ensure();
-    if (!ctx) return;
+    this.inGame = true;
+    if (!this.musicOn || document.hidden) return;
+    const ctx = this.ensure(); // resumes a suspended context when called from a tap
+    if (!ctx || this.musicTimer) return;
     this.nextNote = ctx.currentTime + 0.1;
     this.musicTimer = setInterval(() => this.schedule(), 200);
   }
 
-  stopMusic() {
+  /** Stop the music; `leaving` the game screen means it stays off until the next game. */
+  stopMusic(leaving = true) {
+    if (leaving) this.inGame = false;
     if (this.musicTimer) clearInterval(this.musicTimer);
     this.musicTimer = null;
   }
 
-  private schedule() {
-    const ctx = this.ctx;
-    if (!ctx || this.muted) return this.stopMusic();
-    const eighth = 60 / 96 / 2; // 96 bpm
-    // C – G – Am – F, each chord as a rising and falling arpeggio, with a soft bass note per bar
-    const chords = [
-      [261.6, 329.6, 392.0, 523.3],
-      [196.0, 246.9, 293.7, 392.0],
-      [220.0, 261.6, 329.6, 440.0],
-      [174.6, 220.0, 261.6, 349.2]
-    ];
-    const order = [0, 1, 2, 3, 2, 1, 2, 1];
-    while (this.nextNote < ctx.currentTime + 0.4) {
-      const bar = Math.floor(this.step / 8) % chords.length;
-      const chord = chords[bar];
-      this.tone(ctx, chord[order[this.step % 8]] , this.nextNote, eighth * 0.9, "triangle", 0.018);
-      if (this.step % 8 === 0) this.tone(ctx, chord[0] / 2, this.nextNote, eighth * 7.5, "sine", 0.03);
-      this.nextNote += eighth;
-      this.step++;
-    }
+  /** Background tabs pause the music; coming back resumes it if a game is on screen. */
+  visibility(hidden: boolean) {
+    if (hidden) this.stopMusic(false);
+    else if (this.inGame) this.startMusic();
   }
 
-  private tone(ctx: AudioContext, freq: number, at: number, dur: number, type: OscillatorType, gain: number) {
-    const osc = ctx.createOscillator();
-    const g = ctx.createGain();
-    osc.type = type;
-    osc.frequency.value = freq;
-    g.gain.setValueAtTime(0, at);
-    g.gain.linearRampToValueAtTime(gain, at + 0.02);
-    g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
-    osc.connect(g).connect(ctx.destination);
-    osc.start(at);
-    osc.stop(at + dur + 0.05);
+  private schedule() {
+    const ctx = this.ctx;
+    if (!ctx || this.muted) return this.stopMusic(false);
+    // after a stall (background tab) skip ahead rather than playing a pile of late notes
+    this.nextNote = Math.max(this.nextNote, ctx.currentTime + 0.05);
+    while (this.nextNote < ctx.currentTime + 0.4) {
+      const chord = CHORDS[Math.floor(this.step / 8) % CHORDS.length];
+      tone(ctx, chord[ARPEGGIO[this.step % 8]], this.nextNote, EIGHTH * 0.9, "triangle", 0.018, 0.02);
+      if (this.step % 8 === 0) tone(ctx, chord[0] / 2, this.nextNote, EIGHTH * 7.5, "sine", 0.03, 0.02);
+      this.nextNote += EIGHTH;
+      this.step++;
+    }
   }
 }
 
 export const sound = new Sound();
+
+// no music from a hidden tab
+document.addEventListener("visibilitychange", () => sound.visibility(document.hidden));

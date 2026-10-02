@@ -159,3 +159,6 @@ export function readRecord(): PlayRecord {
 /** Phones and portrait tablets use the bottom-sheet layout (keep in step with styles.css). */
 export const NARROW_QUERY = "(max-width: 760px), (orientation: portrait) and (max-width: 1100px)";
 export const isNarrow = () => window.matchMedia(NARROW_QUERY).matches;
+/** Portrait tablets: narrow layout but more room than a phone (keep in step with styles.css). */
+export const TABLET_QUERY = "(orientation: portrait) and (min-width: 600px) and (max-width: 1100px)";
+export const isTablet = () => window.matchMedia(TABLET_QUERY).matches;

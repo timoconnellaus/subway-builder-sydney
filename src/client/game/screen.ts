@@ -1,7 +1,7 @@
 import { byStanding, MAPS, type Snapshot, type StationId, type LineView, type PlayerView, type SectionId } from "../../sim";
 import { ruleLabel, type GameEvent } from "../../sim/types";
 import type { GameConn } from "../conn";
-import { COLORS, CSS_COLORS, esc, fare, h, isNarrow, money, patch, readRecord, remaining, setStorage, storage } from "../util";
+import { COLORS, CSS_COLORS, esc, fare, h, isNarrow, isTablet, money, patch, readRecord, remaining, setStorage, storage } from "../util";
 import { BOT_TIPS, EMOTES } from "../../shared/protocol";
 import { MapView, type Pick } from "./map";
 import { sound } from "../sound";
@@ -14,6 +14,9 @@ import { dailyLabel, dailyScore } from "../../shared/daily";
 type Mode = { kind: "idle" } | { kind: "build"; stations: StationId[] } | { kind: "extend"; line: string; end: "start" | "end" };
 
 type Sel = Pick | { kind: "line"; id: string };
+
+/** Money sitting above this gets a "spend it" nudge. */
+const RICH = 3500;
 
 const maxToasts = () => (isNarrow() ? 2 : 3);
 
@@ -105,18 +108,24 @@ export class GameScreen {
     if (!this.mapReady || !this.snap || this.focused) return;
     this.focused = true;
     const me = this.snap.players.find((p) => p.id === this.you);
-    if (me) this.map.focus(me.hub, this.map.zoomFor(me.hub, isNarrow() ? (window.innerWidth > 600 ? 2 : 3) : 1.7));
+    if (me) this.map.focus(me.hub, this.map.zoomFor(me.hub, isTablet() ? 2 : isNarrow() ? 3 : 1.7));
     if (me && this.conn.local && storage("seen-intro") !== "1" && this.step < 0) this.showIntro(me);
-    else if (me && this.conn.tour !== undefined && this.snap.time < 1) this.showTourIntro(this.conn.tour);
+    else if (me && this.conn.tour !== undefined && this.freshGame) this.showTourIntro(this.conn.tour);
+  }
+  private freshGame = false; // the first snapshot was at the very start of a game
+
+  /** A card over the map that holds the clock (single player) until "Let's go". */
+  private openIntroCard(html: string) {
+    const wasPaused = !!this.conn.paused;
+    if (this.conn.local) this.conn.setPaused?.(true);
+    this.overlay.hidden = false;
+    this.overlay.innerHTML = `<div class="card intro">${html}<div class="row"><button class="btn primary big" data-act="intro-done">Let's go</button></div></div>`;
+    this.introPaused = !wasPaused;
   }
 
   private showIntro(me: PlayerView) {
-    const wasPaused = !!this.conn.paused;
-    if (this.conn.local) this.conn.setPaused?.(true);
     const hub = this.map.net.station[me.hub]?.name ?? me.hub;
-    this.overlay.hidden = false;
-    this.overlay.innerHTML = `
-      <div class="card intro">
+    this.openIntroCard(`
         <img class="end-badge" src="/sprites/badge-${me.color}.webp" alt="">
         <h2>Welcome to Metro Empire</h2>
         <p>You run a train company starting at <b>${esc(hub)}</b>. Three steps to get going:</p>
@@ -124,31 +133,21 @@ export class GameScreen {
           <li><b>Open track.</b> Tap a pulsing section next to ${esc(hub)} and press <b>Open</b>.</li>
           <li><b>Run a line.</b> Press <b>New line</b> and tap stations along your track. Passengers start riding.</li>
           <li><b>Steal track.</b> Run your trains onto a rival's line, charge less and add trains. When nobody boards their train ${this.snap?.settings.emptyToCapture ?? 3} times in a row, it's yours.</li>
-        </ol>
-        <div class="row"><button class="btn primary big" data-act="intro-done">Let's go</button></div>
-      </div>`;
-    this.introPaused = !wasPaused;
+        </ol>`);
   }
   private introPaused = false;
 
   /** Arriving in a World Tour city: who you're up against, before the clock starts. */
   private showTourIntro(stop: number) {
     const s = this.snap!;
-    const wasPaused = !!this.conn.paused;
-    this.conn.setPaused?.(true);
     const rivals = s.players.filter((p) => p.isBot);
-    this.overlay.hidden = false;
-    this.overlay.innerHTML = `
-      <div class="card intro">
+    this.openIntroCard(`
         <h2>✈️ Welcome to ${esc(stopName(stop))}</h2>
         <p>World Tour, city ${stop + 1} of ${TOUR.length} · ${esc(ruleLabel("botSkill", s.settings.botSkill))} bots</p>
         <ul class="rivals">${rivals
           .map((p) => `<li><img src="/sprites/badge-${p.color}.webp" alt=""><b>${esc(p.name)}</b> at ${esc(this.stationName(p.hub))}${p.botStyle ? ` <span class="muted">· ${esc(BOT_TIPS[p.botStyle])}</span>` : ""}</li>`)
           .join("")}</ul>
-        <p>Own ${Math.round(s.settings.winShare * 100)}% of the track to win, or own the most when the ${Math.round(s.settings.roundMinutes / 60)} minutes are up.</p>
-        <div class="row"><button class="btn primary big" data-act="intro-done">Let's go</button></div>
-      </div>`;
-    this.introPaused = !wasPaused;
+        <p>Own ${Math.round(s.settings.winShare * 100)}% of the track to win, or own the most when the ${Math.round(s.settings.roundMinutes / 60)} minutes are up.</p>`);
   }
 
   private layoutInsets() {
@@ -181,6 +180,7 @@ export class GameScreen {
       this.map.setNearby(near);
     }
     if (first) {
+      this.freshGame = s.time < 1;
       this.lastSeq = s.eventSeq;
       this.focusHome();
     }
@@ -202,7 +202,7 @@ export class GameScreen {
     }
     if (me && me.money > 200) this.warnedBroke = false;
     // money sitting idle wins nothing: nudge once in a while
-    if (me && this.conn.local && me.money > 3500 && s.time - this.richNudgeAt > 120) {
+    if (me && this.conn.local && this.step < 0 && me.money > RICH && s.time - this.richNudgeAt > 120) {
       this.richNudgeAt = s.time;
       this.toastText(`You have ${money(me.money)} in the bank. Spend it: open more track, or add trains to steal a rival's passengers!`, "good");
     }
@@ -650,7 +650,7 @@ export class GameScreen {
           break;
         case "intro-done":
           this.overlay.hidden = true;
-          setStorage("seen-intro", "1");
+          if (this.conn.tour === undefined) setStorage("seen-intro", "1");
           if (this.conn.local && this.introPaused) this.conn.setPaused?.(false);
           this.render();
           break;
@@ -1008,7 +1008,7 @@ export class GameScreen {
     else if (owned === 0) tip = `Tap a <b>dotted section</b> next to your hub, <b>${esc(this.stationName(me.hub))}</b>, then press <b>Open</b>.`;
     else if (!mine.length) tip = `Now press <b>New line</b> and tap the stations along your track to start running trains.`;
     else if (s.time < 120) tip = `Open more track and extend your lines. Busy lines need more trains.`;
-    else if (me.money > 3500) tip = `You have <b>${money(me.money)}</b> to spend. Open more track and add trains: money in the bank doesn't win.`;
+    else if (me.money > RICH) tip = `You have <b>${money(me.money)}</b> to spend. Open more track and add trains: money in the bank doesn't win.`;
     else tip = `Run a line onto a rival's track, then cut your fare and add trains to win their passengers.`;
     return `
       <h3>Your lines</h3>
