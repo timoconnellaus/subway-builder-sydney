@@ -26,6 +26,7 @@ export class GameScreen {
   private panel: HTMLElement;
   private board: HTMLElement;
   private toasts: HTMLElement;
+  private trophies: HTMLElement;
   private overlay: HTMLElement;
   private tip: HTMLElement;
   private coach: HTMLElement;
@@ -51,11 +52,12 @@ export class GameScreen {
     this.panel = h("aside", { class: "panel" });
     this.board = h("div", { class: "board" });
     this.toasts = h("div", { class: "toasts", "aria-live": "polite" });
+    this.trophies = h("div", { class: "trophy-toasts", "aria-live": "polite" });
     this.overlay = h("div", { class: "overlay", hidden: true });
     this.tip = h("div", { class: "maptip", hidden: true });
     this.coach = h("div", { class: "coach", hidden: true, "aria-live": "polite" });
     if ((conn as { tutorial?: boolean }).tutorial) this.step = 0;
-    this.el.append(this.mapHost, this.tip, this.hud, this.board, this.coach, this.panel, this.toasts, this.overlay);
+    this.el.append(this.mapHost, this.tip, this.hud, this.board, this.coach, this.panel, this.toasts, this.trophies, this.overlay);
     this.map = new MapView(this.mapHost, MAPS[conn.mapId] ?? MAPS.sydney);
     this.map.you = conn.you;
     if (!conn.local) this.map.delay = 300;
@@ -136,7 +138,12 @@ export class GameScreen {
     this.handleEvents(s);
     if (this.step < 0 && this.you !== "spectator" && (s.phase === "over" || Math.floor(s.time) % 2 === 0)) {
       for (const a of checkAchievements(s, this.you, this.conn.local)) {
-        this.toastText(`${a.emoji} Achievement unlocked: ${a.name}! (${a.how})`, "big good");
+        const t = h("div", { class: "trophy" });
+        t.innerHTML = `<span class="e">${a.emoji}</span><span><b>${esc(a.name)}</b><small>${esc(a.how)}</small></span>`;
+        this.trophies.prepend(t);
+        while (this.trophies.children.length > 3) this.trophies.lastChild?.remove();
+        setTimeout(() => t.classList.add("out"), 4500);
+        setTimeout(() => t.remove(), 5100);
         sound.play("good");
       }
     }
@@ -690,7 +697,7 @@ export class GameScreen {
     if (color) t.style.setProperty("--c", CSS_COLORS[color]);
     t.textContent = text;
     this.toasts.prepend(t);
-    const max = window.innerWidth <= 760 ? 2 : 4;
+    const max = window.innerWidth <= 760 ? 2 : 3;
     while (this.toasts.children.length > max) this.toasts.lastChild?.remove();
     setTimeout(() => t.classList.add("out"), cls.includes("big") ? 5000 : 3200);
     setTimeout(() => t.remove(), cls.includes("big") ? 5600 : 3800);

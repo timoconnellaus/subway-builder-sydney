@@ -253,6 +253,13 @@ details.rules summary { font-family: var(--display); font-weight: 800; cursor: p
 .coach-step { font-family: var(--display); font-weight: 800; font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; color: #ffd166; }
 .row.center { justify-content: center; }
 
+.trophy-toasts { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom, 0px) + 14px); display: grid; gap: 6px; justify-items: center; pointer-events: none; }
+.trophy { display: flex; gap: 10px; align-items: center; background: var(--ink); color: var(--paper); border-radius: 12px; padding: 8px 14px; box-shadow: 0 6px 20px rgba(30, 36, 48, 0.25); animation: pop 0.25s ease-out; transition: opacity 0.5s; }
+.trophy .e { font-size: 26px; }
+.trophy b { display: block; font-family: var(--display); color: #ffd166; }
+.trophy small { font-size: 12px; opacity: 0.85; }
+.trophy.out { opacity: 0; }
+
 /* ---------- phones ---------- */
 @media (max-width: 760px) {
   .panel { left: 0; right: 0; top: auto; bottom: 0; width: auto; max-height: 44%; border-radius: 18px 18px 0 0; padding-bottom: env(safe-area-inset-bottom, 0px); }
@@ -268,6 +275,7 @@ details.rules summary { font-family: var(--display); font-weight: 800; cursor: p
   .pill { padding: 6px 10px; font-size: 14px; }
   .pill.you span { display: none; }
   .toasts { top: calc(env(safe-area-inset-top, 0px) + 140px); }
+  .trophy-toasts { bottom: calc(44% + 8px); }
   .coach { top: auto; bottom: calc(44% + 8px); left: 8px; right: 8px; width: auto; min-width: 0; padding: 10px 12px; }
   .coach h3 { font-size: 16px; }
   .coach p { font-size: 13px; }
