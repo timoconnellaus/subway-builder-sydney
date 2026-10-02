@@ -680,6 +680,8 @@ export class GameScreen {
             this.overlay.hidden = true;
             this.recorded = false;
             this.dailySent = false;
+            this.raceAt = -Infinity;
+            this.richNudgeAt = 60;
             this.lastSeq = -1;
             this.snap = null;
             this.conn.restart?.();
@@ -841,6 +843,10 @@ export class GameScreen {
   private raceMsg = "";
   private goalPulseUntil = 0; // the track bar pulses after one of your captures
   private richNudgeAt = 60; // no nudge in the first couple of minutes
+
+  private runLineButton(s: Snapshot, a: StationId, b: StationId): string {
+    return `<button class="btn primary wide" data-act="new-line" data-arg="${a},${b}">Run a line here · ${money(trainCost(s, 2))}</button>`;
+  }
 
   /** Stations on a player's network: their hub and both ends of every section they own. */
   private network(s: Snapshot, p: PlayerView): Set<StationId> {
@@ -1227,14 +1233,15 @@ export class GameScreen {
       // under attack, or a rival runs here and could start winning your riders
       const mine = users.filter((l) => l.owner === this.you);
       const why = this.defendCheck(users, mine);
+      const fix = mine.length ? mine.map((l) => this.pushButton(l, "Defend")).join("") : this.runLineButton(s, sec.a, sec.b);
       if (ss.emptyRun > 0)
         action =
           `<div class="tip bad">Nobody boarded ${ss.emptyRun === 1 ? "your last train" : `your last ${ss.emptyRun} trains`} here. At ${need} in a row you lose this track. Lower your fare or add trains, fast!</div>` +
           why +
-          mine.map((l) => this.pushButton(l, "Defend")).join("");
-      else if (why) action = `<div class="tip">A rival runs trains on your track. You're safe for now, but they could start taking your riders.</div>` + why + mine.map((l) => this.pushButton(l, "Defend")).join("");
+          fix;
+      else if (why) action = `<div class="tip">A rival runs trains on your track. You're safe for now, but they could start taking your riders.</div>` + why + fix;
     } else if (ss.owner === this.you && !users.some((l) => l.owner === this.you)) {
-      action = `<div class="tip">You own this track but none of your trains run on it yet.</div><button class="btn primary wide" data-act="new-line" data-arg="${sec.a},${sec.b}">Run a line here · ${money(trainCost(s, 2))}</button>`;
+      action = `<div class="tip">You own this track but none of your trains run on it yet.</div>${this.runLineButton(s, sec.a, sec.b)}`;
     }
     return `
       <button class="back" data-act="back">← Back</button>
