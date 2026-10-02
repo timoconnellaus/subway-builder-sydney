@@ -60,6 +60,39 @@ async function tapBetween(p, a, b) {
   check(me.carried > 0, "solo: carried passengers");
 }
 
+// World Tour: the first city starts with an arrival card; a win unlocks the next
+{
+  const p = await page("tour");
+  await p.goto(BASE, { waitUntil: "networkidle" });
+  await p.fill("#name", "Kid");
+  await p.dispatchEvent("#name", "change");
+  await p.click('[data-tour="0"]');
+  await mapReady(p);
+  check(!!(await p.$("[data-act=intro-done]")), "tour: arrival card shows");
+  await p.click("[data-act=intro-done]");
+  await p.evaluate(() => {
+    const st = window.__screen.conn.session.state;
+    for (const k in st.sections) st.sections[k].owner = "P1";
+    st.netVersion++;
+    window.__screen.conn.session.tick(1);
+  });
+  await p.waitForSelector("[data-act=tour-next]");
+  await p.click("[data-act=tour-next]");
+  await mapReady(p);
+  check((await p.evaluate(() => window.__screen.snap.mapId)) === "melbourne", "tour: winning Sydney flies you to Melbourne");
+}
+
+// daily challenge: starts today's setup
+{
+  const p = await page("daily");
+  await p.goto(BASE, { waitUntil: "networkidle" });
+  await p.fill("#name", "Kid");
+  await p.dispatchEvent("#name", "change");
+  await p.click("#daily");
+  await mapReady(p);
+  check(await p.evaluate(() => !!window.__screen.conn.daily), "daily: today's challenge starts");
+}
+
 // online: two players in one room, a move syncs, reload rejoins
 {
   const dad = await page("dad");
