@@ -115,7 +115,9 @@ export class GameScreen {
   private freshGame = false; // the first snapshot was at the very start of a game
 
   /** A card over the map that holds the clock (single player) until "Let's go". */
-  private openIntroCard(html: string) {
+  private introKind: "welcome" | "tour" | null = null;
+  private openIntroCard(html: string, kind: "welcome" | "tour") {
+    this.introKind = kind;
     const wasPaused = !!this.conn.paused;
     if (this.conn.local) this.conn.setPaused?.(true);
     this.overlay.hidden = false;
@@ -133,7 +135,7 @@ export class GameScreen {
           <li><b>Open track.</b> Tap a pulsing section next to ${esc(hub)} and press <b>Open</b>.</li>
           <li><b>Run a line.</b> Press <b>New line</b> and tap stations along your track. Passengers start riding.</li>
           <li><b>Steal track.</b> Run your trains onto a rival's line, charge less and add trains. When nobody boards their train ${this.snap?.settings.emptyToCapture ?? 3} times in a row, it's yours.</li>
-        </ol>`);
+        </ol>`, "welcome");
   }
   private introPaused = false;
 
@@ -147,7 +149,7 @@ export class GameScreen {
         <ul class="rivals">${rivals
           .map((p) => `<li><img src="/sprites/badge-${p.color}.webp" alt=""><b>${esc(p.name)}</b> at ${esc(this.stationName(p.hub))}${p.botStyle ? ` <span class="muted">· ${esc(BOT_TIPS[p.botStyle])}</span>` : ""}</li>`)
           .join("")}</ul>
-        <p>Own ${Math.round(s.settings.winShare * 100)}% of the track to win, or own the most when the ${Math.round(s.settings.roundMinutes / 60)} minutes are up.</p>`);
+        <p>Own ${Math.round(s.settings.winShare * 100)}% of the track to win, or own the most when the ${Math.round(s.settings.roundMinutes / 60)} minutes are up.</p>`, "tour");
   }
 
   private layoutInsets() {
@@ -650,7 +652,17 @@ export class GameScreen {
           break;
         case "intro-done":
           this.overlay.hidden = true;
-          if (this.conn.tour === undefined) setStorage("seen-intro", "1");
+          if (this.introKind === "welcome") {
+            setStorage("seen-intro", "1");
+            // a new player's first tour city: show who they're up against next
+            if (this.conn.tour !== undefined && this.freshGame) {
+              const resume = this.introPaused; // the welcome card paused the game; keep that to undo later
+              this.showTourIntro(this.conn.tour);
+              this.introPaused = resume;
+              break;
+            }
+          }
+          this.introKind = null;
           if (this.conn.local && this.introPaused) this.conn.setPaused?.(false);
           this.render();
           break;
@@ -658,7 +670,8 @@ export class GameScreen {
     };
     this.el.addEventListener("click", handler);
     // browsers only allow sound after a tap, so (re)start the music on the first one
-    this.el.addEventListener("pointerdown", () => sound.startMusic(), { once: true });
+    // (pointerup, not pointerdown: a touch only counts as a gesture once the finger lifts)
+    this.el.addEventListener("pointerup", () => sound.startMusic());
     sound.startMusic();
     this.panel.addEventListener("keydown", (e) => {
       const t = e.target as HTMLInputElement;

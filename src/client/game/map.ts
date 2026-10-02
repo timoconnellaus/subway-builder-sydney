@@ -728,9 +728,9 @@ export class MapView {
   setHighlight(stations: StationId[], color: number, candidates: StationId[] = []) {
     const same = color === this.highlightColor && stations.join() === this.highlight.join() && candidates.join() === this.candidates.join();
     if (same) return; // called on every render while building a line
-    this.highlight = stations;
+    this.highlight = [...stations]; // a copy: the caller edits its route array in place
     this.highlightColor = color;
-    this.candidates = candidates;
+    this.candidates = [...candidates];
     this.updateLabelScale();
   }
 

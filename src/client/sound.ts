@@ -16,7 +16,7 @@ const SOUNDS: Record<string, Note[]> = {
 };
 
 /** One enveloped note. */
-function tone(ctx: AudioContext, freq: number, at: number, dur: number, type: OscillatorType, gain: number, attack: number) {
+function tone(ctx: AudioContext, freq: number, at: number, dur: number, type: OscillatorType, gain: number, attack: number, out: AudioNode = ctx.destination) {
   const osc = ctx.createOscillator();
   const g = ctx.createGain();
   osc.type = type;
@@ -24,7 +24,7 @@ function tone(ctx: AudioContext, freq: number, at: number, dur: number, type: Os
   g.gain.setValueAtTime(0, at);
   g.gain.linearRampToValueAtTime(gain, at + attack);
   g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
-  osc.connect(g).connect(ctx.destination);
+  osc.connect(g).connect(out);
   osc.start(at);
   osc.stop(at + dur + 0.05);
 }
@@ -78,6 +78,7 @@ class Sound {
   // ---- background music: a gentle looping arpeggio, scheduled a little ahead of time ----
   musicOn = storage("music") === "1";
   private musicTimer: ReturnType<typeof setInterval> | null = null;
+  private musicOut: GainNode | null = null;
   private nextNote = 0;
   private step = 0;
 
@@ -96,6 +97,9 @@ class Sound {
     if (!this.musicOn || document.hidden) return;
     const ctx = this.ensure(); // resumes a suspended context when called from a tap
     if (!ctx || this.musicTimer) return;
+    // music has its own volume control, so stopping can silence notes already queued
+    this.musicOut = ctx.createGain();
+    this.musicOut.connect(ctx.destination);
     this.nextNote = ctx.currentTime + 0.1;
     this.musicTimer = setInterval(() => this.schedule(), 200);
   }
@@ -105,6 +109,12 @@ class Sound {
     if (leaving) this.inGame = false;
     if (this.musicTimer) clearInterval(this.musicTimer);
     this.musicTimer = null;
+    if (this.musicOut && this.ctx) {
+      const out = this.musicOut;
+      out.gain.setTargetAtTime(0, this.ctx.currentTime, 0.05);
+      setTimeout(() => out.disconnect(), 400);
+    }
+    this.musicOut = null;
   }
 
   /** Background tabs pause the music; coming back resumes it if a game is on screen. */
@@ -120,8 +130,9 @@ class Sound {
     this.nextNote = Math.max(this.nextNote, ctx.currentTime + 0.05);
     while (this.nextNote < ctx.currentTime + 0.4) {
       const chord = CHORDS[Math.floor(this.step / 8) % CHORDS.length];
-      tone(ctx, chord[ARPEGGIO[this.step % 8]], this.nextNote, EIGHTH * 0.9, "triangle", 0.018, 0.02);
-      if (this.step % 8 === 0) tone(ctx, chord[0] / 2, this.nextNote, EIGHTH * 7.5, "sine", 0.03, 0.02);
+      const out = this.musicOut ?? ctx.destination;
+      tone(ctx, chord[ARPEGGIO[this.step % 8]], this.nextNote, EIGHTH * 0.9, "triangle", 0.018, 0.02, out);
+      if (this.step % 8 === 0) tone(ctx, chord[0] / 2, this.nextNote, EIGHTH * 7.5, "sine", 0.03, 0.02, out);
       this.nextNote += EIGHTH;
       this.step++;
     }

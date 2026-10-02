@@ -39,7 +39,17 @@ window.addEventListener("hashchange", route);
 
 // offline play once loaded (production builds only; the dev server serves files fresh)
 if (import.meta.env.PROD && "serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => {}));
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
+    // hand the worker what this page has loaded (now, and as games load more), so the first visit is
+    // enough for offline play; it skips files it already has
+    const share = () =>
+      navigator.serviceWorker.ready.then((reg) =>
+        reg.active?.postMessage({ cache: [location.origin + "/", ...performance.getEntriesByType("resource").map((r) => r.name)] })
+      );
+    share();
+    setInterval(share, 30_000);
+  });
 }
 
 function loadRules(): HouseRules {
