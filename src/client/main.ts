@@ -57,6 +57,16 @@ function readRules(root: HTMLElement): HouseRules {
   return out;
 }
 
+function recordLine(): string {
+  try {
+    const r = JSON.parse(storage("record", "{}")) as { played?: number; wins?: number; best?: number };
+    if (!r.played) return "";
+    return `<p class="record">Your record: <b>${r.wins ?? 0}</b> ${r.wins === 1 ? "win" : "wins"} from <b>${r.played}</b> ${r.played === 1 ? "game" : "games"} · best <b>${(r.best ?? 0).toLocaleString("en-AU")}</b> passengers</p>`;
+  } catch {
+    return "";
+  }
+}
+
 function go(hash: string) {
   if (location.hash === hash) route();
   else location.hash = hash;
@@ -86,6 +96,7 @@ function menu() {
             )
             .join("")}
         </div>
+        ${recordLine()}
         <label class="field inline"><span>Round length</span>
           <select id="round">${[300, 600, 900, 1200].map((m) => `<option value="${m}" ${String(m) === minutes ? "selected" : ""}>${m / 60} minutes</option>`).join("")}</select>
         </label>

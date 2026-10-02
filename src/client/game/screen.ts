@@ -472,6 +472,7 @@ export class GameScreen {
           break;
         case "restart":
           this.overlay.hidden = true;
+          this.recorded = false;
           this.lastSeq = -1;
           this.snap = null;
           this.conn.restart?.();
@@ -618,7 +619,27 @@ export class GameScreen {
     return false;
   }
 
+  private recorded = false;
+  /** Keep a personal record of games against bots. */
+  private recordResult(s: Snapshot) {
+    if (this.recorded || !this.conn.local) return;
+    this.recorded = true;
+    const me = s.players.find((p) => p.id === this.you);
+    if (!me) return;
+    let rec = { played: 0, wins: 0, best: 0 };
+    try {
+      rec = { ...rec, ...JSON.parse(storage("record", "{}")) };
+    } catch {
+      /* fresh record */
+    }
+    rec.played++;
+    if (s.winner === this.you) rec.wins++;
+    rec.best = Math.max(rec.best, me.carried);
+    setStorage("record", JSON.stringify(rec));
+  }
+
   private showEnd(s: Snapshot) {
+    this.recordResult(s);
     const winner = s.players.find((p) => p.id === s.winner);
     const reason = s.events.find((e) => e.kind === "win");
     const ranked = [...s.players].sort((a, b) => b.carried - a.carried);

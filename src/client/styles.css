@@ -61,6 +61,7 @@ button { font: inherit; color: inherit; }
 .menu-sec h2 { font-size: 22px; font-weight: 900; }
 .menu-sec p { margin: 0; }
 .bots { display: grid; gap: 8px; }
+.record { margin: 0; font-size: 15px; background: var(--bg); border-radius: 10px; padding: 8px 12px; }
 .bot-opt { display: grid; grid-template-columns: auto 40px 1fr; gap: 12px; align-items: center; padding: 8px 10px; border-radius: 12px; border: 2px solid var(--rule); cursor: pointer; }
 .bot-opt:has(input:checked) { border-color: var(--ink); background: #fff; }
 .bot-opt input { width: 20px; height: 20px; accent-color: var(--ink); }
