@@ -412,22 +412,11 @@ function playLocal(conn: LocalGame) {
 function watchBots() {
   const conn = new LocalGame({ name: "", bots: ["builder", "raider", "banker"], roundMinutes: 900, rules: {}, map: storage("map", "sydney"), watch: true });
   conn.setSpeed(2);
-  const screen = new GameScreen(conn, { onExit: () => go("#/") });
-  app.append(screen.el);
-  cleanup = () => {
-    screen.destroy();
-    conn.close();
-  };
+  playLocal(conn);
 }
 
 function playTutorial() {
-  const conn = new LocalGame({ name: storage("me-name", "") || "You", bots: [], roundMinutes: 3600, rules: {}, tutorial: true });
-  const screen = new GameScreen(conn, { onExit: () => go("#/") });
-  app.append(screen.el);
-  cleanup = () => {
-    screen.destroy();
-    conn.close();
-  };
+  playLocal(new LocalGame({ name: playerName(), bots: [], roundMinutes: 3600, rules: {}, tutorial: true }));
 }
 
 // ---------- online ----------
