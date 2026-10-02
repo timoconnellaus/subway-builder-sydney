@@ -1,5 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
-import { isRoomCode, makeRoomCode, type ClientMsg } from "../shared/protocol";
+import { isRoomCode, makeRoomCode } from "../shared/protocol";
 import { RoomCore } from "../shared/room";
 
 export interface Env {
@@ -76,15 +76,19 @@ export class GameRoom extends DurableObject<Env> {
       }
     });
     server.addEventListener("message", (ev) => {
-      let msg: ClientMsg;
+      let msg: unknown;
       try {
         msg = JSON.parse(typeof ev.data === "string" ? ev.data : new TextDecoder().decode(ev.data as ArrayBuffer));
       } catch {
         return;
       }
-      core.message(id, msg);
+      try {
+        core.message(id, msg);
+      } catch (err) {
+        console.error("message failed", err);
+      }
       this.ensureLoop();
-      if (core.dirty && !core.running) this.save();
+      if (core.dirty && !core.running) this.saveSoon();
     });
     const close = () => {
       if (!this.sockets.has(id)) return;
@@ -111,7 +115,7 @@ export class GameRoom extends DurableObject<Env> {
     const now = Date.now();
     const dt = Math.min(1, (now - this.lastTick) / 1000);
     this.lastTick = now;
-    if (core.humansConnected === 0) {
+    if (core.connectionCount === 0) {
       // nobody is watching: pause the game, and stop the loop after a while
       if (!this.idleSince) this.idleSince = now;
       if (now - this.idleSince > IDLE_STOP_MS) {
@@ -122,8 +126,22 @@ export class GameRoom extends DurableObject<Env> {
       return;
     }
     this.idleSince = 0;
-    core.tick(dt);
+    try {
+      core.tick(dt);
+    } catch (err) {
+      console.error("tick failed", err);
+    }
     if (now - this.lastSave > SAVE_EVERY_MS) this.save();
+  }
+
+  private saveTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Lobby changes can come in bursts: save at most once a second. */
+  private saveSoon() {
+    if (this.saveTimer) return;
+    this.saveTimer = setTimeout(() => {
+      this.saveTimer = null;
+      this.save();
+    }, 1000);
   }
 
   /** Save in 100 KB chunks so a big game never hits the per-value storage limit. */

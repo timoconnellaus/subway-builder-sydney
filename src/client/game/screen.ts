@@ -601,6 +601,7 @@ export class GameScreen {
         ${winner ? `<img class="end-badge" src="/sprites/badge-${winner.color}.webp" alt="">` : ""}
         <h2>${youWon ? "You win!" : winner ? `${esc(winner.name)} wins` : "Round over"}</h2>
         <p class="muted">${reason && reason.kind === "win" && reason.reason === "share" ? `${youWon ? "You own" : "They own"} ${Math.round(s.settings.winShare * 100)}% of Sydney's network.` : "Most passengers carried when the clock ran out."}</p>
+        ${historyChart(s)}
         <table class="ranks">
           <thead><tr><th></th><th>Company</th><th>Track</th><th>Passengers</th><th>Money</th></tr></thead>
           <tbody>${ranked
@@ -898,6 +899,27 @@ export class GameScreen {
     this.map.destroy();
     this.el.remove();
   }
+}
+
+/** Track owned over the round, one line per company, drawn to scale. */
+function historyChart(s: Snapshot): string {
+  const h = s.history;
+  if (!h || h.length < 2) return "";
+  const W = 460, H = 150, L = 30, B = 22, T = 8, R = 8;
+  const tMax = h[h.length - 1].t || 1;
+  const yMax = Math.max(4, ...h.flatMap((x) => x.owned));
+  const X = (t: number) => L + (t / tMax) * (W - L - R);
+  const Y = (v: number) => T + (1 - v / yMax) * (H - T - B);
+  const need = Math.ceil(s.totalSections * s.settings.winShare);
+  let out = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Track owned by each company over the round">`;
+  for (const v of [0, Math.round(yMax / 2), yMax]) out += `<line x1="${L}" x2="${W - R}" y1="${Y(v)}" y2="${Y(v)}" stroke="#d9d5cc"/><text x="${L - 6}" y="${Y(v) + 4}" text-anchor="end">${v}</text>`;
+  if (need <= yMax) out += `<line x1="${L}" x2="${W - R}" y1="${Y(need)}" y2="${Y(need)}" stroke="#1e2430" stroke-dasharray="4 4"/><text x="${W - R}" y="${Y(need) - 4}" text-anchor="end">win</text>`;
+  out += `<text x="${(L + W - R) / 2}" y="${H - 4}" text-anchor="middle">time →</text>`;
+  s.players.forEach((p, i) => {
+    const d = h.map((x, k) => `${k ? "L" : "M"}${X(x.t).toFixed(1)},${Y(x.owned[i] ?? 0).toFixed(1)}`).join("");
+    out += `<path d="${d}" fill="none" stroke="${CSS_COLORS[p.color]}" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>`;
+  });
+  return out + "</svg>";
 }
 
 function trainCost(s: Snapshot, cars: number) {

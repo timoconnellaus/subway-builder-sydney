@@ -116,3 +116,75 @@ describe("room", () => {
     expect(a.inbox.filter((m) => m.t === "emote")).toEqual([{ t: "emote", from: "P2", e: "🎉" }]);
   });
 });
+
+describe("hardening", () => {
+  it("removes trains properly when cutting a line from 12 to 1, and refunds on delete", async () => {
+    const { Session, MAPS } = await import("../src/sim");
+    const s = Session.create(MAPS.sydney, [{ id: "p", name: "P", color: "red", hub: "central" }], { startMoney: 100000 });
+    s.command("p", { type: "open", section: "central~redfern" });
+    s.command("p", { type: "createLine", stations: ["central", "redfern"] });
+    const id = s.state.lines[0].id;
+    for (let i = 0; i < 5; i++) {
+      s.command("p", { type: "setTrains", line: id, trains: 12 });
+      s.command("p", { type: "setTrains", line: id, trains: 1 });
+    }
+    expect(s.state.trains.length).toBe(1);
+    expect(s.state.lines[0].trains).toBe(1);
+    s.command("p", { type: "setTrains", line: id, trains: 6 });
+    const before = s.state.players[0].money;
+    s.command("p", { type: "deleteLine", line: id });
+    expect(s.state.players[0].money).toBeGreaterThan(before);
+    expect(s.state.trains.length).toBe(0);
+  });
+
+  it("rejects junk commands and messages without throwing", () => {
+    const room = new RoomCore("JUNK");
+    const a = client(room, "c1");
+    const junk: unknown[] = [
+      null, 5, "x", {}, { t: "hello" }, { t: "hello", name: 5, token: "a" }, { t: "setOptions" }, { t: "setSlot" },
+      { t: "setSlot", slot: "x" }, { t: "cmd", id: 1, cmd: null }, { t: "addBot", style: "evil" }
+    ];
+    room.message("c1", { t: "hello", name: "A", token: "a" });
+    for (const j of junk) expect(() => room.message("c1", j)).not.toThrow();
+    expect(a.last("lobby")!.lobby.players.length).toBe(1);
+    room.message("c1", { t: "addBot", style: "raider" });
+    room.message("c1", { t: "start" });
+    const bad = [
+      { type: "createLine", stations: { length: 2 } }, { type: "createLine" }, { type: "setFare", line: "L1", fare: NaN },
+      { type: "setTrains", line: "L1", trains: "9" }, { type: "nope" }
+    ];
+    bad.forEach((cmd, i) => {
+      expect(() => room.message("c1", { t: "cmd", id: 10 + i, cmd })).not.toThrow();
+      expect(a.last("ack")?.ok).toBe(false);
+    });
+    expect(() => room.tick(1)).not.toThrow();
+  });
+
+  it("keeps one identity per connection so the host can't become a ghost", () => {
+    const room = new RoomCore("HOST");
+    const h = client(room, "h");
+    room.message("h", { t: "hello", name: "H", token: "h" });
+    client(room, "x");
+    room.message("x", { t: "hello", name: "X", token: "x1" });
+    room.message("x", { t: "hello", name: "X2", token: "x2" });
+    expect(h.last("lobby")!.lobby.players.length).toBe(2);
+    room.disconnect("x");
+    const f = client(room, "f");
+    room.message("f", { t: "hello", name: "F", token: "f" });
+    room.disconnect("h");
+    expect(f.last("lobby")!.lobby.host).toBe(f.last("welcome")!.you);
+  });
+
+  it("refuses building while paused", () => {
+    const room = new RoomCore("PAUS");
+    const a = client(room, "c1");
+    room.message("c1", { t: "hello", name: "A", token: "a" });
+    room.message("c1", { t: "addBot", style: "builder" });
+    room.message("c1", { t: "start" });
+    room.message("c1", { t: "pause", paused: true });
+    room.message("c1", { t: "cmd", id: 1, cmd: { type: "open", section: "central~redfern" } });
+    expect(a.last("ack")).toEqual({ t: "ack", id: 1, ok: false, error: "The game is paused." });
+    const restored = RoomCore.restore(room.serialize());
+    expect(restored.lobby().paused).toBe(true);
+  });
+});

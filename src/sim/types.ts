@@ -211,6 +211,7 @@ export interface GameState {
   lost: number; // passengers who gave up
   cityEvents: CityEvent[];
   nextEventAt: number;
+  history: { t: number; owned: number[]; carried: number[] }[]; // sampled every 30 game minutes
 }
 
 export type Command =

@@ -90,6 +90,7 @@ export interface Snapshot {
   totalSections: number;
   lost: number;
   cityEvents: GameState["cityEvents"];
+  history?: GameState["history"]; // only sent once the round is over
 }
 
 export function toSnapshot(game: Game): Snapshot {
@@ -152,6 +153,7 @@ export function toSnapshot(game: Game): Snapshot {
     settings: st.settings,
     totalSections: game.net.sections.length,
     lost: st.lost,
-    cityEvents: st.cityEvents ?? []
+    cityEvents: st.cityEvents ?? [],
+    history: st.phase === "over" ? st.history : undefined
   };
 }

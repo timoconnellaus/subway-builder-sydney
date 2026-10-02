@@ -33,7 +33,7 @@ export function runBots(game: Game, memory: Map<string, number>) {
 }
 
 function botTurn(game: Game, p: Player) {
-  const base = STYLES[p.botStyle ?? "builder"];
+  const base = STYLES[p.botStyle ?? "builder"] ?? STYLES.builder;
   const skill = game.state.settings.botSkill ?? 2;
   // easy bots keep more money back and rarely fight; hard bots fight harder
   const tune: StyleTuning =

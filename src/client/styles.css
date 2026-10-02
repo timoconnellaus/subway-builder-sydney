@@ -203,6 +203,7 @@ details.rules summary { font-family: var(--display); font-weight: 800; cursor: p
 .intro { justify-items: center; }
 .intro .how { justify-self: stretch; }
 .end-badge { width: 96px; height: 96px; }
+.chart { width: 100%; height: auto; font: 700 11px var(--mono); fill: var(--muted); }
 .ranks { width: 100%; border-collapse: collapse; font-size: 15px; }
 .ranks th, .ranks td { padding: 6px 4px; border-bottom: 1px solid var(--rule); text-align: left; }
 .ranks th { font-family: var(--display); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }

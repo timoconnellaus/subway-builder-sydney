@@ -85,7 +85,8 @@ export function createGame(map: MapDef, players: PlayerSetup[], settings: Partia
     settings: S,
     lost: 0,
     cityEvents: [],
-    nextEventAt: 120
+    nextEventAt: 120,
+    history: []
   };
   return state;
 }
@@ -177,6 +178,8 @@ export class Game {
 
   // ---------- commands ----------
   apply(playerId: PlayerId, cmd: Command): CommandResult {
+    const bad = checkCommand(cmd);
+    if (bad) return fail(bad);
     const st = this.state;
     if (st.phase !== "running") return fail("The round is over.");
     const p = this.player(playerId);
@@ -253,8 +256,9 @@ export class Game {
       case "deleteLine": {
         const line = this.ownLine(playerId, cmd.line);
         if (!line) return fail("That isn't your line.");
+        const refund = Math.round((this.trainCost(line.cars) * this.trainsOf(line).length) / 2);
         for (const t of this.trainsOf(line)) this.removeTrain(t, line);
-        p.money += Math.round((this.trainCost(line.cars) * line.trains) / 2);
+        p.money += refund;
         st.lines = st.lines.filter((l) => l !== line);
         st.netVersion++;
         return { ok: true };
@@ -283,11 +287,12 @@ export class Game {
           }
         } else if (target < line.trains) {
           const trains = this.trainsOf(line).sort((a, b) => a.load - b.load);
-          for (let i = 0; i < line.trains - target; i++) {
+          const remove = trains.length - target;
+          for (let i = 0; i < remove; i++) {
             this.removeTrain(trains[i], line);
             p.money += Math.round(this.trainCost(line.cars) / 2);
           }
-          line.trains = target;
+          line.trains = this.trainsOf(line).length;
         }
         st.netVersion++;
         return { ok: true };
@@ -376,6 +381,7 @@ export class Game {
       const dest = g.path[g.path.length - 1];
       const fresh = dest === station ? null : this.router.path(st, station, dest);
       if (!fresh) {
+        if (dest !== station) st.lost += g.n;
         delete st.groups[gid];
         continue;
       }
@@ -400,6 +406,7 @@ export class Game {
         g.since = st.time;
         st.waiting[station].push(gid);
       } else {
+        st.lost += g.n;
         delete st.groups[gid];
       }
     }
@@ -431,7 +438,17 @@ export class Game {
       l.loadSum *= d;
       l.capSum *= d;
     }
+    this.record();
     this.checkWin();
+    if ((st.phase as GameState["phase"]) === "over") this.record(true);
+  }
+
+  private record(force = false) {
+    const st = this.state;
+    st.history ??= [];
+    const last = st.history[st.history.length - 1];
+    if (!force && last && st.time - last.t < 30) return;
+    st.history.push({ t: Math.round(st.time), owned: st.players.map((p) => this.ownedCount(p.id)), carried: st.players.map((p) => p.carried) });
   }
 
   private runEvents(dt: number) {
@@ -836,6 +853,36 @@ export class Game {
 
   headway(line: Line): number {
     return lineHeadway(this.net, this.state, line);
+  }
+}
+
+/** Reject malformed commands (from a buggy or malicious client) before they touch the state. */
+function checkCommand(c: unknown): string | null {
+  if (!c || typeof c !== "object") return "Bad command.";
+  const x = c as Record<string, unknown>;
+  const str = (v: unknown) => typeof v === "string" && v.length > 0 && v.length < 64;
+  const num = (v: unknown) => typeof v === "number" && Number.isFinite(v);
+  switch (x.type) {
+    case "open":
+      return str(x.section) ? null : "Bad section.";
+    case "createLine":
+      return Array.isArray(x.stations) && x.stations.length <= 40 && x.stations.every(str) ? null : "Bad route.";
+    case "extendLine":
+      return str(x.line) && str(x.station) && (x.end === "start" || x.end === "end") ? null : "Bad extension.";
+    case "trimLine":
+      return str(x.line) && (x.end === "start" || x.end === "end") ? null : "Bad change.";
+    case "deleteLine":
+      return str(x.line) ? null : "Bad line.";
+    case "setFare":
+      return str(x.line) && num(x.fare) ? null : "Bad fare.";
+    case "setTrains":
+      return str(x.line) && num(x.trains) ? null : "Bad number of trains.";
+    case "setCars":
+      return str(x.line) && num(x.cars) ? null : "Bad number of cars.";
+    case "setSpeed":
+      return str(x.line) && num(x.speed) ? null : "Bad speed.";
+    default:
+      return "Unknown command.";
   }
 }
 

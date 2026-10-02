@@ -31,9 +31,42 @@ interface Saved {
   phase: LobbyState["phase"];
   game: GameState | null;
   nextPlayer: number;
+  paused?: boolean;
 }
 
 export const GAME_MINUTES_PER_SECOND = 1;
+
+/** Check a message from a client has the right shape; returns null if not. */
+export function checkMessage(raw: unknown): ClientMsg | null {
+  if (!raw || typeof raw !== "object") return null;
+  const m = raw as Record<string, unknown>;
+  const str = (v: unknown, max = 200) => typeof v === "string" && v.length <= max;
+  switch (m.t) {
+    case "hello":
+      return str(m.name, 64) && str(m.token, 200) ? (m as ClientMsg) : null;
+    case "addBot":
+      return str(m.style, 20) ? (m as ClientMsg) : null;
+    case "removePlayer":
+      return str(m.id, 20) ? (m as ClientMsg) : null;
+    case "setSlot":
+      return typeof m.slot === "number" ? (m as ClientMsg) : null;
+    case "setOptions":
+      return m.options && typeof m.options === "object" ? (m as ClientMsg) : null;
+    case "start":
+    case "rematch":
+      return m as ClientMsg;
+    case "pause":
+      return typeof m.paused === "boolean" ? (m as ClientMsg) : null;
+    case "emote":
+      return str(m.e, 16) ? (m as ClientMsg) : null;
+    case "cmd":
+      return typeof m.id === "number" && m.cmd && typeof m.cmd === "object" ? (m as ClientMsg) : null;
+    case "ping":
+      return typeof m.at === "number" ? (m as ClientMsg) : null;
+    default:
+      return null;
+  }
+}
 
 export class RoomCore {
   private members: Member[] = [];
@@ -41,7 +74,7 @@ export class RoomCore {
   private options: RoomOptions = { roundMinutes: 900, rules: {} };
   private phase: LobbyState["phase"] = "lobby";
   private session: Session | null = null;
-  private conns = new Map<string, { conn: Conn; player: PlayerId | null }>();
+  private conns = new Map<string, { conn: Conn; player: PlayerId | null; greeted: boolean; bucket: number; last: number }>();
   private nextPlayer = 1;
   private paused = false;
   private lastEmote = new Map<string, number>();
@@ -57,6 +90,7 @@ export class RoomCore {
     r.options = { roundMinutes: s.options.roundMinutes ?? 900, rules: s.options.rules ?? {} };
     r.phase = s.phase;
     r.nextPlayer = s.nextPlayer;
+    r.paused = !!s.paused;
     if (s.game) {
       r.session = new Session(MAPS[s.game.mapId] ?? MAPS.sydney, s.game);
       for (const p of r.session.state.players) p.connected = p.isBot;
@@ -73,7 +107,8 @@ export class RoomCore {
       options: this.options,
       phase: this.phase,
       game: this.session ? this.session.state : null,
-      nextPlayer: this.nextPlayer
+      nextPlayer: this.nextPlayer,
+      paused: this.paused
     };
     return JSON.stringify(s);
   }
@@ -93,7 +128,13 @@ export class RoomCore {
   }
 
   connect(conn: Conn) {
-    this.conns.set(conn.id, { conn, player: null });
+    this.conns.set(conn.id, { conn, player: null, greeted: false, bucket: 20, last: Date.now() });
+  }
+
+  /** Is anyone actually connected as this player right now? */
+  private live(id: PlayerId): boolean {
+    for (const c of this.conns.values()) if (c.player === id) return true;
+    return false;
   }
 
   disconnect(connId: string) {
@@ -107,31 +148,45 @@ export class RoomCore {
     const gp = this.session?.state.players.find((p) => p.id === c.player);
     if (gp) gp.connected = false;
     if (this.host === c.player) {
-      const next = this.members.find((x) => !x.isBot && x.connected);
+      const next = this.members.find((x) => !x.isBot && this.live(x.id));
       if (next) this.host = next.id;
     }
     this.dirty = true;
     this.broadcastLobby();
   }
 
-  message(connId: string, msg: ClientMsg) {
+  message(connId: string, raw: unknown) {
     const c = this.conns.get(connId);
     if (!c) return;
     const send = (m: ServerMsg) => c.conn.send(m);
+    // simple rate limit: 20 messages per second burst, refilled at 10 per second
+    const now = Date.now();
+    c.bucket = Math.min(20, c.bucket + ((now - c.last) / 1000) * 10);
+    c.last = now;
+    if (c.bucket < 1) return;
+    c.bucket -= 1;
+    const msg = checkMessage(raw);
+    if (!msg) return send({ t: "error", message: "That message didn't make sense." });
     if (msg.t === "ping") return send({ t: "pong", at: msg.at });
-    if (msg.t === "hello") return this.hello(c, msg.name, msg.token);
+    if (msg.t === "hello") {
+      if (c.greeted) return; // one identity per connection
+      c.greeted = true;
+      return this.hello(c, msg.name, msg.token);
+    }
     const me = c.player;
     if (!me) return send({ t: "error", message: "Say hello first." });
     const isHost = me === this.host;
     switch (msg.t) {
       case "cmd": {
         if (!this.session || this.phase !== "game") return send({ t: "ack", id: msg.id, ok: false, error: "The game hasn't started." });
+        if (this.paused) return send({ t: "ack", id: msg.id, ok: false, error: "The game is paused." });
         const r = this.session.command(me, msg.cmd);
         this.dirty = true;
         return send(r.ok ? { t: "ack", id: msg.id, ok: true } : { t: "ack", id: msg.id, ok: false, error: r.error });
       }
       case "addBot": {
         if (!isHost || this.phase !== "lobby") return;
+        if (!Object.prototype.hasOwnProperty.call(BOT_NAMES, msg.style)) return;
         const slot = this.freeSlot();
         if (slot < 0) return send({ t: "error", message: "The room is full." });
         this.members.push({
@@ -155,8 +210,8 @@ export class RoomCore {
       }
       case "setSlot": {
         if (this.phase !== "lobby") return;
-        const slot = Math.floor(msg.slot);
-        if (slot < 0 || slot >= SLOTS.length || this.members.some((m) => m.slot === slot)) return;
+        const slot = msg.slot;
+        if (!Number.isInteger(slot) || slot < 0 || slot >= SLOTS.length || this.members.some((m) => m.slot === slot)) return;
         const m = this.members.find((x) => x.id === me)!;
         m.slot = slot;
         m.color = SLOTS[slot].color;
@@ -227,7 +282,7 @@ export class RoomCore {
       c.player = m.id;
       const gp = this.session?.state.players.find((p) => p.id === m!.id);
       if (gp) gp.connected = true;
-      if (!this.host || !this.members.find((x) => x.id === this.host && x.connected)) this.host = m.id;
+      if (!this.host || !this.live(this.host)) this.host = m.id;
     }
     c.conn.send({ t: "welcome", you: c.player ?? "spectator", room: this.code });
     if (!m && this.phase === "lobby") c.conn.send({ t: "error", message: "This room is full. You're watching." });
