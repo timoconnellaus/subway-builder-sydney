@@ -1,0 +1,537 @@
+import { Application, Assets, Container, Graphics, Sprite, Text, Texture } from "pixi.js";
+import { Delaunay } from "d3-delaunay";
+import { buildNetwork, sectionBetween, SYDNEY_WATER, type MapDef, type Network, type Snapshot, type StationId } from "../../sim";
+import type { Color, PlayerId, SectionId } from "../../sim/types";
+import { COLORS, SOFT } from "../util";
+
+const W = 1000;
+const H = 760;
+const LAND = 0xebe7de;
+const WATER = 0x9cc8e8;
+const INK = 0x1e2430;
+const NEUTRAL = 0xa9aeb6;
+const PAPER = 0xfbfaf7;
+
+export type Pick = { kind: "station"; id: StationId } | { kind: "section"; id: SectionId } | null;
+
+interface TrainSprite {
+  sprite: Sprite;
+  x: number;
+  y: number;
+  rot: number;
+  seen: number;
+}
+
+interface Frame {
+  at: number;
+  snap: Snapshot;
+}
+
+export class MapView {
+  app = new Application();
+  net: Network;
+  world = new Container();
+  private territory = new Graphics();
+  private tracks = new Graphics();
+  private overlay = new Graphics();
+  private stationsG = new Graphics();
+  private waitingG = new Graphics();
+  private markers = new Graphics();
+  private trainLayer = new Container();
+  private labelLayer = new Container();
+  private hubLayer = new Container();
+  private selectG = new Graphics();
+  private labels: { text: Text; station: StationId; major: boolean }[] = [];
+  private pos: Record<StationId, [number, number]> = {};
+  private voronoi: [number, number][][] = [];
+  private textures: Record<string, Texture> = {};
+  private trains = new Map<string, TrainSprite>();
+  private frames: Frame[] = [];
+  private ownerSig = "";
+  private colorOf: Record<PlayerId, Color> = {};
+  private slotOf: Record<PlayerId, number> = {};
+  private zoom = 1;
+  private baseScale = 1;
+  private destroyed = false;
+  selected: Pick = null;
+  highlight: StationId[] = []; // route preview or selected line
+  highlightColor = INK;
+  candidates: StationId[] = []; // stations you can tap next while building
+  you: PlayerId = "";
+  delay = 120; // ms of interpolation delay
+  insets = { left: 0, top: 0, right: 0, bottom: 0 };
+
+  constructor(private host: HTMLElement, private map: MapDef) {
+    this.net = buildNetwork(map);
+    const b = map.bounds;
+    for (const s of map.stations) {
+      this.pos[s.id] = [((s.lon - b.lon0) / (b.lon1 - b.lon0)) * W, ((s.lat - b.lat0) / (b.lat1 - b.lat0)) * H];
+    }
+    const pts = map.stations.map((s) => this.pos[s.id]);
+    const vor = Delaunay.from(pts).voronoi([0, 0, W, H]);
+    this.voronoi = map.stations.map((_, i) => (vor.cellPolygon(i) as [number, number][]) ?? []);
+  }
+
+  project(lon: number, lat: number): [number, number] {
+    const b = this.map.bounds;
+    return [((lon - b.lon0) / (b.lon1 - b.lon0)) * W, ((lat - b.lat0) / (b.lat1 - b.lat0)) * H];
+  }
+
+  async init() {
+    await this.app.init({
+      background: LAND,
+      resizeTo: this.host,
+      antialias: true,
+      autoDensity: true,
+      resolution: Math.min(2, window.devicePixelRatio || 1)
+    });
+    if (this.destroyed) return;
+    this.host.appendChild(this.app.canvas);
+    const names = [
+      "city", "parramatta", "airport", "liverpool",
+      ...(["red", "blue", "gold", "green"] as const).flatMap((c) => [`train-suburban-${c}`, `train-metro-${c}`])
+    ];
+    const loaded = await Assets.load(names.map((n) => ({ alias: n, src: `/sprites/${n}.webp` })));
+    for (const n of names) this.textures[n] = loaded[n];
+    this.buildStatic();
+    this.app.stage.addChild(this.world);
+    this.fit();
+    this.app.renderer.on("resize", () => this.fit(true));
+    this.app.ticker.add(() => this.frame());
+  }
+
+  private buildStatic() {
+    const land = new Graphics().rect(-W, -H, W * 3, H * 3).fill(LAND);
+    const water = new Graphics();
+    const ocean = SYDNEY_WATER.ocean.map(([lo, la]) => this.project(lo, la));
+    water.poly(ocean.flat()).fill(WATER);
+    for (const rib of [SYDNEY_WATER.harbour, SYDNEY_WATER.middleHarbour]) {
+      const L: number[] = [];
+      const R: [number, number][] = [];
+      for (const [lo, la, w] of rib) {
+        L.push(...this.project(lo, la - w));
+        R.push(this.project(lo, la + w));
+      }
+      water.poly([...L, ...R.reverse().flat()]).fill(WATER);
+    }
+    this.world.addChild(land, this.territory, water, this.tracks, this.overlay, this.markers, this.stationsG, this.waitingG, this.hubLayer, this.trainLayer, this.selectG, this.labelLayer);
+
+    for (const s of this.map.stations) {
+      const [x, y] = this.pos[s.id];
+      const major = !!s.icon || s.jobs >= 30 || s.pop >= 50;
+      const text = new Text({
+        text: s.icon ? s.name.toUpperCase() : s.name,
+        style: {
+          fontFamily: "Overpass, Arial, sans-serif",
+          fontWeight: "800",
+          fontSize: s.icon ? 15 : 12,
+          fill: INK,
+          stroke: { color: LAND, width: 4, join: "round" }
+        },
+        resolution: 3
+      });
+      text.anchor.set(0, 0.5);
+      text.position.set(x + (s.icon ? 22 : 9), y);
+      this.labelLayer.addChild(text);
+      this.labels.push({ text, station: s.id, major });
+      if (s.icon) {
+        const tile = new Graphics().circle(0, 0, 17).fill(PAPER).stroke({ width: 4, color: INK });
+        tile.position.set(x, y);
+        const icon = new Sprite(this.textures[s.icon]);
+        icon.anchor.set(0.5);
+        const k = 22 / Math.max(icon.texture.width, icon.texture.height);
+        icon.scale.set(k);
+        icon.position.set(x, y);
+        tile.label = `hub-${s.id}`;
+        this.hubLayer.addChild(tile, icon);
+      }
+    }
+  }
+
+  /** Fit the whole map into the view. */
+  fit(keep = false) {
+    const { left, top, right, bottom } = this.insets;
+    const sw = Math.max(200, this.app.screen.width - left - right);
+    const sh = Math.max(200, this.app.screen.height - top - bottom);
+    const s = Math.min(sw / W, sh / H) * 0.98;
+    this.baseScale = s;
+    if (!keep) {
+      this.zoom = 1;
+      this.world.scale.set(s);
+      this.world.position.set(left + (sw - W * s) / 2, top + (sh - H * s) / 2);
+    } else {
+      this.world.scale.set(s * this.zoom);
+    }
+    this.updateLabelScale();
+  }
+
+  screenToWorld(sx: number, sy: number): [number, number] {
+    const k = this.world.scale.x;
+    return [(sx - this.world.x) / k, (sy - this.world.y) / k];
+  }
+
+  panBy(dx: number, dy: number) {
+    this.world.x += dx;
+    this.world.y += dy;
+    this.clampView();
+  }
+
+  zoomAt(sx: number, sy: number, factor: number) {
+    const nz = Math.max(0.8, Math.min(7, this.zoom * factor));
+    const [wx, wy] = this.screenToWorld(sx, sy);
+    this.zoom = nz;
+    const k = this.baseScale * nz;
+    this.world.scale.set(k);
+    this.world.x = sx - wx * k;
+    this.world.y = sy - wy * k;
+    this.clampView();
+    this.updateLabelScale();
+  }
+
+  focus(st: StationId, zoom?: number) {
+    if (zoom) {
+      this.zoom = zoom;
+      this.world.scale.set(this.baseScale * zoom);
+      this.updateLabelScale();
+    }
+    const [x, y] = this.pos[st];
+    const k = this.world.scale.x;
+    const { left, top, right, bottom } = this.insets;
+    this.world.x = left + (this.app.screen.width - left - right) / 2 - x * k;
+    this.world.y = top + (this.app.screen.height - top - bottom) / 2 - y * k;
+    this.clampView();
+  }
+
+  setInsets(i: Partial<MapView["insets"]>) {
+    this.insets = { ...this.insets, ...i };
+  }
+
+  private clampView() {
+    const k = this.world.scale.x;
+    const sw = this.app.screen.width;
+    const sh = this.app.screen.height;
+    const minX = Math.min(0, sw - W * k) - sw * 0.3;
+    const maxX = Math.max(0, sw - W * k) + sw * 0.3;
+    const minY = Math.min(0, sh - H * k) - sh * 0.3;
+    const maxY = Math.max(0, sh - H * k) + sh * 0.3;
+    this.world.x = Math.max(minX, Math.min(maxX, this.world.x));
+    this.world.y = Math.max(minY, Math.min(maxY, this.world.y));
+  }
+
+  private updateLabelScale() {
+    const z = this.zoom;
+    const inv = 1 / Math.max(1, z * 0.75);
+    for (const l of this.labels) {
+      l.text.scale.set(inv);
+      l.text.visible = l.major || this.world.scale.x > 1.15 || this.highlight.includes(l.station) || this.candidates.includes(l.station);
+    }
+  }
+
+  /** What is under a screen point: a station first, then a section. */
+  pick(sx: number, sy: number): Pick {
+    const [x, y] = this.screenToWorld(sx, sy);
+    const k = this.world.scale.x;
+    let best: StationId | null = null;
+    let bestD = Infinity;
+    for (const s of this.map.stations) {
+      const [px, py] = this.pos[s.id];
+      const d = Math.hypot(px - x, py - y) * k;
+      if (d < bestD) {
+        bestD = d;
+        best = s.id;
+      }
+    }
+    let bestSec: SectionId | null = null;
+    let bestSD = Infinity;
+    for (const sec of this.net.sections) {
+      const d = segDist(x, y, this.pos[sec.a], this.pos[sec.b]) * k;
+      if (d < bestSD) {
+        bestSD = d;
+        bestSec = sec.id;
+      }
+    }
+    // a direct hit on a station wins; otherwise the nearer of station or track
+    if (best && bestD <= 9) return { kind: "station", id: best };
+    if (bestSec && bestSD <= 14 && bestSD < bestD) return { kind: "section", id: bestSec };
+    if (best && bestD <= 22) return { kind: "station", id: best };
+    if (bestSec && bestSD <= 14) return { kind: "section", id: bestSec };
+    return null;
+  }
+
+  stationScreen(st: StationId): [number, number] {
+    const [x, y] = this.pos[st];
+    return [x * this.world.scale.x + this.world.x, y * this.world.scale.y + this.world.y];
+  }
+
+  push(snap: Snapshot) {
+    const now = performance.now();
+    this.frames.push({ at: now, snap });
+    while (this.frames.length > 3) this.frames.shift();
+    snap.players.forEach((p, i) => {
+      this.colorOf[p.id] = p.color;
+      this.slotOf[p.id] = i;
+    });
+    const sig = Object.entries(snap.sections)
+      .map(([k, v]) => `${k}:${v.owner ?? ""}:${v.contested ? 1 : 0}`)
+      .join("|");
+    if (sig !== this.ownerSig) {
+      this.ownerSig = sig;
+      this.drawOwnership(snap);
+    }
+    this.drawWaiting(snap);
+  }
+
+  private ownerColor(owner: PlayerId | null): Color | null {
+    return owner ? this.colorOf[owner] ?? null : null;
+  }
+
+  private drawOwnership(snap: Snapshot) {
+    // territory: each station's cell takes the colour of whoever owns most track there
+    const t = this.territory;
+    t.clear();
+    const counts: Record<StationId, Record<string, number>> = {};
+    for (const sec of this.net.sections) {
+      const o = snap.sections[sec.id]?.owner;
+      if (!o) continue;
+      for (const s of [sec.a, sec.b]) {
+        counts[s] ??= {};
+        counts[s][o] = (counts[s][o] ?? 0) + 1;
+      }
+    }
+    this.map.stations.forEach((s, i) => {
+      const c = counts[s.id];
+      if (!c) return;
+      const top = Object.entries(c).sort((a, b) => b[1] - a[1])[0][0];
+      const col = this.ownerColor(top);
+      const cell = this.voronoi[i];
+      if (!col || !cell.length) return;
+      t.poly(cell.flat()).fill({ color: SOFT[col], alpha: 0.85 });
+    });
+    for (const cell of this.voronoi) if (cell.length) t.poly(cell.flat()).stroke({ width: 2, color: 0xf3f1ec });
+
+    const g = this.tracks;
+    g.clear();
+    for (const sec of this.net.sections) {
+      const [ax, ay] = this.pos[sec.a];
+      const [bx, by] = this.pos[sec.b];
+      const st = snap.sections[sec.id];
+      const col = this.ownerColor(st?.owner ?? null);
+      if (!col) {
+        dotted(g, ax, ay, bx, by, 9, 2.2, NEUTRAL);
+        continue;
+      }
+      g.moveTo(ax, ay).lineTo(bx, by).stroke({ width: 13, color: PAPER, cap: "round" });
+      g.moveTo(ax, ay).lineTo(bx, by).stroke({ width: 8, color: COLORS[col], cap: "round" });
+    }
+    // stations
+    const s = this.stationsG;
+    s.clear();
+    for (const st of this.map.stations) {
+      if (st.icon) continue;
+      const [x, y] = this.pos[st.id];
+      s.circle(x, y, 6).fill(PAPER).stroke({ width: 3, color: INK });
+    }
+    // hub rings in owner colour
+    for (const st of this.map.stations) {
+      if (!st.icon) continue;
+      const owner = snap.players.find((p) => p.hub === st.id);
+      const tile = this.hubLayer.children.find((c) => c.label === `hub-${st.id}`) as Graphics | undefined;
+      if (tile) {
+        tile.clear().circle(0, 0, 17).fill(PAPER).stroke({ width: 4, color: owner ? COLORS[owner.color] : INK });
+      }
+    }
+  }
+
+  private drawWaiting(snap: Snapshot) {
+    const g = this.waitingG;
+    g.clear();
+    for (const st of this.map.stations) {
+      const n = snap.waiting[st.id] ?? 0;
+      if (n <= 0) continue;
+      const [x, y] = this.pos[st.id];
+      const dots = Math.min(12, Math.ceil(n / 8));
+      for (let i = 0; i < dots; i++) {
+        const row = Math.floor(i / 6);
+        const col = i % 6;
+        g.circle(x - 8 + col * 3.4, y + 10 + row * 3.4, 1.3).fill(INK);
+      }
+    }
+  }
+
+  private drawOverlay(snap: Snapshot, t: number) {
+    const g = this.overlay;
+    g.clear();
+    if (this.highlight.length > 1) {
+      for (let i = 0; i < this.highlight.length - 1; i++) {
+        const [ax, ay] = this.pos[this.highlight[i]];
+        const [bx, by] = this.pos[this.highlight[i + 1]];
+        g.moveTo(ax, ay).lineTo(bx, by).stroke({ width: 20, color: this.highlightColor, alpha: 0.28, cap: "round" });
+      }
+    }
+    for (const c of this.candidates) {
+      const [x, y] = this.pos[c];
+      const r = 11 + Math.sin(t / 180) * 2;
+      g.circle(x, y, r).stroke({ width: 3, color: this.highlightColor, alpha: 0.8 });
+    }
+    // contested sections: pulsing marker with the empty-run dots
+    const m = this.markers;
+    m.clear();
+    for (const sec of this.net.sections) {
+      const st = snap.sections[sec.id];
+      if (!st || (!st.contested && st.emptyRun === 0)) continue;
+      const [ax, ay] = this.pos[sec.a];
+      const [bx, by] = this.pos[sec.b];
+      const mx = (ax + bx) / 2;
+      const my = (ay + by) / 2;
+      const pulse = 0.5 + 0.5 * Math.sin(t / 250);
+      m.moveTo(ax, ay).lineTo(bx, by).stroke({ width: 16, color: 0xffffff, alpha: 0.25 + pulse * 0.25, cap: "round" });
+      const need = snap.settings.emptyToCapture;
+      const w = need * 7 + 6;
+      m.roundRect(mx - w / 2, my - 7, w, 14, 7).fill({ color: INK, alpha: 0.9 });
+      const col = this.ownerColor(st.owner);
+      for (let i = 0; i < need; i++) {
+        const cx = mx - w / 2 + 6.5 + i * 7;
+        if (i < st.emptyRun) m.circle(cx, my, 2.6).fill(col ? COLORS[col] : PAPER);
+        else m.circle(cx, my, 2.6).stroke({ width: 1.4, color: col ? COLORS[col] : PAPER });
+      }
+    }
+    // selection
+    const s = this.selectG;
+    s.clear();
+    if (this.selected?.kind === "station") {
+      const [x, y] = this.pos[this.selected.id];
+      s.circle(x, y, 14).stroke({ width: 3, color: INK });
+    } else if (this.selected?.kind === "section") {
+      const sec = this.net.section[this.selected.id];
+      const [ax, ay] = this.pos[sec.a];
+      const [bx, by] = this.pos[sec.b];
+      s.moveTo(ax, ay).lineTo(bx, by).stroke({ width: 22, color: INK, alpha: 0.18, cap: "round" });
+    }
+  }
+
+  private frame() {
+    if (!this.frames.length) return;
+    const now = performance.now();
+    const t = now - this.delay;
+    // find the two frames around t
+    let a = this.frames[0];
+    let b = this.frames[this.frames.length - 1];
+    for (let i = 0; i < this.frames.length - 1; i++) {
+      if (this.frames[i].at <= t && this.frames[i + 1].at >= t) {
+        a = this.frames[i];
+        b = this.frames[i + 1];
+        break;
+      }
+    }
+    const span = b.at - a.at;
+    const alpha = span > 0 ? Math.max(0, Math.min(1, (t - a.at) / span)) : 1;
+    this.drawOverlay(b.snap, now);
+    this.drawTrains(a.snap, b.snap, alpha);
+  }
+
+  private trainPos(snap: Snapshot, id: string): [number, number, number] | null {
+    const tr = snap.trains.find((x) => x.id === id);
+    if (!tr) return null;
+    const [fx, fy] = this.pos[tr.from];
+    if (!tr.to) return [fx, fy, NaN];
+    const [tx, ty] = this.pos[tr.to];
+    return [fx + (tx - fx) * tr.p, fy + (ty - fy) * tr.p, Math.atan2(ty - fy, tx - fx)];
+  }
+
+  private drawTrains(a: Snapshot, b: Snapshot, alpha: number) {
+    const lineOwner = new Map(b.lines.map((l) => [l.id, l]));
+    const seen = new Set<string>();
+    for (const tr of b.trains) {
+      const line = lineOwner.get(tr.line);
+      if (!line) continue;
+      seen.add(tr.id);
+      const col = this.colorOf[line.owner] ?? "red";
+      const tex = this.textures[line.speed >= 3 ? `train-metro-${col}` : `train-suburban-${col}`];
+      let ts = this.trains.get(tr.id);
+      if (!ts) {
+        const sprite = new Sprite(tex);
+        sprite.anchor.set(0.5);
+        this.trainLayer.addChild(sprite);
+        ts = { sprite, x: 0, y: 0, rot: 0, seen: 0 };
+        this.trains.set(tr.id, ts);
+      }
+      if (ts.sprite.texture !== tex) ts.sprite.texture = tex;
+      const pb = this.trainPos(b, tr.id)!;
+      const pa = this.trainPos(a, tr.id) ?? pb;
+      let x = pa[0] + (pb[0] - pa[0]) * alpha;
+      let y = pa[1] + (pb[1] - pa[1]) * alpha;
+      let rot = !isNaN(pb[2]) ? pb[2] : !isNaN(pa[2]) ? pa[2] : ts.rot;
+      if (isNaN(pb[2]) && isNaN(pa[2])) {
+        // dwelling at a station: face along the line
+        const st = line.stations;
+        const i = st.indexOf(tr.from);
+        const other = st[i + 1] ?? st[i - 1];
+        if (other) {
+          const [ox, oy] = this.pos[other];
+          rot = Math.atan2(oy - y, ox - x);
+        }
+      }
+      // keep trains upright-ish and offset by owner so rivals sharing track are both visible
+      const slot = this.slotOf[line.owner] ?? 0;
+      const off = (slot - 1.5) * 3.2;
+      x += -Math.sin(rot) * off;
+      y += Math.cos(rot) * off;
+      ts.x = x;
+      ts.y = y;
+      ts.rot = rot;
+      const len = 6 + line.cars * 2.6;
+      ts.sprite.width = len;
+      ts.sprite.height = 5.2;
+      ts.sprite.position.set(x, y);
+      ts.sprite.rotation = rot;
+      ts.sprite.alpha = tr.load > 0 ? 1 : 0.75;
+    }
+    for (const [id, ts] of this.trains) {
+      if (!seen.has(id)) {
+        ts.sprite.destroy();
+        this.trains.delete(id);
+      }
+    }
+  }
+
+  setHighlight(stations: StationId[], color: number, candidates: StationId[] = []) {
+    this.highlight = stations;
+    this.highlightColor = color;
+    this.candidates = candidates;
+    this.updateLabelScale();
+  }
+
+  sectionBetween(a: StationId, b: StationId) {
+    return sectionBetween(this.net, a, b);
+  }
+
+  destroy() {
+    this.destroyed = true;
+    try {
+      this.app.destroy(true, { children: true });
+    } catch {
+      /* not initialised */
+    }
+  }
+}
+
+function segDist(x: number, y: number, a: [number, number], b: [number, number]): number {
+  const [ax, ay] = a;
+  const [bx, by] = b;
+  const dx = bx - ax;
+  const dy = by - ay;
+  const L = dx * dx + dy * dy;
+  let t = L ? ((x - ax) * dx + (y - ay) * dy) / L : 0;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(x - (ax + t * dx), y - (ay + t * dy));
+}
+
+function dotted(g: Graphics, ax: number, ay: number, bx: number, by: number, gap: number, r: number, color: number) {
+  const L = Math.hypot(bx - ax, by - ay);
+  const n = Math.max(1, Math.floor(L / gap));
+  for (let i = 0; i <= n; i++) {
+    const t = i / n;
+    g.circle(ax + (bx - ax) * t, ay + (by - ay) * t, r);
+  }
+  g.fill(color);
+}

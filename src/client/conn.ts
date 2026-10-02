@@ -1,0 +1,227 @@
+import { MAPS, Session, type BotStyle, type Command, type CommandResult, type PlayerId, type Snapshot } from "../sim";
+import { SLOTS, type ClientMsg, type LobbyState, type ServerMsg } from "../shared/protocol";
+
+/** What the game screen needs, whether the game runs in this browser or on the server. */
+export interface GameConn {
+  readonly you: PlayerId;
+  readonly local: boolean;
+  onSnapshot(cb: (s: Snapshot) => void): () => void;
+  command(cmd: Command): Promise<CommandResult>;
+  close(): void;
+  // local only
+  speed?: number;
+  setSpeed?(x: number): void;
+  paused?: boolean;
+  setPaused?(p: boolean): void;
+  restart?(): void;
+}
+
+export interface LocalOptions {
+  name: string;
+  bots: BotStyle[];
+  roundMinutes: number;
+}
+
+export class LocalGame implements GameConn {
+  readonly you = "P1";
+  readonly local = true;
+  speed = 1;
+  paused = false;
+  private session!: Session;
+  private timer: ReturnType<typeof setInterval> | null = null;
+  private listeners = new Set<(s: Snapshot) => void>();
+  private last = 0;
+
+  constructor(private opts: LocalOptions) {
+    this.restart();
+  }
+
+  restart() {
+    const players = [
+      { id: "P1", name: this.opts.name || "You", color: SLOTS[0].color, hub: SLOTS[0].hub },
+      ...this.opts.bots.map((style, i) => ({
+        id: `P${i + 2}`,
+        name: style === "builder" ? "The Builder" : style === "raider" ? "The Raider" : "The Banker",
+        color: SLOTS[i + 1].color,
+        hub: SLOTS[i + 1].hub,
+        isBot: true,
+        botStyle: style
+      }))
+    ];
+    this.session = Session.create(MAPS.sydney, players, { roundMinutes: this.opts.roundMinutes });
+    this.paused = false;
+    if (!this.timer) {
+      this.last = performance.now();
+      this.timer = setInterval(() => this.loop(), 100);
+    }
+    this.emit();
+  }
+
+  private loop() {
+    const now = performance.now();
+    const dt = Math.min(0.5, (now - this.last) / 1000);
+    this.last = now;
+    if (!this.paused && this.session.state.phase === "running") this.session.tick(dt * this.speed);
+    this.emit();
+  }
+
+  private emit() {
+    const s = this.session.snapshot();
+    for (const l of this.listeners) l(s);
+  }
+
+  onSnapshot(cb: (s: Snapshot) => void) {
+    this.listeners.add(cb);
+    return () => this.listeners.delete(cb);
+  }
+
+  async command(cmd: Command): Promise<CommandResult> {
+    const r = this.session.command(this.you, cmd);
+    this.emit();
+    return r;
+  }
+
+  setSpeed(x: number) {
+    this.speed = x;
+  }
+  setPaused(p: boolean) {
+    this.paused = p;
+  }
+
+  close() {
+    if (this.timer) clearInterval(this.timer);
+    this.timer = null;
+    this.listeners.clear();
+  }
+}
+
+/** A connection to an online room. Reconnects automatically. */
+export class RemoteRoom implements GameConn {
+  readonly local = false;
+  you: PlayerId = "spectator";
+  lobby: LobbyState | null = null;
+  status: "connecting" | "open" | "closed" = "connecting";
+  lastSnapshot: Snapshot | null = null;
+  private ws: WebSocket | null = null;
+  private snapListeners = new Set<(s: Snapshot) => void>();
+  private lobbyListeners = new Set<(l: LobbyState) => void>();
+  private statusListeners = new Set<(s: RemoteRoom["status"], message?: string) => void>();
+  private pending = new Map<number, (r: CommandResult) => void>();
+  private nextId = 1;
+  private closed = false;
+  private retry = 0;
+  private pingTimer: ReturnType<typeof setInterval> | null = null;
+  latency = 0;
+
+  constructor(public code: string, private name: string, private token: string) {
+    this.open();
+  }
+
+  private open() {
+    const proto = location.protocol === "https:" ? "wss" : "ws";
+    const ws = new WebSocket(`${proto}://${location.host}/api/rooms/${this.code}/ws`);
+    this.ws = ws;
+    this.setStatus("connecting");
+    ws.onopen = () => {
+      this.retry = 0;
+      this.send({ t: "hello", name: this.name, token: this.token });
+      this.setStatus("open");
+      this.pingTimer = setInterval(() => this.send({ t: "ping", at: performance.now() }), 5000);
+    };
+    ws.onmessage = (ev) => {
+      let msg: ServerMsg;
+      try {
+        msg = JSON.parse(ev.data);
+      } catch {
+        return;
+      }
+      this.handle(msg);
+    };
+    ws.onclose = () => {
+      if (this.pingTimer) clearInterval(this.pingTimer);
+      this.pingTimer = null;
+      for (const [, res] of this.pending) res({ ok: false, error: "Connection lost." });
+      this.pending.clear();
+      if (this.closed) return;
+      this.setStatus("closed", "Reconnecting…");
+      const wait = Math.min(8000, 500 * 2 ** this.retry++);
+      setTimeout(() => !this.closed && this.open(), wait);
+    };
+  }
+
+  private handle(msg: ServerMsg) {
+    switch (msg.t) {
+      case "welcome":
+        this.you = msg.you;
+        break;
+      case "lobby":
+        this.lobby = msg.lobby;
+        for (const l of this.lobbyListeners) l(msg.lobby);
+        break;
+      case "snap":
+        this.lastSnapshot = msg.s;
+        for (const l of this.snapListeners) l(msg.s);
+        break;
+      case "ack": {
+        const res = this.pending.get(msg.id);
+        this.pending.delete(msg.id);
+        res?.(msg.ok ? { ok: true } : { ok: false, error: msg.error ?? "That didn't work." });
+        break;
+      }
+      case "error":
+        for (const l of this.statusListeners) l(this.status, msg.message);
+        break;
+      case "pong":
+        this.latency = performance.now() - msg.at;
+        break;
+    }
+  }
+
+  private setStatus(s: RemoteRoom["status"], message?: string) {
+    this.status = s;
+    for (const l of this.statusListeners) l(s, message);
+  }
+
+  send(msg: ClientMsg) {
+    if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(msg));
+  }
+
+  onSnapshot(cb: (s: Snapshot) => void) {
+    this.snapListeners.add(cb);
+    if (this.lastSnapshot) cb(this.lastSnapshot);
+    return () => this.snapListeners.delete(cb);
+  }
+  onLobby(cb: (l: LobbyState) => void) {
+    this.lobbyListeners.add(cb);
+    if (this.lobby) cb(this.lobby);
+    return () => this.lobbyListeners.delete(cb);
+  }
+  onStatus(cb: (s: RemoteRoom["status"], message?: string) => void) {
+    this.statusListeners.add(cb);
+    return () => this.statusListeners.delete(cb);
+  }
+
+  command(cmd: Command): Promise<CommandResult> {
+    return new Promise((resolve) => {
+      if (this.ws?.readyState !== WebSocket.OPEN) return resolve({ ok: false, error: "Not connected." });
+      const id = this.nextId++;
+      this.pending.set(id, resolve);
+      this.send({ t: "cmd", id, cmd });
+      setTimeout(() => {
+        if (this.pending.has(id)) {
+          this.pending.delete(id);
+          resolve({ ok: false, error: "The server didn't answer." });
+        }
+      }, 8000);
+    });
+  }
+
+  close() {
+    this.closed = true;
+    if (this.pingTimer) clearInterval(this.pingTimer);
+    this.ws?.close();
+    this.snapListeners.clear();
+    this.lobbyListeners.clear();
+    this.statusListeners.clear();
+  }
+}
