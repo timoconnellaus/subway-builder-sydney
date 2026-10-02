@@ -26,7 +26,7 @@ export const NEW_YORK: MapDef = {
   ],
   stations: [
     // Manhattan
-    { id: "timessq", name: "Times Square", lon: -73.986, lat: 40.756, pop: 20, jobs: 200, icon: "city", label: "r" },
+    { id: "timessq", name: "Times Square", lon: -73.986, lat: 40.756, pop: 20, jobs: 200, icon: "🗽", label: "r" },
     { id: "penn", name: "Penn Station", lon: -73.997, lat: 40.75, pop: 20, jobs: 90, label: "l" },
     { id: "unionsq", name: "Union Square", lon: -73.99, lat: 40.735, pop: 45, jobs: 55 },
     { id: "lowermanhattan", name: "Wall Street", lon: -74.008, lat: 40.709, pop: 30, jobs: 110, label: "l" },

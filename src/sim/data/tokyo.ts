@@ -13,7 +13,7 @@ export const TOKYO: MapDef = {
   hubBonus: { tokyo: 0, shinjuku: 500, haneda: 800, yokohama: 1000 },
   stations: [
     // Yamanote loop (simplified)
-    { id: "tokyo", name: "Tokyo", lon: 139.767, lat: 35.681, pop: 20, jobs: 200, icon: "city" },
+    { id: "tokyo", name: "Tokyo", lon: 139.767, lat: 35.681, pop: 20, jobs: 200, icon: "🗼" },
     { id: "akihabara", name: "Akihabara", lon: 139.774, lat: 35.698, pop: 30, jobs: 35, label: "r" },
     { id: "ueno", name: "Ueno", lon: 139.777, lat: 35.713, pop: 30, jobs: 30, label: "t" },
     { id: "ikebukuro", name: "Ikebukuro", lon: 139.711, lat: 35.73, pop: 40, jobs: 50, label: "t" },

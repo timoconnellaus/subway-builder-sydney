@@ -26,7 +26,7 @@ export const HONG_KONG: MapDef = {
   ],
   stations: [
     // Hong Kong Island
-    { id: "central", name: "Central", lon: 114.158, lat: 22.282, pop: 15, jobs: 200, icon: "city", label: "l" },
+    { id: "central", name: "Central", lon: 114.158, lat: 22.282, pop: 15, jobs: 200, icon: "🐉", label: "l" },
     { id: "kennedytown", name: "Kennedy Town", lon: 114.128, lat: 22.281, pop: 45, jobs: 15, label: "t" },
     { id: "causewaybay", name: "Causeway Bay", lon: 114.184, lat: 22.28, pop: 40, jobs: 60, label: "b" },
     { id: "northpoint", name: "North Point", lon: 114.2, lat: 22.289, pop: 55, jobs: 15, label: "l" },

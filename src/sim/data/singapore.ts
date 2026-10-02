@@ -14,7 +14,7 @@ export const SINGAPORE: MapDef = {
   hubBonus: { raffles: 0, jurongeast: 300, changi: 600, woodlands: 1200 },
   stations: [
     // city centre
-    { id: "raffles", name: "Raffles Place", lon: 103.851, lat: 1.284, pop: 15, jobs: 200, icon: "city", label: "l" },
+    { id: "raffles", name: "Raffles Place", lon: 103.851, lat: 1.284, pop: 15, jobs: 200, icon: "🦁", label: "l" },
     { id: "outram", name: "Outram Park", lon: 103.839, lat: 1.28, pop: 30, jobs: 30, label: "l" },
     { id: "marinabay", name: "Marina Bay", lon: 103.863, lat: 1.274, pop: 10, jobs: 60, label: "b" },
     { id: "dhoby", name: "Dhoby Ghaut", lon: 103.846, lat: 1.299, pop: 15, jobs: 40, label: "l" },

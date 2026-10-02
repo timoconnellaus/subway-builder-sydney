@@ -160,10 +160,19 @@ export class MapView {
       if (s.icon) {
         const tile = new Graphics().circle(0, 0, 17).fill(PAPER).stroke({ width: 4, color: INK });
         tile.position.set(x, y);
-        const icon = new Sprite(this.textures[s.icon]);
-        icon.anchor.set(0.5);
-        const k = 22 / Math.max(icon.texture.width, icon.texture.height);
-        icon.scale.set(k);
+        // a sprite from the art set, or an emoji landmark (world cities)
+        const icon = new Container();
+        const tex = this.textures[s.icon];
+        if (tex) {
+          const sp = new Sprite(tex);
+          sp.anchor.set(0.5);
+          sp.scale.set(22 / Math.max(tex.width, tex.height));
+          icon.addChild(sp);
+        } else {
+          const em = new Text({ text: s.icon, style: { fontSize: 19 }, resolution: 3 });
+          em.anchor.set(0.5);
+          icon.addChild(em);
+        }
         icon.position.set(x, y);
         tile.label = `hub-${s.id}`;
         icon.label = `icon-${s.id}`;
@@ -261,11 +270,7 @@ export class MapView {
     if (Math.abs(u - this.u) / this.u > 0.04) {
       this.u = u;
       for (const c of this.hubLayer.children) {
-        if (c.label?.startsWith("hub-")) c.scale.set(u);
-        if (c.label?.startsWith("icon-")) {
-          const sp = c as Sprite;
-          sp.scale.set((22 / Math.max(sp.texture.width, sp.texture.height)) * u);
-        }
+        if (c.label?.startsWith("hub-") || c.label?.startsWith("icon-")) c.scale.set(u);
       }
       if (this.lastSnap) {
         this.drawOwnership(this.lastSnap);

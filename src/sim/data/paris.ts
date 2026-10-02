@@ -12,7 +12,7 @@ export const PARIS: MapDef = {
   hubBonus: { chatelet: 0, ladefense: 900, orly: 800, marne: 1100 },
   stations: [
     // central Paris
-    { id: "chatelet", name: "Châtelet–Les Halles", lon: 2.347, lat: 48.862, pop: 25, jobs: 200, icon: "city", label: "b" },
+    { id: "chatelet", name: "Châtelet–Les Halles", lon: 2.347, lat: 48.862, pop: 25, jobs: 200, icon: "🥐", label: "b" },
     { id: "concorde", name: "Concorde", lon: 2.321, lat: 48.866, pop: 10, jobs: 60, label: "b" },
     { id: "etoile", name: "Étoile", lon: 2.295, lat: 48.874, pop: 30, jobs: 50, label: "t" },
     { id: "stlazare", name: "Saint-Lazare", lon: 2.325, lat: 48.876, pop: 20, jobs: 60, label: "t" },

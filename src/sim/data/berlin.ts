@@ -13,7 +13,7 @@ export const BERLIN: MapDef = {
   hubBonus: { alex: 0, zoo: 800, ber: 400, spandau: 200 },
   stations: [
     // Mitte and the Stadtbahn
-    { id: "alex", name: "Alexanderplatz", lon: 13.412, lat: 52.521, pop: 25, jobs: 200, icon: "city", label: "r" },
+    { id: "alex", name: "Alexanderplatz", lon: 13.412, lat: 52.521, pop: 25, jobs: 200, icon: "🐻", label: "r" },
     { id: "friedrich", name: "Friedrichstraße", lon: 13.388, lat: 52.52, pop: 15, jobs: 70, label: "t" },
     { id: "hbf", name: "Hauptbahnhof", lon: 13.369, lat: 52.525, pop: 15, jobs: 50, label: "t" },
     { id: "potsdamer", name: "Potsdamer Platz", lon: 13.376, lat: 52.509, pop: 10, jobs: 60, label: "b" },

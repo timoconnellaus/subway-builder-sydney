@@ -25,7 +25,7 @@ export const LONDON: MapDef = {
     { station: "camden", title: "Camden Market weekend", emoji: "🎸" }
   ],
   stations: [
-    { id: "bank", name: "Bank", lon: -0.089, lat: 51.513, pop: 20, jobs: 200, icon: "city", label: "l" },
+    { id: "bank", name: "Bank", lon: -0.089, lat: 51.513, pop: 20, jobs: 200, icon: "💂", label: "l" },
     { id: "liverpoolst", name: "Liverpool Street", lon: -0.082, lat: 51.518, pop: 20, jobs: 60, label: "t" },
     { id: "londonbridge", name: "London Bridge", lon: -0.086, lat: 51.505, pop: 20, jobs: 45, label: "b" },
     { id: "kingscross", name: "King's Cross", lon: -0.124, lat: 51.531, pop: 25, jobs: 45, label: "t" },

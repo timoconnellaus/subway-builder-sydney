@@ -26,7 +26,7 @@ export const MELBOURNE: MapDef = {
   ],
   stations: [
     // the city
-    { id: "flinders", name: "Flinders Street", lon: 144.967, lat: -37.818, pop: 20, jobs: 200, icon: "city", label: "b" },
+    { id: "flinders", name: "Flinders Street", lon: 144.967, lat: -37.818, pop: 20, jobs: 200, icon: "🏏", label: "b" },
     { id: "southerncross", name: "Southern Cross", lon: 144.952, lat: -37.818, pop: 15, jobs: 45, label: "l" },
     { id: "melbcentral", name: "Melbourne Central", lon: 144.963, lat: -37.81, pop: 25, jobs: 50, label: "t" },
     { id: "parliament", name: "Parliament", lon: 144.973, lat: -37.811, pop: 15, jobs: 35 },
