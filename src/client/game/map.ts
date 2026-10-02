@@ -41,7 +41,7 @@ export class MapView {
   private labelLayer = new Container();
   private hubLayer = new Container();
   private selectG = new Graphics();
-  private labels: { text: Text; station: StationId; major: boolean }[] = [];
+  private labels: { text: Text; station: StationId; major: boolean; rank: number }[] = [];
   private pos: Record<StationId, [number, number]> = {};
   private voronoi: [number, number][][] = [];
   private textures: Record<string, Texture> = {};
@@ -156,7 +156,7 @@ export class MapView {
       });
       placeLabel(text, s.label, x, y, s.icon ? 22 : 9);
       this.labelLayer.addChild(text);
-      this.labels.push({ text, station: s.id, major });
+      this.labels.push({ text, station: s.id, major, rank: (s.icon ? 1000 : 0) + s.pop + s.jobs });
       if (s.icon) {
         const tile = new Graphics().circle(0, 0, 17).fill(PAPER).stroke({ width: 4, color: INK });
         tile.position.set(x, y);
@@ -170,6 +170,7 @@ export class MapView {
         this.hubLayer.addChild(tile, icon);
       }
     }
+    this.labels.sort((a, b) => b.rank - a.rank); // most important first, for overlap checks
   }
 
   /** Fit the whole map into the view. */
@@ -213,6 +214,13 @@ export class MapView {
     this.world.y = sy - wy * k;
     this.clampView();
     this.updateLabelScale();
+  }
+
+  /** A zoom at which the tracks around a station are long enough to tap (about 60px), at least `min`. */
+  zoomFor(st: StationId, min: number): number {
+    const [x, y] = this.pos[st];
+    const shortest = Math.min(...this.net.adj[st].map((e) => Math.hypot(this.pos[e.to][0] - x, this.pos[e.to][1] - y)));
+    return Math.min(5, Math.max(min, 60 / (shortest * this.baseScale)));
   }
 
   focus(st: StationId, zoom?: number) {
@@ -274,6 +282,26 @@ export class MapView {
     for (const l of this.labels) {
       l.text.scale.set(inv);
       l.text.visible = l.major || this.world.scale.x > 1.15 || z >= 2.5 || this.highlight.includes(l.station) || this.candidates.includes(l.station);
+    }
+    this.hideOverlappingLabels();
+  }
+
+  /** Drop labels that would sit on top of a more important one (labels are kept in priority order). */
+  private hideOverlappingLabels() {
+    const placed: { x0: number; y0: number; x1: number; y1: number }[] = [];
+    const pad = 2 / this.world.scale.x; // a couple of screen pixels apart
+    for (const l of this.labels) {
+      if (!l.text.visible) continue;
+      const t = l.text;
+      const w = t.width;
+      const h = t.height;
+      const r = { x0: t.x - t.anchor.x * w - pad, y0: t.y - t.anchor.y * h - pad, x1: t.x + (1 - t.anchor.x) * w + pad, y1: t.y + (1 - t.anchor.y) * h + pad };
+      const forced = this.highlight.includes(l.station) || this.candidates.includes(l.station);
+      if (!forced && placed.some((p) => r.x0 < p.x1 && r.x1 > p.x0 && r.y0 < p.y1 && r.y1 > p.y0)) {
+        t.visible = false;
+        continue;
+      }
+      placed.push(r);
     }
   }
 

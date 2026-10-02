@@ -103,7 +103,7 @@ export class GameScreen {
     if (!this.mapReady || !this.snap || this.focused) return;
     this.focused = true;
     const me = this.snap.players.find((p) => p.id === this.you);
-    if (me) this.map.focus(me.hub, window.innerWidth <= 760 ? 3 : 1.7);
+    if (me) this.map.focus(me.hub, this.map.zoomFor(me.hub, window.innerWidth <= 760 ? 3 : 1.7));
     if (me && this.conn.local && storage("seen-intro") !== "1" && this.step < 0) this.showIntro(me);
   }
 

@@ -8,7 +8,7 @@ export const COLORS: Record<Color, number> = {
 };
 export const SOFT: Record<Color, number> = {
   red: 0xf6c3c7,
-  blue: 0xbcd8f5,
+  blue: 0xc8cbf0, // periwinkle rather than sky blue, so blue territory doesn't read as water
   gold: 0xfbe0a6,
   green: 0xbfe6c8
 };
