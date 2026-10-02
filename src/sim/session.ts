@@ -112,7 +112,7 @@ export function toSnapshot(game: Game): Snapshot {
   const lineById = new Map(st.lines.map((l) => [l.id, l]));
   return {
     mapId: st.mapId,
-    time: st.time,
+    time: round(st.time, 3),
     duration: st.settings.roundMinutes,
     phase: st.phase,
     winner: st.winner,
@@ -132,8 +132,10 @@ export function toSnapshot(game: Game): Snapshot {
     lines: st.lines.map((l) => ({
       ...l,
       stations: [...l.stations],
-      headway: game.headway(l),
-      loadFactor: l.capSum > 0 ? l.loadSum / l.capSum : 0
+      loadSum: Math.round(l.loadSum),
+      capSum: Math.round(l.capSum),
+      headway: round(game.headway(l), 2),
+      loadFactor: round(l.capSum > 0 ? l.loadSum / l.capSum : 0, 3)
     })),
     trains: st.trains.map((t) => {
       const l = lineById.get(t.line)!;
@@ -144,13 +146,13 @@ export function toSnapshot(game: Game): Snapshot {
         line: t.line,
         from,
         to: moving ? l.stations[t.at + t.dir] ?? null : null,
-        p: moving && t.segTotal > 0 ? 1 - t.timer / t.segTotal : 0,
+        p: moving && t.segTotal > 0 ? round(1 - t.timer / t.segTotal, 3) : 0,
         load: t.load,
         cap: l.cars * st.settings.carSeats
       };
     }),
     waiting,
-    events: st.events.slice(-20),
+    events: st.events.slice(-12),
     eventSeq: st.eventSeq,
     settings: st.settings,
     totalSections: game.net.sections.length,
@@ -158,4 +160,10 @@ export function toSnapshot(game: Game): Snapshot {
     cityEvents: st.cityEvents ?? [],
     history: st.phase === "over" ? st.history : undefined
   };
+}
+
+function round(v: number, places: number): number {
+  if (!Number.isFinite(v)) return v;
+  const k = 10 ** places;
+  return Math.round(v * k) / k;
 }
