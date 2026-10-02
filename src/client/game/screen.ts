@@ -632,6 +632,9 @@ export class GameScreen {
           await this.run({ type: "setSpeed", line: arg, speed: Number(btn.dataset.d) as 1 | 2 | 3 });
           break;
         }
+        case "extend-to":
+          if (await this.run({ type: "extendLine", line: arg, station: btn.dataset.st!, end: btn.dataset.d as "start" | "end" })) this.select({ kind: "line", id: arg });
+          break;
         case "extend":
           this.mode = { kind: "extend", line: arg, end: btn.dataset.d as "start" | "end" };
           this.updateHighlight();
@@ -856,8 +859,20 @@ export class GameScreen {
     this.richNudgeAt = 60;
   }
 
+  /** Put trains on a section: extend one of your lines that ends there (free), or start a new line. */
   private runLineButton(s: Snapshot, a: StationId, b: StationId): string {
-    return `<button class="btn primary wide" data-act="new-line" data-arg="${a},${b}">Run a line here · ${money(trainCost(s, 2))}</button>`;
+    const fresh = `<button class="btn primary wide" data-act="new-line" data-arg="${a},${b}">Run a new line here · ${money(trainCost(s, 2))}</button>`;
+    for (const l of s.lines) {
+      if (l.owner !== this.you) continue;
+      const first = l.stations[0];
+      const last = l.stations[l.stations.length - 1];
+      const end = last === a || last === b ? "end" : first === a || first === b ? "start" : null;
+      if (!end) continue;
+      const to = (end === "end" ? last : first) === a ? b : a;
+      if (l.stations.includes(to)) continue;
+      return `<button class="btn primary wide" data-act="extend-to" data-arg="${l.id}" data-d="${end}" data-st="${to}">Extend ${esc(this.lineTitle(l))} here</button>${fresh.replace("btn primary", "btn")}`;
+    }
+    return fresh;
   }
 
   private netCache: { s: Snapshot; id: string; set: Set<StationId> } | null = null;
