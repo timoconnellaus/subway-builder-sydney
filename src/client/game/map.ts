@@ -109,7 +109,7 @@ export class MapView {
     this.host.appendChild(this.app.canvas);
     const names = [
       "city", "parramatta", "airport", "liverpool",
-      ...(["red", "blue", "gold", "green", "neutral"] as const).flatMap((c) => [`train-suburban-${c}`, `train-metro-${c}`])
+      ...(["red", "blue", "gold", "green", "neutral"] as const).flatMap((c) => [`train-suburban-${c}`, `train-metro-${c}`, `train-tram-${c}`])
     ];
     const loaded = await Assets.load(names.map((n) => ({ alias: n, src: `/sprites/${n}.webp` })));
     if (this.destroyed) return this.app.destroy(true, { children: true });
@@ -601,7 +601,9 @@ export class MapView {
       const col = this.colorOf[line.owner] ?? "red";
       // colour-blind palette: tint the grey train instead of using the painted one
       const art = COLOR_BLIND ? "neutral" : col;
-      const tex = this.textures[line.speed >= 3 ? `train-metro-${art}` : `train-suburban-${art}`];
+      // metro at top speed, a tram for one-car trains, otherwise a suburban train
+      const kind = line.speed >= 3 ? "metro" : line.cars <= 1 ? "tram" : "suburban";
+      const tex = this.textures[`train-${kind}-${art}`];
       let ts = this.trains.get(tr.id);
       if (!ts) {
         const sprite = new Sprite(tex);
@@ -640,7 +642,7 @@ export class MapView {
       const minLen = 22 / k;
       const len = Math.max(minLen, 9 + line.cars * 2.4);
       ts.sprite.width = len;
-      ts.sprite.height = len / (line.speed >= 3 ? 4.6 : 5.6);
+      ts.sprite.height = (len * tex.height) / tex.width; // keep the art's proportions
       ts.sprite.position.set(x, y);
       ts.sprite.rotation = rot;
       ts.sprite.alpha = tr.load > 0 ? 1 : 0.75;
