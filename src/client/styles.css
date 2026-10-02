@@ -269,7 +269,7 @@ details.rules summary { font-family: var(--display); font-weight: 800; cursor: p
   .board-row { display: flex; gap: 4px; align-items: center; }
   .board-row img { width: 18px; height: 18px; }
   .board-row .nm, .board-row .dim, .board-title { display: none; }
-  .hud .seg.small, .hud [data-act="mute"] { display: none; }
+  .hud .seg.small, .hud [data-act="mute"], .hud [data-act="music"] { display: none; }
   .pill.goal { order: 3; flex-basis: 100%; }
   .hud { gap: 6px; padding-inline: 8px; }
   .pill { padding: 6px 10px; font-size: 14px; }
@@ -325,3 +325,4 @@ input.need { border-color: var(--bad); box-shadow: 0 0 0 3px rgba(214, 40, 57, 0
 .tour-end { margin: 8px 0; padding: 10px 12px; border-radius: 12px; background: #f1efe9; display: grid; gap: 6px; justify-items: center; text-align: center; }
 .tour-end.won { background: #eef8f0; border: 2px solid var(--good); }
 .tour-end p { margin: 0; }
+.hud-btn.off { opacity: 0.45; }

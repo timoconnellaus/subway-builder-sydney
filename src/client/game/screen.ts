@@ -603,6 +603,10 @@ export class GameScreen {
         case "emote":
           this.conn.emote?.(arg);
           break;
+        case "music":
+          sound.toggleMusic();
+          this.render();
+          break;
         case "mute":
           sound.toggle();
           this.render();
@@ -619,6 +623,9 @@ export class GameScreen {
       }
     };
     this.el.addEventListener("click", handler);
+    // browsers only allow sound after a tap, so (re)start the music on the first one
+    this.el.addEventListener("pointerdown", () => sound.startMusic(), { once: true });
+    sound.startMusic();
     this.panel.addEventListener("keydown", (e) => {
       const t = e.target as HTMLInputElement;
       if (t.id === "line-name" && e.key === "Enter") {
@@ -883,6 +890,7 @@ export class GameScreen {
         <div class="pill mono ${left < 120 ? "warn" : ""}" title="Time left">${remaining(left)}</div>
         ${this.conn.canPause?.() ? `<button class="hud-btn" data-act="pause" aria-label="${this.conn.paused ? "Resume" : "Pause"}" title="${this.conn.paused ? "Resume" : "Pause"}"><img src="/sprites/${this.conn.paused ? "play" : "pause"}.webp" alt=""></button>` : ""}
         ${local ? `<div class="seg small">${[1, 2, 3].map((x) => `<button data-act="speedx" data-arg="${x}" class="${this.conn.speed === x ? "on" : ""}">${x}×</button>`).join("")}</div>` : ""}
+        <button class="hud-btn ${sound.musicOn ? "" : "off"}" data-act="music" aria-label="${sound.musicOn ? "Music off" : "Music on"}" title="${sound.musicOn ? "Music off" : "Music on"}">🎵</button>
         <button class="hud-btn" data-act="mute" aria-label="${sound.muted ? "Sound on" : "Sound off"}" title="${sound.muted ? "Sound on" : "Sound off"}">${sound.muted ? "🔇" : "🔊"}</button>
         <button class="hud-btn" data-act="help" aria-label="How to play">?</button>
       </div>`;
@@ -1197,6 +1205,7 @@ export class GameScreen {
 
   destroy() {
     this.destroyed = true;
+    sound.stopMusic();
     if (this.flashTimer) clearTimeout(this.flashTimer);
     this.unsub();
     window.removeEventListener("keydown", this.onKey);
