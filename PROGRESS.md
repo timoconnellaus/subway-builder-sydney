@@ -34,3 +34,9 @@ Overnight build, started 2026-10-02 20:30 AEST.
   saves survive a server restart.
 - Balance: flat fare per ride; "empty" = nobody boarded at that platform; opening track costs more the
   more you own; only the hub owner can open track at their hub; weaker hubs get extra starting cash.
+- Fresh-eyes playtest (subagent) found the tutorial's last step could never finish, the coach
+  covering the target on phones, beginners being wiped out on Normal, tiny phone labels. All fixed:
+  tutorial setup moved into the sim with a test; Easy bots by default until your first win.
+- World cities added by four parallel subagents (one per city), then registered, tested for
+  connectivity / no track through stations, and balance-tuned for 3 and 4 players.
+- /simplify passes (reuse, simplification, efficiency, altitude reviewers) after each batch.
