@@ -656,7 +656,7 @@ export class GameScreen {
     const need = s.settings.emptyToCapture;
     let action = "";
     if (!ss.owner && me) {
-      const cost = openCost(s, sec.minutes);
+      const cost = openCost(s, sec.minutes, me.owned);
       const mine = new Set<string>([me.hub]);
       for (const x of this.map.net.sections) if (s.sections[x.id].owner === me.id) (mine.add(x.a), mine.add(x.b));
       const adjacent = mine.has(sec.a) || mine.has(sec.b);
@@ -706,7 +706,7 @@ export class GameScreen {
         <div class="owner-line"><img class="badge" src="/sprites/badge-${owner.color}.webp" alt=""><h3>${esc(owner.name)}'s line</h3></div>
         <div class="route">${route}</div>
         ${stats}
-        <div class="stats"><div><span class="v mono">${fare(l.fare)}</span><span class="k">per section</span></div><div><span class="v mono">${l.trains}</span><span class="k">trains</span></div><div><span class="v mono">${l.speed}</span><span class="k">speed</span></div></div>`;
+        <div class="stats"><div><span class="v mono">${fare(l.fare)}</span><span class="k">per ride</span></div><div><span class="v mono">${l.trains}</span><span class="k">trains</span></div><div><span class="v mono">${l.speed}</span><span class="k">speed</span></div></div>`;
     }
     const tc = trainCost(s, l.cars) + (l.speed - 1) * S.speedCost;
     const first = l.stations[0];
@@ -717,7 +717,7 @@ export class GameScreen {
       <div class="route">${route}</div>
       ${stats}
       <div class="ctrl">
-        <span class="ctrl-k">Fare per section</span>
+        <span class="ctrl-k">Fare per ride</span>
         <button class="step" data-act="fare" data-arg="${l.id}" data-d="-0.25" ${l.fare <= S.minFare ? "disabled" : ""} aria-label="Lower fare">−</button>
         <span class="ctrl-v mono">${fare(l.fare)}</span>
         <button class="step" data-act="fare" data-arg="${l.id}" data-d="0.25" ${l.fare >= S.maxFare ? "disabled" : ""} aria-label="Raise fare">+</button>
@@ -785,8 +785,8 @@ export class GameScreen {
 function trainCost(s: Snapshot, cars: number) {
   return s.settings.trainBaseCost + s.settings.carCost * cars;
 }
-function openCost(s: Snapshot, minutes: number) {
-  return Math.round(s.settings.openBaseCost + s.settings.openCostPerMinute * minutes);
+function openCost(s: Snapshot, minutes: number, owned = 0) {
+  return Math.round(s.settings.openBaseCost + s.settings.openCostPerMinute * minutes + s.settings.openCostPerOwned * owned);
 }
 function dots(run: number, need: number, color: string) {
   let out = '<span class="dots">';

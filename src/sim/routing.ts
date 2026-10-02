@@ -138,7 +138,8 @@ export class Router {
         for (const { line, pos } of boardAt[node]) {
           const wait = Math.min(headways[line] / 2, 30);
           const nn = offsets[line] + pos;
-          const c = cost + S.valueOfTime * (wait + transfer);
+          // flat fare per ride: you pay again every time you board
+          const c = cost + lines[line].fare + S.valueOfTime * (wait + transfer);
           if (c < dist[nn]) {
             dist[nn] = c;
             prev[nn] = node;
@@ -159,7 +160,7 @@ export class Router {
         }
         for (const np of [pos - 1, pos + 1]) {
           if (np < 0 || np >= line.stations.length) continue;
-          const c = cost + line.fare + S.valueOfTime * lineRunMinutes(net, line, pos, np);
+          const c = cost + S.valueOfTime * lineRunMinutes(net, line, pos, np);
           const nn = offsets[li] + np;
           if (c < dist[nn]) {
             dist[nn] = c;

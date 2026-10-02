@@ -20,6 +20,7 @@
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20261002.1",
     "@types/d3-delaunay": "^6.0.4",
+    "@types/node": "^26.6.4",
     "typescript": "~5.9",
     "vite": "^8.3.2",
     "vite-node": "^6.0.0",

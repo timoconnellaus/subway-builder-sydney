@@ -111,10 +111,12 @@ export class Game {
     }
     return set;
   }
-  openCost(section: SectionId): number {
+  /** Opening track gets dearer the more you own, which slows down whoever is ahead. */
+  openCost(section: SectionId, player?: PlayerId): number {
     const s = this.net.section[section];
     const S = this.state.settings;
-    return Math.round(S.openBaseCost + S.openCostPerMinute * s.minutes);
+    const owned = player ? this.ownedCount(player) : 0;
+    return Math.round(S.openBaseCost + S.openCostPerMinute * s.minutes + S.openCostPerOwned * owned);
   }
   canOpen(id: PlayerId, section: SectionId): CommandResult {
     const sec = this.net.section[section];
@@ -123,7 +125,8 @@ export class Game {
     const mine = this.networkStations(id);
     if (!mine.has(sec.a) && !mine.has(sec.b)) return fail("You can only open track next to your own network.");
     const p = this.player(id)!;
-    if (p.money < this.openCost(section)) return fail(`You need $${this.openCost(section)} to open this section.`);
+    const cost = this.openCost(section, id);
+    if (p.money < cost) return fail(`You need $${cost} to open this section.`);
     return { ok: true };
   }
   trainCost(cars: number): number {
@@ -163,7 +166,7 @@ export class Game {
       case "open": {
         const r = this.canOpen(playerId, cmd.section);
         if (!r.ok) return r;
-        p.money -= this.openCost(cmd.section);
+        p.money -= this.openCost(cmd.section, playerId);
         st.sections[cmd.section].owner = playerId;
         this.emit({ t: st.time, kind: "open", player: playerId, section: cmd.section });
         st.netVersion++;
@@ -408,7 +411,7 @@ export class Game {
       for (const gid of list) {
         const g = st.groups[gid];
         if (!g) continue;
-        if (st.time - g.since > 45) {
+        if (st.time - g.since > 60) {
           st.lost += g.n;
           delete st.groups[gid];
         } else keep.push(gid);
@@ -446,17 +449,17 @@ export class Game {
     const here = line.stations[t.at];
     const next = line.stations[t.at + t.dir];
     const sec = sectionBetween(this.net, here, next)!;
-    this.board(t, line, here, next);
+    const boarded = this.board(t, line, here, next);
 
     const op = this.player(line.owner)!;
     const ss = st.sections[sec.id];
-    // fares for this section
-    if (t.load > 0) {
-      const fares = t.load * line.fare;
+    // flat fare per ride, paid when boarding
+    if (boarded > 0) {
+      const fares = boarded * line.fare;
       op.money += fares;
       op.income += fares;
-      ss.traffic += t.load;
     }
+    if (t.load > 0) ss.traffic += t.load;
     // track fee to the owner
     if (ss.owner && ss.owner !== line.owner) {
       const owner = this.player(ss.owner);
@@ -469,22 +472,23 @@ export class Game {
     line.loadSum += t.load;
     line.capSum += line.cars * S.carSeats;
 
-    // capture rule
+    // capture rule: the owner's train "leaves empty" when nobody boarded it here,
+    // while a rival's trains have been taking passengers from this platform onto this section
     if (ss.owner) {
       if (line.owner === ss.owner) {
         const rivalCarried = sum(ss.rivalSince);
-        if (t.load === 0 && rivalCarried > 0 && this.rivalRuns(sec.id, ss.owner)) {
+        if (boarded === 0 && rivalCarried > 0 && this.rivalRuns(sec.id, ss.owner)) {
           ss.emptyRun++;
           addInto(ss.tally, ss.rivalSince);
           this.emit({ t: st.time, kind: "empty", player: ss.owner, section: sec.id, run: ss.emptyRun });
           if (ss.emptyRun >= S.emptyToCapture) this.capture(sec.id);
-        } else if (t.load > 0) {
+        } else if (boarded > 0) {
           ss.emptyRun = 0;
           ss.tally = {};
         }
         ss.rivalSince = {};
-      } else if (t.load > 0) {
-        ss.rivalSince[line.owner] = (ss.rivalSince[line.owner] ?? 0) + t.load;
+      } else if (boarded > 0) {
+        ss.rivalSince[line.owner] = (ss.rivalSince[line.owner] ?? 0) + boarded;
       }
     }
 
@@ -549,12 +553,14 @@ export class Game {
     this.emit({ t: st.time, kind: "capture", player: best, from, section });
   }
 
-  private board(t: Train, line: Line, here: StationId, next: StationId) {
+  /** Board waiting passengers; returns how many got on here. */
+  private board(t: Train, line: Line, here: StationId, next: StationId): number {
     const st = this.state;
     const S = st.settings;
     const cap = line.cars * S.carSeats;
     const list = st.waiting[here];
-    if (!list.length) return;
+    if (!list.length) return 0;
+    let boarded = 0;
     const keep: number[] = [];
     // cheaper competitors heading the same way, with when they'll leave here
     const rivals = this.competitors(line, here, next);
@@ -583,10 +589,12 @@ export class Game {
       g.train = t.id;
       t.groups.push(gid);
       t.load += g.n;
+      boarded += g.n;
       const op = this.player(line.owner)!;
       op.carried += g.n;
     }
     st.waiting[here] = keep;
+    return boarded;
   }
 
   /** Other lines' trains that will leave `here` towards `next`, with fare, eta and free seats. */

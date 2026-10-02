@@ -51,8 +51,8 @@ export function buildNetwork(map: MapDef): Network {
     const B = station[d.b];
     if (!A || !B) throw new Error(`Unknown station in section ${d.a}-${d.b}`);
     const km = haversineKm(A.lon, A.lat, B.lon, B.lat);
-    // ~55 km/h average including the winding of real track
-    const minutes = d.minutes ?? Math.max(2, Math.round(km * 1.3 * (60 / 55)));
+    // brisk game pace: about a minute per kilometre
+    const minutes = d.minutes ?? Math.max(2, Math.round(km));
     const id = sectionId(d.a, d.b);
     adj[d.a].push({ to: d.b, section: id });
     adj[d.b].push({ to: d.a, section: id });

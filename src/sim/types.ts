@@ -49,6 +49,7 @@ export interface Settings {
   speedCost: number; // per train per speed tier
   openBaseCost: number;
   openCostPerMinute: number;
+  openCostPerOwned: number; // extra cost per section you already own
   trackFee: number; // paid to the section owner each time a rival train runs over it
   minFare: number;
   maxFare: number;
@@ -68,18 +69,19 @@ export const DEFAULT_SETTINGS: Settings = {
   demandPerMinute: 140,
   groupSize: 4,
   carSeats: 30,
-  carCostPerMinute: 0.25,
+  carCostPerMinute: 0.35,
   trainBaseCost: 300,
   carCost: 60,
   speedCost: 200,
   openBaseCost: 250,
-  openCostPerMinute: 30,
+  openCostPerMinute: 25,
+  openCostPerOwned: 50,
   trackFee: 4,
   minFare: 0.5,
   maxFare: 4,
-  defaultFare: 1.5,
+  defaultFare: 2,
   dwellMinutes: 0.4,
-  winShare: 0.5,
+  winShare: 0.6,
   maxLinesPerPlayer: 8,
   maxTrainsPerLine: 12
 };
@@ -112,7 +114,7 @@ export interface Line {
   id: LineId;
   owner: PlayerId;
   stations: StationId[];
-  fare: number; // dollars per section ridden
+  fare: number; // dollars per ride (flat)
   cars: number;
   speed: 1 | 2 | 3;
   trains: number;

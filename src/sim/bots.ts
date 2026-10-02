@@ -14,9 +14,9 @@ interface StyleTuning {
 }
 
 const STYLES: Record<BotStyle, StyleTuning> = {
-  builder: { reserve: 250, openAppetite: 1, attack: 0.25, undercut: 0.25, premium: false },
-  raider: { reserve: 300, openAppetite: 0.5, attack: 1, undercut: 0.75, premium: false },
-  banker: { reserve: 600, openAppetite: 0.7, attack: 0.35, undercut: 0.25, premium: true }
+  builder: { reserve: 200, openAppetite: 1, attack: 0.3, undercut: 0.25, premium: false },
+  raider: { reserve: 150, openAppetite: 0.5, attack: 1, undercut: 0.75, premium: false },
+  banker: { reserve: 400, openAppetite: 0.7, attack: 0.45, undercut: 0.5, premium: true }
 };
 
 export function runBots(game: Game, memory: Map<string, number>) {
@@ -35,9 +35,15 @@ function botTurn(game: Game, p: Player) {
   const tune = STYLES[p.botStyle ?? "builder"];
   defend(game, p);
   cover(game, p, tune);
-  manageTrains(game, p, tune);
-  if (Math.random() < tune.attack || p.money > 2500) attack(game, p, tune);
-  open(game, p, tune);
+  if (p.botStyle === "raider") {
+    attack(game, p, tune);
+    manageTrains(game, p, tune);
+    open(game, p, tune);
+  } else {
+    open(game, p, tune);
+    manageTrains(game, p, tune);
+    if (Math.random() < tune.attack || p.money > 2500) attack(game, p, tune);
+  }
   if (tune.premium) adjustFares(game, p);
 }
 
@@ -54,46 +60,72 @@ function open(game: Game, p: Player, tune: StyleTuning) {
     if (game.state.sections[s.id].owner) continue;
     if (!mine.has(s.a) && !mine.has(s.b)) continue;
     const far = mine.has(s.a) ? s.b : s.a;
-    const score = stationValue(game, far) / game.openCost(s.id) + Math.random() * 0.02;
+    const score = stationValue(game, far) / game.openCost(s.id, p.id) + Math.random() * 0.02;
     if (score > bestScore) {
       bestScore = score;
       best = s.id;
     }
   }
   if (!best) return;
-  const cost = game.openCost(best) + game.trainCost(2);
+  const cost = game.openCost(best, p.id) + game.trainCost(2);
   const keen = game.linesOf(p.id).length === 0 || Math.random() < tune.openAppetite;
   if (keen && p.money >= cost + tune.reserve) game.apply(p.id, { type: "open", section: best });
 }
 
-/** Make sure every owned section has one of our trains on it. */
+/** Make sure every owned section has one of our trains on it, preferring long lines. */
 function cover(game: Game, p: Player, tune: StyleTuning) {
   const lines = game.linesOf(p.id);
   for (const s of game.net.sections) {
     if (game.state.sections[s.id].owner !== p.id) continue;
     if (lines.some((l) => game.lineUses(l, s.id))) continue;
     // extend a line that ends at one side of this section
-    let done = false;
     for (const l of lines) {
       const first = l.stations[0];
       const last = l.stations[l.stations.length - 1];
       for (const [end, st] of [["end", last], ["start", first]] as const) {
         if (st !== s.a && st !== s.b) continue;
         const other = st === s.a ? s.b : s.a;
-        if (l.stations.includes(other) || l.stations.length >= 7) continue;
-        if (game.apply(p.id, { type: "extendLine", line: l.id, station: other, end }).ok) {
-          done = true;
-          break;
-        }
+        if (l.stations.includes(other) || l.stations.length >= 8) continue;
+        if (game.apply(p.id, { type: "extendLine", line: l.id, station: other, end }).ok) return;
       }
-      if (done) break;
     }
-    if (done) continue;
     if (p.money >= game.trainCost(2) + tune.reserve / 2 || lines.length === 0) {
-      game.apply(p.id, { type: "createLine", stations: [s.a, s.b] });
+      const route = longRoute(game, p, s.a, s.b);
+      const r = game.apply(p.id, { type: "createLine", stations: route });
+      if (!r.ok) game.apply(p.id, { type: "createLine", stations: [s.a, s.b] });
     }
     return; // one change per turn keeps bots readable
   }
+}
+
+/** Grow a route out from a section along opened track, towards busy stations. */
+function longRoute(game: Game, p: Player, a: StationId, b: StationId): StationId[] {
+  const st = game.state;
+  const route = [a, b];
+  const grow = (atEnd: boolean) => {
+    for (let k = 0; k < 3 && route.length < 7; k++) {
+      const end = atEnd ? route[route.length - 1] : route[0];
+      let best: StationId | null = null;
+      let bestV = -1;
+      for (const e of game.net.adj[end]) {
+        if (route.includes(e.to)) continue;
+        const owner = st.sections[e.section].owner;
+        if (!owner) continue;
+        // prefer our own track; rival track costs us fees
+        const v = stationValue(game, e.to) * (owner === p.id ? 1 : 0.4);
+        if (v > bestV) {
+          bestV = v;
+          best = e.to;
+        }
+      }
+      if (!best) return;
+      if (atEnd) route.push(best);
+      else route.unshift(best);
+    }
+  };
+  grow(true);
+  grow(false);
+  return route;
 }
 
 function loadFactor(l: Line): number {
@@ -131,7 +163,7 @@ function attack(game: Game, p: Player, tune: StyleTuning) {
   const lines = game.linesOf(p.id);
   if (lines.length >= st.settings.maxLinesPerPlayer) return;
   let best: { x: StationId; here: StationId; y: StationId; sec: SectionId } | null = null;
-  let bestTraffic = 5;
+  let bestTraffic = 1;
   for (const s of game.net.sections) {
     const ss = st.sections[s.id];
     if (!ss.owner || ss.owner === p.id) continue;
@@ -140,7 +172,8 @@ function attack(game: Game, p: Player, tune: StyleTuning) {
       // need one of our own sections touching `here`
       const own = game.net.adj[here].find((e) => st.sections[e.section].owner === p.id && e.to !== y);
       if (!own) continue;
-      const traffic = ss.traffic + stationValue(game, y) * 0.05;
+      const waiting = (st.waiting[here]?.length ?? 0) + (st.waiting[y]?.length ?? 0);
+      const traffic = ss.traffic + waiting * 2 + stationValue(game, y) * 0.05;
       if (traffic > bestTraffic) {
         bestTraffic = traffic;
         best = { x: own.to, here, y, sec: s.id };
@@ -173,7 +206,7 @@ function attack(game: Game, p: Player, tune: StyleTuning) {
     st.settings.defaultFare
   );
   game.apply(p.id, { type: "setFare", line: line.id, fare: rivalFare - tune.undercut });
-  game.apply(p.id, { type: "setTrains", line: line.id, trains: line.trains + 1 });
+  game.apply(p.id, { type: "setTrains", line: line.id, trains: Math.max(3, line.trains + 1) });
 }
 
 function adjustFares(game: Game, p: Player) {
