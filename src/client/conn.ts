@@ -1,5 +1,5 @@
 import { cleanRules, createTutorial, MAPS, Session, type BotStyle, type Command, type CommandResult, type HouseRules, type PlayerId, type Snapshot } from "../sim";
-import { BOT_NAMES, seat, SLOTS, type ClientMsg, type LobbyState, type ServerMsg } from "../shared/protocol";
+import { BOT_NAMES, botSeats, seat, type ClientMsg, type LobbyState, type ServerMsg } from "../shared/protocol";
 import type { GameState } from "../sim";
 import { setStorage, storage } from "./util";
 
@@ -109,7 +109,7 @@ export class LocalGame implements GameConn {
     // you take your seat (default the first); bots fill the other seats in order
     const slot = this.opts.watch ? -1 : (this.opts.slot ?? 0);
     const human = slot < 0 ? [] : [{ id: "P1", name: this.opts.name || "You", ...seat(this.mapId, slot) }];
-    const free = SLOTS.map((_, i) => i).filter((i) => i !== slot);
+    const free = botSeats(slot, this.opts.bots.length);
     const bots = this.opts.bots.map((style, i) => ({
       id: `P${i + 1 + human.length}`,
       name: BOT_NAMES[style],

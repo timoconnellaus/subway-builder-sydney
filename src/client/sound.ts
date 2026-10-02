@@ -130,7 +130,7 @@ class Sound {
     this.nextNote = Math.max(this.nextNote, ctx.currentTime + 0.05);
     while (this.nextNote < ctx.currentTime + 0.4) {
       const chord = CHORDS[Math.floor(this.step / 8) % CHORDS.length];
-      const out = this.musicOut ?? ctx.destination;
+      const out = this.musicOut!; // set whenever the scheduler runs
       tone(ctx, chord[ARPEGGIO[this.step % 8]], this.nextNote, EIGHTH * 0.9, "triangle", 0.018, 0.02, out);
       if (this.step % 8 === 0) tone(ctx, chord[0] / 2, this.nextNote, EIGHTH * 7.5, "sine", 0.03, 0.02, out);
       this.nextNote += EIGHTH;

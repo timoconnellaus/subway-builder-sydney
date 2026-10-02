@@ -122,7 +122,7 @@ export class GameScreen {
     if (this.conn.local) this.conn.setPaused?.(true);
     this.overlay.hidden = false;
     this.overlay.innerHTML = `<div class="card intro">${html}<div class="row"><button class="btn primary big" data-act="intro-done">Let's go</button></div></div>`;
-    this.introPaused = !wasPaused;
+    this.introPaused ||= !wasPaused; // a second card in a row keeps the first one's "unpause after"
   }
 
   private showIntro(me: PlayerView) {
@@ -656,14 +656,13 @@ export class GameScreen {
             setStorage("seen-intro", "1");
             // a new player's first tour city: show who they're up against next
             if (this.conn.tour !== undefined && this.freshGame) {
-              const resume = this.introPaused; // the welcome card paused the game; keep that to undo later
               this.showTourIntro(this.conn.tour);
-              this.introPaused = resume;
               break;
             }
           }
           this.introKind = null;
           if (this.conn.local && this.introPaused) this.conn.setPaused?.(false);
+          this.introPaused = false;
           this.render();
           break;
       }

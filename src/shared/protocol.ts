@@ -58,6 +58,11 @@ export type ServerMsg =
 // Seat i plays colour SLOTS[i] and starts at the map's hubs[i].
 export const SLOTS: { color: Color }[] = [{ color: "red" }, { color: "blue" }, { color: "gold" }, { color: "green" }];
 
+/** The seats bots take when you sit in `slot` (-1 for none): the others, in order. */
+export function botSeats(slot: number, count: number): number[] {
+  return SLOTS.map((_, i) => i).filter((i) => i !== slot).slice(0, count);
+}
+
 /** Colour and starting hub for a seat on a map. */
 export function seat(mapId: string, slot: number): { color: Color; hub: StationId } {
   const map = MAPS[mapId] ?? MAPS.sydney;

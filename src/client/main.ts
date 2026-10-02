@@ -1,7 +1,7 @@
 import "./styles.css";
 import { HOUSE_RULES, ruleLabel, type BotStyle, type HouseRuleKey, type HouseRules } from "../sim/types";
 import { DEFAULT_SETTINGS } from "../sim/types";
-import { BOT_NAMES, BOT_TIPS, cleanPlayerName, isRoomCode, SLOTS, type LobbyState } from "../shared/protocol";
+import { BOT_NAMES, BOT_TIPS, botSeats, cleanPlayerName, isRoomCode, SLOTS, type LobbyState } from "../shared/protocol";
 import qrcode from "qrcode-generator";
 import { MAP_CHOICES, MAPS, stationName } from "../sim";
 import { clearLocalSave, LocalGame, RemoteRoom, savedLocalGame, type LocalOptions } from "./conn";
@@ -41,14 +41,11 @@ window.addEventListener("hashchange", route);
 if (import.meta.env.PROD && "serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("/sw.js").catch(() => {});
-    // hand the worker what this page has loaded (now, and as games load more), so the first visit is
-    // enough for offline play; it skips files it already has
-    const share = () =>
-      navigator.serviceWorker.ready.then((reg) =>
-        reg.active?.postMessage({ cache: [location.origin + "/", ...performance.getEntriesByType("resource").map((r) => r.name)] })
-      );
-    share();
-    setInterval(share, 30_000);
+    // hand the worker what this page loaded before it took charge, so the first visit is enough for
+    // offline play (once in charge, it caches everything else as it's fetched)
+    navigator.serviceWorker.ready.then((reg) =>
+      reg.active?.postMessage({ cache: [location.origin + "/", ...performance.getEntriesByType("resource").map((r) => r.name)] })
+    );
   });
 }
 
@@ -159,7 +156,7 @@ function menu() {
           ${(["builder", "raider", "banker"] as BotStyle[])
             .map(
               (b, i) => `<label class="bot-opt"><input type="checkbox" value="${b}" ${bots.includes(b) ? "checked" : ""}>
-              <img data-bot-badge="${b}" src="/sprites/badge-${SLOTS[i + 1].color}.webp" alt=""><span><b>${BOT_NAMES[b]}</b>
+              <img src="/sprites/badge-${SLOTS[i + 1].color}.webp" alt=""><span><b>${BOT_NAMES[b]}</b>
               <small>${BOT_TIPS[b]}</small></span></label>`
             )
             .join("")}
@@ -202,11 +199,12 @@ function menu() {
   const seatSel = el.querySelector<HTMLSelectElement>("#seat")!;
   // bot badges show the colour each ticked bot will actually play: the seats you didn't take, in order
   const botBadges = () => {
-    const free = SLOTS.map((_, i) => i).filter((i) => i !== Number(seatSel.value));
+    const boxes = [...el.querySelectorAll<HTMLInputElement>(".bot-opt input")];
+    const seats = botSeats(Number(seatSel.value), boxes.length);
     let k = 0;
-    el.querySelectorAll<HTMLInputElement>(".bot-opt input").forEach((box) => {
-      const img = el.querySelector<HTMLImageElement>(`[data-bot-badge="${box.value}"]`)!;
-      const seat = box.checked ? free[k++] : undefined;
+    boxes.forEach((box) => {
+      const img = box.parentElement!.querySelector("img")!;
+      const seat = box.checked ? seats[k++] : undefined;
       img.style.opacity = seat === undefined ? "0.35" : "1";
       if (seat !== undefined) img.src = `/sprites/badge-${SLOTS[seat].color}.webp`;
     });
@@ -365,10 +363,11 @@ function tourHtml(): string {
   const done = tourProgress();
   const stamps = TOUR.map((t, i) => {
     const m = tourCity(i);
+    const best = tourBest(i);
     const state = i < done ? "done" : i === done ? "next" : "locked";
     return `<button class="stamp ${state}" data-tour="${i}" ${state === "locked" ? "disabled" : ""} title="${esc(m.name)}">
       <span class="flag">${state === "locked" ? "🔒" : m.flag}</span><span class="nm">${esc(m.name)}</span>
-      <span class="st">${state === "done" ? `✓ ${tourBest(i) ? mmss(tourBest(i)!) : "won"}` : state === "next" ? "play" : ruleLabel("botSkill", t.skill)}</span></button>`;
+      <span class="st">${state === "done" ? `✓ ${best ? mmss(best) : "won"}` : state === "next" ? "play" : ruleLabel("botSkill", t.skill)}</span></button>`;
   }).join("");
   const head = done >= TOUR.length ? "You've won every city. World champion!" : done ? `${done} of ${TOUR.length} cities won. Next stop: ${stopName(done)}.` : "Win a city to unlock the next. The bots get tougher as you go.";
   return `<section class="menu-sec tour"><h2>World Tour</h2><p class="muted">${head}</p><div class="stamps">${stamps}</div></section>`;

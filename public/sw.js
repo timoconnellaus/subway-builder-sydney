@@ -4,6 +4,10 @@
 const CACHE = "metro-empire-v1";
 const MAX_ENTRIES = 150; // old builds' hashed files would otherwise pile up
 
+const isApi = (url) => url.pathname.startsWith("/api/");
+// a missing file comes back as the app's HTML page (single-page fallback); never cache that under its URL
+const isHtml = (res, url) => new URL(url).pathname !== "/" && (res.headers.get("content-type") ?? "").includes("text/html");
+
 async function save(req, res) {
   const c = await caches.open(CACHE);
   await c.put(req, res);
@@ -28,10 +32,24 @@ self.addEventListener("activate", (e) => {
 self.addEventListener("message", (e) => {
   const urls = e.data?.cache;
   if (!Array.isArray(urls)) return;
+  const wanted = [];
+  for (const u of urls) {
+    try {
+      const url = new URL(u);
+      if (url.origin === location.origin && !isApi(url)) wanted.push(url.href);
+    } catch {
+      /* not a URL */
+    }
+  }
   e.waitUntil(
-    caches.open(CACHE).then((c) =>
-      Promise.all(urls.filter((u) => typeof u === "string" && new URL(u).origin === location.origin && !new URL(u).pathname.startsWith("/api/")).map((u) => c.match(u).then((hit) => hit || c.add(u).catch(() => {}))))
-    )
+    caches.open(CACHE).then(async (c) => {
+      const have = new Set((await c.keys()).map((r) => r.url));
+      for (const u of wanted) {
+        if (have.has(u)) continue;
+        const res = await fetch(u).catch(() => null);
+        if (res && res.ok && !isHtml(res, u)) await save(u, res);
+      }
+    })
   );
 });
 
@@ -39,7 +57,7 @@ self.addEventListener("fetch", (e) => {
   const req = e.request;
   if (req.method !== "GET") return;
   const url = new URL(req.url);
-  if (url.origin === location.origin && url.pathname.startsWith("/api/")) return;
+  if (url.origin === location.origin && isApi(url)) return;
 
   if (req.mode === "navigate") {
     // the app is one page: try the network, fall back to the cached copy
@@ -56,11 +74,11 @@ self.addEventListener("fetch", (e) => {
 
   // stale-while-revalidate for scripts, styles, sprites and fonts. A missing file comes back
   // as the app's HTML page (single-page fallback), which must never be cached under its URL.
-  const fresh = fetch(req).then(async (res) => {
-    const html = (res.headers.get("content-type") ?? "").includes("text/html");
-    if ((res.ok && !html) || res.type === "opaque") await save(req, res.clone());
-    return res;
-  });
-  e.waitUntil(fresh.catch(() => {}));
+  const fresh = fetch(req);
+  e.waitUntil(
+    fresh
+      .then((res) => ((res.ok && !isHtml(res, req.url)) || res.type === "opaque" ? save(req, res.clone()) : undefined))
+      .catch(() => {})
+  );
   e.respondWith(caches.match(req).then((hit) => hit || fresh.catch(() => Response.error())));
 });
