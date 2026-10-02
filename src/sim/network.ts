@@ -1,4 +1,4 @@
-import type { MapDef, PlayerId, SectionId, StationDef, StationId } from "./types";
+import type { MapDef, PlayerId, Settings, SectionId, StationDef, StationId } from "./types";
 
 export interface SectionInfo {
   id: SectionId;
@@ -113,4 +113,9 @@ export function networkOf(net: Network, owners: Record<SectionId, { owner: Playe
 /** The rival whose home hub this section touches: only they may open track there. */
 export function hubLock<P extends { id: PlayerId; hub: StationId }>(players: P[], id: PlayerId, a: StationId, b: StationId): P | undefined {
   return players.find((p) => p.id !== id && (p.hub === a || p.hub === b));
+}
+
+/** The price of opening a section: dearer for longer track and for players who already own more. */
+export function openPrice(S: Pick<Settings, "openBaseCost" | "openCostPerMinute" | "openCostPerOwned">, minutes: number, owned = 0): number {
+  return Math.round(S.openBaseCost + S.openCostPerMinute * minutes + S.openCostPerOwned * owned);
 }

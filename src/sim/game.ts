@@ -1,4 +1,4 @@
-import { buildNetwork, hubLock, networkOf, sectionBetween, sectionId, winNeed, type Network } from "./network";
+import { buildNetwork, hubLock, networkOf, openPrice, sectionBetween, sectionId, winNeed, type Network } from "./network";
 import { Router, lineRunMinutes, lineHeadway } from "./routing";
 import { nextRandom } from "./random";
 import {
@@ -124,7 +124,7 @@ export class Game {
     const s = this.net.section[section];
     const S = this.state.settings;
     const owned = player ? this.ownedCount(player) : 0;
-    return Math.round(S.openBaseCost + S.openCostPerMinute * s.minutes + S.openCostPerOwned * owned);
+    return openPrice(S, s.minutes, owned);
   }
   canOpen(id: PlayerId, section: SectionId): CommandResult {
     const sec = this.net.section[section];

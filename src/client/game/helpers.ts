@@ -1,4 +1,4 @@
-import type { LineView, Snapshot } from "../../sim";
+import { openPrice, type LineView, type Snapshot } from "../../sim";
 import { isNarrow } from "../util";
 
 // Small helpers shared by the game screen: toasts, costs, little bits of HTML, and the help card.
@@ -22,7 +22,7 @@ export function trainCost(s: Snapshot, cars: number) {
   return s.settings.trainBaseCost + s.settings.carCost * cars;
 }
 export function openCost(s: Snapshot, minutes: number, owned = 0) {
-  return Math.round(s.settings.openBaseCost + s.settings.openCostPerMinute * minutes + s.settings.openCostPerOwned * owned);
+  return openPrice(s.settings, minutes, owned);
 }
 export function dots(run: number, need: number, color: string) {
   let out = '<span class="dots">';
