@@ -139,8 +139,7 @@ export class MapView {
         },
         resolution: 3
       });
-      text.anchor.set(0, 0.5);
-      text.position.set(x + (s.icon ? 22 : 9), y);
+      placeLabel(text, s.label, x, y, s.icon ? 22 : 9);
       this.labelLayer.addChild(text);
       this.labels.push({ text, station: s.id, major });
       if (s.icon) {
@@ -247,7 +246,7 @@ export class MapView {
       for (const l of this.labels) {
         const st = this.map.stations.find((x) => x.id === l.station)!;
         const [x, y] = this.pos[st.id];
-        l.text.position.set(x + (st.icon ? 22 : 9) * u, y);
+        placeLabel(l.text, st.label, x, y, (st.icon ? 22 : 9) * u);
       }
     }
     const inv = 1 / Math.max(1, z * 0.75);
@@ -395,7 +394,8 @@ export class MapView {
         const row = Math.floor(i / 6);
         const col = i % 6;
         const u = this.u;
-        g.circle(x + (-8 + col * 3.4) * u, y + (10 + row * 3.4) * u, 1.3 * u).fill(INK);
+        const dy = st.label === "b" ? -(10 + row * 3.4) : 10 + row * 3.4; // keep clear of a label underneath
+        g.circle(x + (-8 + col * 3.4) * u, y + dy * u, 1.3 * u).fill(INK);
       }
     }
   }
@@ -641,6 +641,26 @@ export class MapView {
     } catch {
       /* not initialised */
     }
+  }
+}
+
+function placeLabel(t: Text, side: "l" | "r" | "t" | "b" | undefined, x: number, y: number, gap: number) {
+  switch (side) {
+    case "l":
+      t.anchor.set(1, 0.5);
+      t.position.set(x - gap, y);
+      break;
+    case "t":
+      t.anchor.set(0.5, 1);
+      t.position.set(x, y - gap * 0.8);
+      break;
+    case "b":
+      t.anchor.set(0.5, 0);
+      t.position.set(x, y + gap * 0.8);
+      break;
+    default:
+      t.anchor.set(0, 0.5);
+      t.position.set(x + gap, y);
   }
 }
 

@@ -16,6 +16,7 @@ export interface StationDef {
   pop: number;
   jobs: number;
   icon?: string;
+  label?: "l" | "r" | "t" | "b"; // which side of the station its name goes (default right)
 }
 
 export interface SectionDef {
