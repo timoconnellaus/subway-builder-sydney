@@ -1,4 +1,4 @@
-import { byStanding, MAPS, type Snapshot, type PlayerView } from "../../sim";
+import { byStanding, MAPS, winNeed, type Snapshot, type PlayerView } from "../../sim";
 import { ruleLabel } from "../../sim/types";
 import { CSS_COLORS, esc, money } from "../util";
 import { STAR_MINUTES, starText, stopName, TOUR } from "../tour";
@@ -104,7 +104,7 @@ export function historyChart(s: Snapshot): string {
   // labels sit outside the plot so lines never cross them: title above, "win" to the right
   const W = 460, H = 160, L = 30, B = 22, T = 22, R = 34;
   const tMax = h[h.length - 1].t || 1;
-  const need = Math.ceil(s.totalSections * s.settings.winShare);
+  const need = winNeed(s.totalSections, s.settings.winShare);
   const yMax = Math.max(4, need, ...h.flatMap((x) => x.owned));
   const X = (t: number) => L + (t / tMax) * (W - L - R);
   const Y = (v: number) => T + (1 - v / yMax) * (H - T - B);

@@ -1,4 +1,4 @@
-import { MAPS, type Snapshot, type StationId, type LineView, type PlayerView, type SectionId } from "../../sim";
+import { hubLock, MAPS, networkOf, winNeed, type Snapshot, type StationId, type LineView, type PlayerView, type SectionId } from "../../sim";
 import type { GameEvent } from "../../sim/types";
 import type { GameConn } from "../conn";
 import type { LobbyState } from "../../shared/protocol";
@@ -214,7 +214,7 @@ export class GameScreen {
     }
     // a rival close to the winning share: say so once for each section they get closer
     if (me && this.step < 0 && s.phase === "running") {
-      const need = Math.ceil(s.totalSections * s.settings.winShare);
+      const need = winNeed(s.totalSections, s.settings.winShare);
       const top = s.players.filter((p) => p.id !== me.id).sort((a, b) => b.owned - a.owned)[0];
       const left = top ? need - top.owned : Infinity;
       if (left <= 4 && left > 0 && left < this.nearWinWarned) {
@@ -243,9 +243,12 @@ export class GameScreen {
       this.richNudgeAt = s.time;
       // tapping it shows the cheapest track you could open right now
       const next = this.cheapestOpen(s, me);
-      const t = h("div", { class: "toast good", ...(next ? { "data-act": "select-section", "data-arg": next, role: "button" } : {}) });
-      t.textContent = `${money(me.money)} to spend!${next ? " Tap here to open more track." : " Open track or add trains."}`;
-      pushToast(this.toasts, t, maxToasts(), 12000);
+      this.toastText(
+        `${money(me.money)} to spend!${next ? " Tap here to open more track." : " Open track or add trains."}`,
+        "good",
+        next ? { "data-act": "select-section", "data-arg": next, role: "button" } : {},
+        12000
+      );
     }
     if (me) {
       this.incomeLog.push({ t: s.time, v: me.income });
@@ -457,7 +460,7 @@ export class GameScreen {
       const me = s.players.find((p) => p.id === this.you);
       if (me && me.owned === 0) {
         this.map.hintSections = this.map.net.adj[me.hub]
-          .filter((e) => !s.sections[e.section].owner && !s.players.some((p) => p.hub === e.to))
+          .filter((e) => !s.sections[e.section].owner && !hubLock(s.players, me.id, me.hub, e.to))
           .map((e) => e.section);
       }
     }
@@ -682,8 +685,7 @@ export class GameScreen {
             this.overlay.hidden = true;
             this.recorded = false;
             this.dailySent = false;
-            this.raceAt = -Infinity;
-            this.richNudgeAt = 60;
+            this.resetWarnings();
             this.lastSeq = -1;
             this.snap = null;
             this.conn.restart?.();
@@ -839,22 +841,33 @@ export class GameScreen {
     pushToast(this.toasts, t, maxToasts(), cls.includes("bad") ? 7000 : cls.includes("big") ? 5000 : 3200);
   }
 
+  // per-game warning state (reset on Play again)
   private warnedBroke = false;
   private raceAt = -Infinity;
   private nearWinWarned = 5; // sections a rival still needed at the last near-win warning
   private raceMsg = "";
   private goalPulseUntil = 0; // the track bar pulses after one of your captures
   private richNudgeAt = 60; // no nudge in the first couple of minutes
+  private resetWarnings() {
+    this.warnedBroke = false;
+    this.raceAt = -Infinity;
+    this.nearWinWarned = 5;
+    this.raceMsg = "";
+    this.richNudgeAt = 60;
+  }
 
   private runLineButton(s: Snapshot, a: StationId, b: StationId): string {
     return `<button class="btn primary wide" data-act="new-line" data-arg="${a},${b}">Run a line here · ${money(trainCost(s, 2))}</button>`;
   }
 
-  /** Stations on a player's network: their hub and both ends of every section they own. */
+  private netCache: { s: Snapshot; id: string; set: Set<StationId> } | null = null;
+  /** Stations on a player's network (computed once per snapshot). */
   private network(s: Snapshot, p: PlayerView): Set<StationId> {
-    const out = new Set<StationId>([p.hub]);
-    for (const x of this.map.net.sections) if (s.sections[x.id]?.owner === p.id) (out.add(x.a), out.add(x.b));
-    return out;
+    const c = this.netCache;
+    if (c && c.s === s && c.id === p.id) return c.set;
+    const set = networkOf(this.map.net, s.sections, p.id, p.hub);
+    this.netCache = { s, id: p.id, set };
+    return set;
   }
 
   /** The cheapest unopened section touching your network, if you can afford it. */
@@ -863,17 +876,17 @@ export class GameScreen {
     let best: SectionId | null = null;
     let bestCost = me.money;
     for (const x of this.map.net.sections) {
-      if (s.sections[x.id]?.owner || !(mine.has(x.a) || mine.has(x.b))) continue;
+      if (s.sections[x.id]?.owner || !(mine.has(x.a) || mine.has(x.b)) || hubLock(s.players, me.id, x.a, x.b)) continue;
       const cost = openCost(s, x.minutes, me.owned);
       if (cost <= bestCost) (best = x.id), (bestCost = cost);
     }
     return best;
   }
 
-  private toastText(text: string, cls = "") {
-    const t = h("div", { class: `toast ${cls}` });
+  private toastText(text: string, cls = "", attrs: Record<string, string> = {}, ms = 4000) {
+    const t = h("div", { class: `toast ${cls}`, ...attrs });
     t.textContent = text;
-    pushToast(this.toasts, t, maxToasts(), 4000);
+    pushToast(this.toasts, t, maxToasts(), ms);
   }
 
   private showEmote(from: string, e: string) {
@@ -957,7 +970,7 @@ export class GameScreen {
   }
 
   private renderHud(s: Snapshot, me: PlayerView | undefined) {
-    const need = Math.ceil(s.totalSections * s.settings.winShare);
+    const need = winNeed(s.totalSections, s.settings.winShare);
     // spectators follow the leader
     const shown = me ?? [...s.players].sort((a, b) => b.owned - a.owned)[0];
     const owned = shown?.owned ?? 0;
@@ -1221,6 +1234,7 @@ export class GameScreen {
     const ss = s.sections[id];
     const owner = s.players.find((p) => p.id === ss.owner);
     const users = s.lines.filter((l) => this.lineUses(l, id));
+    const rivalOnIt = !!owner && users.some((l) => l.owner !== owner.id); // someone else's trains run on the owner's track
     const need = s.settings.emptyToCapture;
     let action = "";
     if (!ss.owner && me) {
@@ -1228,7 +1242,7 @@ export class GameScreen {
       const mine = this.network(s, me);
       const adjacent = mine.has(sec.a) || mine.has(sec.b);
       // the sim only lets a hub's owner open track at it: say so before the tap
-      const hubOwner = s.players.find((p) => p.id !== me.id && (p.hub === sec.a || p.hub === sec.b));
+      const hubOwner = hubLock(s.players, me.id, sec.a, sec.b);
       action = adjacent && hubOwner
         ? `<p class="muted">Only ${esc(hubOwner.name)} can open track at their home hub. You can still win it later by taking its passengers.</p>`
         : adjacent
@@ -1241,7 +1255,7 @@ export class GameScreen {
           this.attackCheck(s, users, mine) +
           mine.map((l) => this.pushButton(l, "Undercut")).join("")
         : `<div class="tip">Run one of your lines over this section, then undercut ${esc(owner?.name ?? "the owner")}'s fare to win their passengers. You'll pay them ${money(s.settings.trackFee)} each time your train uses it.</div>`;
-    } else if (ss.owner === this.you && (ss.emptyRun > 0 || users.some((l) => l.owner !== this.you))) {
+    } else if (ss.owner === this.you && (ss.emptyRun > 0 || rivalOnIt)) {
       // under attack, or a rival runs here and could start winning your riders
       const mine = users.filter((l) => l.owner === this.you);
       const why = this.defendCheck(users, mine);
@@ -1263,7 +1277,7 @@ export class GameScreen {
       <div class="stats">
         <div><span class="v mono">${sec.minutes} min</span><span class="k">trip</span></div>
         <div><span class="v mono">${ss.traffic}</span><span class="k">recent riders</span></div>
-        ${owner && users.some((l) => l.owner !== owner.id) ? `<div><span class="v">${dots(ss.emptyRun, need, CSS_COLORS[owner.color])}</span><span class="k">empty trains (${need} to lose it)</span></div>` : `<div><span class="v">${owner ? "Safe" : "–"}</span><span class="k">no rival trains</span></div>`}
+        ${owner && rivalOnIt ? `<div><span class="v">${dots(ss.emptyRun, need, CSS_COLORS[owner.color])}</span><span class="k">empty trains (${need} to lose it)</span></div>` : `<div><span class="v">${owner ? "Safe" : "–"}</span><span class="k">no rival trains</span></div>`}
       </div>
       ${action}
       ${this.headToHead(s, users)}

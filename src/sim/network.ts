@@ -1,4 +1,4 @@
-import type { MapDef, SectionId, StationDef, StationId } from "./types";
+import type { MapDef, PlayerId, SectionId, StationDef, StationId } from "./types";
 
 export interface SectionInfo {
   id: SectionId;
@@ -90,4 +90,27 @@ export function sectionBetween(net: Network, a: StationId, b: StationId): Sectio
 /** A station's display name on a map (its id if unknown). */
 export function stationName(map: MapDef, id: StationId): string {
   return buildNetwork(map).station[id]?.name ?? id;
+}
+
+/** Sections needed for an instant win. */
+export function winNeed(totalSections: number, winShare: number): number {
+  return Math.ceil(totalSections * winShare);
+}
+
+/** Stations a player can expand from: their hub plus both ends of every section they own. */
+export function networkOf(net: Network, owners: Record<SectionId, { owner: PlayerId | null }>, id: PlayerId, hub?: StationId): Set<StationId> {
+  const set = new Set<StationId>();
+  if (hub) set.add(hub);
+  for (const s of net.sections) {
+    if (owners[s.id]?.owner === id) {
+      set.add(s.a);
+      set.add(s.b);
+    }
+  }
+  return set;
+}
+
+/** The rival whose home hub this section touches: only they may open track there. */
+export function hubLock<P extends { id: PlayerId; hub: StationId }>(players: P[], id: PlayerId, a: StationId, b: StationId): P | undefined {
+  return players.find((p) => p.id !== id && (p.hub === a || p.hub === b));
 }

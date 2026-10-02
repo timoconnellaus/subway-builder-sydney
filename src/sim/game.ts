@@ -1,4 +1,4 @@
-import { buildNetwork, sectionBetween, sectionId, type Network } from "./network";
+import { buildNetwork, hubLock, networkOf, sectionBetween, sectionId, winNeed, type Network } from "./network";
 import { Router, lineRunMinutes, lineHeadway } from "./routing";
 import { nextRandom } from "./random";
 import {
@@ -117,16 +117,7 @@ export class Game {
   }
   /** Stations a player can expand from: their hub plus every end of a section they own. */
   networkStations(id: PlayerId): Set<StationId> {
-    const p = this.player(id);
-    const set = new Set<StationId>();
-    if (p) set.add(p.hub);
-    for (const s of this.net.sections) {
-      if (this.state.sections[s.id].owner === id) {
-        set.add(s.a);
-        set.add(s.b);
-      }
-    }
-    return set;
+    return networkOf(this.net, this.state.sections, id, this.player(id)?.hub);
   }
   /** Opening track gets dearer the more you own, which slows down whoever is ahead. */
   openCost(section: SectionId, player?: PlayerId): number {
@@ -141,7 +132,7 @@ export class Game {
     if (this.state.sections[section].owner) return fail("Someone already owns that section.");
     const mine = this.networkStations(id);
     if (!mine.has(sec.a) && !mine.has(sec.b)) return fail("You can only open track next to your own network.");
-    const hubOwner = this.state.players.find((p) => p.id !== id && (p.hub === sec.a || p.hub === sec.b));
+    const hubOwner = hubLock(this.state.players, id, sec.a, sec.b);
     if (hubOwner) return fail(`Only ${hubOwner.name} can open track at their home hub. You can still win it later by taking its passengers.`);
     const p = this.player(id)!;
     const cost = this.openCost(section, id);
@@ -850,7 +841,7 @@ export class Game {
     const st = this.state;
     const total = this.net.sections.length;
     for (const p of st.players) {
-      if (this.ownedCount(p.id) >= Math.ceil(total * st.settings.winShare)) {
+      if (this.ownedCount(p.id) >= winNeed(total, st.settings.winShare)) {
         st.phase = "over";
         st.winner = p.id;
         this.emit({ t: st.time, kind: "win", player: p.id, reason: "share" });
