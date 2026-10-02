@@ -326,3 +326,7 @@ input.need { border-color: var(--bad); box-shadow: 0 0 0 3px rgba(214, 40, 57, 0
 .tour-end.won { background: #eef8f0; border: 2px solid var(--good); }
 .tour-end p { margin: 0; }
 .hud-btn.off { opacity: 0.45; }
+.phone-only { display: none; }
+@media (max-width: 760px) {
+  .phone-only { display: flex; }
+}

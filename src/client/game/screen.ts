@@ -979,6 +979,7 @@ export class GameScreen {
       ${mine.length ? `<div class="lines">${mine.map((l) => this.lineRow(s, l)).join("")}</div>` : ""}
       <button class="btn primary wide" data-act="new-line" ${mine.length >= s.settings.maxLinesPerPlayer ? "disabled" : ""}>New line · ${money(trainCost(s, 2))}</button>
       <p class="muted small">Drag to move the map. Scroll or pinch to zoom. Tap a station or a section for details.</p>
+      <div class="row small-row phone-only"><button class="link" data-act="mute">${sound.muted ? "🔇 Sound off" : "🔊 Sound on"}</button><button class="link" data-act="music">${sound.musicOn ? "🎵 Music on" : "🎵 Music off"}</button></div>
       ${this.conn.emote ? `<div class="emotes" aria-label="Send a reaction">${EMOTES.map((e) => `<button data-act="emote" data-arg="${e}" aria-label="Send ${e}">${e}</button>`).join("")}</div>` : ""}`;
   }
 
