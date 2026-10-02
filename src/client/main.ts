@@ -1,5 +1,5 @@
 import "./styles.css";
-import { HOUSE_RULES, type BotStyle, type HouseRuleKey, type HouseRules } from "../sim/types";
+import { HOUSE_RULES, ruleLabel, type BotStyle, type HouseRuleKey, type HouseRules } from "../sim/types";
 import { DEFAULT_SETTINGS } from "../sim/types";
 import { BOT_NAMES, cleanPlayerName, isRoomCode, SLOTS, type LobbyState } from "../shared/protocol";
 import qrcode from "qrcode-generator";
@@ -9,7 +9,7 @@ import { ACHIEVEMENTS, unlocked } from "./achievements";
 import { boardHtml, fetchBoard, localBest } from "./daily";
 import { dailyChallenge, dailyLabel, sydneyDate, type DailyChallenge } from "../shared/daily";
 import { GameScreen, HELP_HTML } from "./game/screen";
-import { COLOR_NAMES, colorBlind, CSS_COLORS, esc, patch, readRecord, setStorage, storage, token } from "./util";
+import { COLOR_BLIND, COLOR_NAMES, CSS_COLORS, esc, patch, readRecord, setStorage, storage, token } from "./util";
 
 const app = document.getElementById("app")!;
 let cleanup: (() => void) | null = null;
@@ -51,15 +51,6 @@ function effectiveRules(): HouseRules {
   const r = loadRules();
   r.botSkill ??= defaultSkill();
   return r;
-}
-
-function ruleLabel(k: HouseRuleKey, v: number): string {
-  const r = HOUSE_RULES[k] as { values: readonly number[]; format?: string; names?: readonly string[] };
-  const i = r.values.indexOf(v);
-  if (r.names) return r.names[i];
-  if (r.format === "percent") return `${Math.round(v * 100)}%`;
-  if (r.format === "money") return `$${v.toLocaleString("en-AU")}`;
-  return String(v);
 }
 
 /** Selects for the house rules. Unset rules show the default. */
@@ -173,15 +164,17 @@ function menu() {
 
       ${storage("last-room") ? `<button class="btn" id="rejoin">Rejoin room ${esc(storage("last-room"))}</button>` : ""}
       ${achievementsHtml()}
-      <label class="cb-opt"><input type="checkbox" id="cb" ${colorBlind() ? "checked" : ""}> Colour-blind friendly colours</label>
+      <label class="cb-opt"><input type="checkbox" id="cb" ${COLOR_BLIND ? "checked" : ""}> Colour-blind friendly colours</label>
       <div class="row center"><button class="btn" id="tutorial">Learn to play (2 minutes)</button><button class="btn" id="watch">Watch the bots</button><button class="link" id="how">How to play</button></div>
     </div>`;
   app.append(el);
   const nameIn = el.querySelector<HTMLInputElement>("#name")!;
   // the rules to remember; bot skill only once picked, so the easy-until-you-win default can move up
+  let skillPicked = loadRules().botSkill !== undefined;
+  el.querySelector('select[data-rule="botSkill"]')!.addEventListener("change", () => (skillPicked = true));
   const chosenRules = (): HouseRules => {
     const r = readRules(el.querySelector(".bots-sec")!);
-    if (loadRules().botSkill === undefined && r.botSkill === defaultSkill()) delete r.botSkill;
+    if (!skillPicked) delete r.botSkill;
     return r;
   };
   const saveName = () => setStorage("me-name", nameIn.value.trim());
@@ -458,10 +451,10 @@ function online(code: string) {
   }
   wrap.addEventListener("change", (e) => {
     const t = e.target as HTMLSelectElement;
-    if (t.id === "lobby-name" && t.value.trim()) {
-      setStorage("me-name", t.value.trim());
-      room.name = t.value.trim(); // so a reconnect says hello with the new name
-      room.send({ t: "setName", name: t.value.trim() });
+    const name = t.id === "lobby-name" ? cleanPlayerName(t.value) : "";
+    if (name) {
+      setStorage("me-name", name);
+      room.setName(name);
     }
     if (t.id === "round") room.send({ t: "setOptions", options: { roundMinutes: Number(t.value) } });
     if (t.id === "map") {

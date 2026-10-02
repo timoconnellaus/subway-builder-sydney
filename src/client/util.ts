@@ -1,3 +1,4 @@
+import { mmss } from "../shared/daily";
 import type { Color } from "../sim/types";
 
 export const COLORS: Record<Color, number> = {
@@ -25,9 +26,9 @@ const CB: Record<Color, [number, number]> = {
   gold: [0xe8c700, 0xf7eda6],
   green: [0xcc79a7, 0xf0d2e3]
 };
-export const colorBlind = () => storage("color-blind") === "1";
 // read once at start-up; the menu toggle reloads the page
-if (colorBlind()) {
+export const COLOR_BLIND = storage("color-blind") === "1";
+if (COLOR_BLIND) {
   for (const c of Object.keys(CB) as Color[]) {
     COLORS[c] = CB[c][0];
     SOFT[c] = CB[c][1];
@@ -36,7 +37,7 @@ if (colorBlind()) {
   }
 }
 
-export const COLOR_NAMES: Record<Color, string> = colorBlind()
+export const COLOR_NAMES: Record<Color, string> = COLOR_BLIND
   ? { red: "Orange", blue: "Blue", gold: "Yellow", green: "Pink" }
   : { red: "Red", blue: "Blue", gold: "Gold", green: "Green" };
 
@@ -69,15 +70,9 @@ export function fare(n: number): string {
   return "$" + n.toFixed(2);
 }
 
-export function clock(minutes: number): string {
-  const m = Math.max(0, Math.floor(minutes));
-  return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, "0")}`;
-}
-
 /** Remaining real time as m:ss (1 game minute = 1 second). */
 export function remaining(gameMinutesLeft: number): string {
-  const s = Math.max(0, Math.ceil(gameMinutesLeft));
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  return mmss(Math.ceil(gameMinutesLeft));
 }
 
 export function storage(key: string, fallback = ""): string {

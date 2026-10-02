@@ -120,6 +120,16 @@ export const HOUSE_RULES = {
 export type HouseRuleKey = keyof typeof HOUSE_RULES;
 export type HouseRules = Partial<Record<HouseRuleKey, number>>;
 
+/** How a house-rule value reads in menus: "Easy", "60%", "$3,000"... */
+export function ruleLabel(k: HouseRuleKey, v: number): string {
+  const r = HOUSE_RULES[k] as { values: readonly number[]; format?: string; names?: readonly string[] };
+  const i = r.values.indexOf(v);
+  if (r.names) return r.names[i];
+  if (r.format === "percent") return `${Math.round(v * 100)}%`;
+  if (r.format === "money") return `$${v.toLocaleString("en-AU")}`;
+  return String(v);
+}
+
 /** Keep only allowed house-rule values. */
 export function cleanRules(r: unknown): Partial<Settings> {
   const out: Record<string, number> = {};

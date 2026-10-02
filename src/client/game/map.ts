@@ -2,7 +2,7 @@ import { Application, Assets, Container, Graphics, Sprite, Text, Texture } from 
 import { Delaunay } from "d3-delaunay";
 import { buildNetwork, sectionBetween, type MapDef, type Network, type Snapshot, type StationId } from "../../sim";
 import type { Color, PlayerId, SectionId } from "../../sim/types";
-import { colorBlind, COLORS, SOFT } from "../util";
+import { COLOR_BLIND, COLORS, SOFT } from "../util";
 
 const LAND = 0xebe7de;
 const WATER = 0x9cc8e8;
@@ -272,22 +272,23 @@ export class MapView {
         this.drawWaiting(this.lastSnap);
       }
       for (const l of this.labels) {
-        const st = this.map.stations.find((x) => x.id === l.station)!;
+        const st = this.net.station[l.station];
         const [x, y] = this.pos[st.id];
         placeLabel(l.text, st.label, x, y, (st.icon ? 22 : 9) * u);
       }
     }
     // labels grow a little with zoom, but never smaller than 11px on screen (small phone maps)
     const inv = Math.max(1 / Math.max(1, z * 0.75), MIN_LABEL_PX / (LABEL_PX * this.world.scale.x));
+    const forced = new Set([...this.highlight, ...this.candidates]);
     for (const l of this.labels) {
       l.text.scale.set(inv);
-      l.text.visible = l.major || this.world.scale.x > 1.15 || z >= 2.5 || this.highlight.includes(l.station) || this.candidates.includes(l.station);
+      l.text.visible = l.major || this.world.scale.x > 1.15 || z >= 2.5 || forced.has(l.station);
     }
-    this.hideOverlappingLabels();
+    this.hideOverlappingLabels(forced);
   }
 
   /** Drop labels that would sit on top of a more important one (labels are kept in priority order). */
-  private hideOverlappingLabels() {
+  private hideOverlappingLabels(forced: Set<StationId>) {
     const placed: { x0: number; y0: number; x1: number; y1: number }[] = [];
     const pad = 2 / this.world.scale.x; // a couple of screen pixels apart
     for (const l of this.labels) {
@@ -296,8 +297,7 @@ export class MapView {
       const w = t.width;
       const h = t.height;
       const r = { x0: t.x - t.anchor.x * w - pad, y0: t.y - t.anchor.y * h - pad, x1: t.x + (1 - t.anchor.x) * w + pad, y1: t.y + (1 - t.anchor.y) * h + pad };
-      const forced = this.highlight.includes(l.station) || this.candidates.includes(l.station);
-      if (!forced && placed.some((p) => r.x0 < p.x1 && r.x1 > p.x0 && r.y0 < p.y1 && r.y1 > p.y0)) {
+      if (!forced.has(l.station) && placed.some((p) => r.x0 < p.x1 && r.x1 > p.x0 && r.y0 < p.y1 && r.y1 > p.y0)) {
         t.visible = false;
         continue;
       }
@@ -561,13 +561,13 @@ export class MapView {
       seen.add(tr.id);
       const col = this.colorOf[line.owner] ?? "red";
       // colour-blind palette: tint the grey train instead of using the painted one
-      const art = colorBlind() ? "neutral" : col;
+      const art = COLOR_BLIND ? "neutral" : col;
       const tex = this.textures[line.speed >= 3 ? `train-metro-${art}` : `train-suburban-${art}`];
       let ts = this.trains.get(tr.id);
       if (!ts) {
         const sprite = new Sprite(tex);
         sprite.anchor.set(0.5);
-        if (colorBlind()) sprite.tint = COLORS[col];
+        if (COLOR_BLIND) sprite.tint = COLORS[col];
         this.trainLayer.addChild(sprite);
         ts = { sprite, x: 0, y: 0, rot: 0, seen: 0 };
         this.trains.set(tr.id, ts);
@@ -678,6 +678,8 @@ export class MapView {
   }
 
   setHighlight(stations: StationId[], color: number, candidates: StationId[] = []) {
+    const same = color === this.highlightColor && stations.join() === this.highlight.join() && candidates.join() === this.candidates.join();
+    if (same) return; // called on every render while building a line
     this.highlight = stations;
     this.highlightColor = color;
     this.candidates = candidates;

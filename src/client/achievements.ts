@@ -59,7 +59,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     id: "globetrotter",
     emoji: "🌏",
     name: "Globetrotter",
-    how: "Win in London, New York, Tokyo or Paris",
+    how: "Win in a world city",
     check: (s, you) => s.phase === "over" && s.winner === you && WORLD_MAPS.includes(s.mapId)
   },
   {

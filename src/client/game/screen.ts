@@ -1,5 +1,5 @@
 import { MAPS, type Snapshot, type StationId, type LineView, type PlayerView, type SectionId } from "../../sim";
-import { HOUSE_RULES, type GameEvent } from "../../sim/types";
+import { ruleLabel, type GameEvent } from "../../sim/types";
 import type { GameConn } from "../conn";
 import { COLORS, CSS_COLORS, esc, fare, h, money, patch, readRecord, remaining, setStorage, storage } from "../util";
 import { EMOTES } from "../../shared/protocol";
@@ -796,7 +796,7 @@ export class GameScreen {
     const mine = s.lines.filter((l) => l.owner === me.id);
     const trains = mine.reduce((a, l) => a + l.trains, 0);
     const skill = s.settings.botSkill;
-    if (won) return skill < 3 ? `Great win! Try ${(HOUSE_RULES.botSkill.names as readonly string[])[skill]} bots next time.` : "You beat the hard bots. Try the daily challenge, or a world city!";
+    if (won) return skill < 3 ? `Great win! Try ${ruleLabel("botSkill", skill + 1)} bots next time.` : "You beat the hard bots. Try the daily challenge, or a world city!";
     if (me.money > 3000) return `You finished with ${money(me.money)} unspent. Money in the bank doesn't win passengers: buy more trains and open more track.`;
     if (me.owned < 4) return "Open track early. Every section you own earns you fees when rivals use it, and counts towards the win.";
     if (mine.length && trains / mine.length < 2.5) return "Your lines had few trains, so rivals could win your passengers. Two or three trains per line keeps them loyal.";

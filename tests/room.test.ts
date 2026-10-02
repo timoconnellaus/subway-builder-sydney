@@ -222,7 +222,7 @@ describe("hardening", () => {
 describe("hosting", () => {
   it("gives hosting back to the room's creator when they reconnect", () => {
     const room = new RoomCore("HOST");
-    const dad = client(room, "c1");
+    client(room, "c1");
     const kid = client(room, "c2");
     room.message("c1", { t: "hello", name: "Dad", token: "tok-dad" });
     room.message("c2", { t: "hello", name: "Kid", token: "tok-kid" });
@@ -237,7 +237,6 @@ describe("hosting", () => {
     client(restored, "c4");
     restored.message("c4", { t: "hello", name: "Kid", token: "tok-kid" });
     expect(restored.serialize()).toContain('"owner":"P1"');
-    void dad;
   });
 
   it("lets players change their name in the lobby", () => {

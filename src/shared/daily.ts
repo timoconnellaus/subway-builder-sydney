@@ -1,4 +1,4 @@
-import { seeded, WORLD_MAPS, type BotStyle, type HouseRules } from "../sim";
+import { seeded, type BotStyle, type HouseRules } from "../sim";
 
 // The daily challenge: one setup per Sydney day, the same for everyone, with a shared leaderboard.
 
@@ -32,6 +32,9 @@ export interface BoardView {
   you: DailyEntry | null;
   rank: number;
 }
+
+// Saturday world cities. Append only: changing this list reshuffles past days' challenges.
+const SATURDAY_MAPS = ["london", "newyork", "tokyo", "paris"];
 
 const TWISTS: { text: string; rules: HouseRules }[] = [
   { text: "A normal day on the rails.", rules: {} },
@@ -74,7 +77,7 @@ export function dailyChallenge(date: string): DailyChallenge {
   const noon = new Date(`${date}T12:00:00Z`);
   const day = noon.getUTCDay();
   const week = Math.floor(noon.getTime() / (7 * 86400000));
-  const map = day === 6 ? WORLD_MAPS[week % WORLD_MAPS.length] : day === 0 ? "greater" : "sydney";
+  const map = day === 6 ? SATURDAY_MAPS[week % SATURDAY_MAPS.length] : day === 0 ? "greater" : "sydney";
   return {
     date,
     seed,
@@ -87,6 +90,12 @@ export function dailyChallenge(date: string): DailyChallenge {
   };
 }
 
+/** Whole seconds (or game minutes) as m:ss. */
+export function mmss(n: number): string {
+  const s = Math.max(0, Math.floor(n));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
 /** Higher is better: any win beats any loss, and faster wins beat slower ones. */
 export function dailyScore(won: boolean, minutes: number, share: number): number {
   return won ? WIN_BASE - Math.round(minutes) : Math.round(share * LOSS_MAX);
@@ -96,8 +105,7 @@ const isWin = (score: number) => score > LOSS_MAX;
 
 export function dailyLabel(score: number): string {
   // game minutes pass at one a second, so show them the way the in-game clock does (m:ss)
-  const t = WIN_BASE - score;
-  return isWin(score) ? `Won in ${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}` : `Owned ${Math.round((score / LOSS_MAX) * 100)}%`;
+  return isWin(score) ? `Won in ${mmss(WIN_BASE - score)}` : `Owned ${Math.round((score / LOSS_MAX) * 100)}%`;
 }
 
 export function validScore(score: unknown): score is number {
