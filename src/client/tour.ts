@@ -10,7 +10,7 @@ export interface TourStop {
 }
 
 export const TOUR: TourStop[] = [
-  { map: "sydney", bots: ["builder", "banker"], skill: 1 },
+  { map: "sydney", bots: ["builder"], skill: 1 }, // one gentle rival to learn on
   { map: "melbourne", bots: ["builder", "raider"], skill: 1 },
   { map: "london", bots: ["builder", "raider"], skill: 2 },
   { map: "paris", bots: ["banker", "raider"], skill: 2 },

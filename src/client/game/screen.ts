@@ -209,6 +209,21 @@ export class GameScreen {
       sound.play("warn");
     }
     if (me && me.money > 200) this.warnedBroke = false;
+    // "nobody boarded" warnings go once the run is broken (or the section changed hands)
+    for (const t of this.toasts.querySelectorAll<HTMLElement>('[data-key^="empty-"]')) {
+      if (!s.sections[t.dataset.key!.slice(6)]?.emptyRun) t.remove();
+    }
+    // a rival close to the winning share: say so once for each section they get closer
+    if (me && this.step < 0 && s.phase === "running") {
+      const need = Math.ceil(s.totalSections * s.settings.winShare);
+      const top = s.players.filter((p) => p.id !== me.id).sort((a, b) => b.owned - a.owned)[0];
+      const left = top ? need - top.owned : Infinity;
+      if (left <= 4 && left > 0 && left < this.nearWinWarned) {
+        this.nearWinWarned = left;
+        this.toastText(`⚠️ ${top.name} needs only ${left} more ${left === 1 ? "section" : "sections"} to win! Take some of their track.`, "big bad");
+        sound.play("warn");
+      } else if (left > 4) this.nearWinWarned = 5;
+    }
     // the last two minutes: call out a close race (when it changes, at most every 20 game minutes)
     if (me && this.step < 0 && s.phase === "running" && s.duration - s.time < 120 && s.time - this.raceAt > 20) {
       const rivals = s.players.filter((p) => p.id !== me.id).sort((a, b) => b.owned - a.owned);
@@ -409,6 +424,12 @@ export class GameScreen {
     if (sel) this.panelOpen = true;
     this.updateHighlight();
     this.render();
+    // on a phone or iPad the sheet now covers the lower part of the map: keep the selection in view
+    if (isNarrow() && sel && sel.kind !== "line") {
+      this.layoutInsets();
+      const sec = sel.kind === "section" ? this.map.net.section[sel.id] : null;
+      this.map.reveal(sec ? [sec.a, sec.b] : [sel.id]);
+    }
   }
 
   private updateHighlight() {
@@ -607,6 +628,8 @@ export class GameScreen {
           this.mode = { kind: "extend", line: arg, end: btn.dataset.d as "start" | "end" };
           this.updateHighlight();
           this.render();
+          this.layoutInsets();
+          this.map.reveal(this.extendCandidates()); // the stations you can tap next
           break;
         case "rename": {
           const input = this.panel.querySelector<HTMLInputElement>("#line-name");
@@ -812,6 +835,7 @@ export class GameScreen {
 
   private warnedBroke = false;
   private raceAt = -Infinity;
+  private nearWinWarned = 5; // sections a rival still needed at the last near-win warning
   private raceMsg = "";
   private goalPulseUntil = 0; // the track bar pulses after one of your captures
   private richNudgeAt = 60; // no nudge in the first couple of minutes
@@ -908,6 +932,8 @@ export class GameScreen {
     const shown = me ?? [...s.players].sort((a, b) => b.owned - a.owned)[0];
     const owned = shown?.owned ?? 0;
     const pct = Math.min(100, (owned / need) * 100);
+    // the leading rival's progress, as a tick on the bar
+    const rival = s.players.filter((p) => p !== shown).sort((a, b) => b.owned - a.owned)[0];
     const left = s.duration - s.time;
     const local = this.conn.local;
     const html = `
@@ -918,7 +944,7 @@ export class GameScreen {
       </div>
       <div class="pill goal ${performance.now() < this.goalPulseUntil ? "pulse" : ""}" title="Own ${need} of ${s.totalSections} sections to win">
         <span class="lbl">${me ? "Track to win" : shown ? esc(shown.name) : "Track"}</span>
-        <span class="meter"><b style="width:${pct}%;background:${shown ? CSS_COLORS[shown.color] : "#888"}"></b></span>
+        <span class="meter"><b style="width:${pct}%;background:${shown ? CSS_COLORS[shown.color] : "#888"}"></b>${rival ? `<i style="left:${Math.min(100, (rival.owned / need) * 100)}%;background:${CSS_COLORS[rival.color]}" title="${esc(rival.name)}: ${rival.owned}"></i>` : ""}</span>
         <span class="mono">${owned}/${need}</span>
       </div>
       <div class="hud-r">
@@ -1176,12 +1202,16 @@ export class GameScreen {
           this.attackCheck(s, users, mine) +
           mine.map((l) => this.pushButton(l, "Undercut")).join("")
         : `<div class="tip">Run one of your lines over this section, then undercut ${esc(owner?.name ?? "the owner")}'s fare to win their passengers. You'll pay them ${money(s.settings.trackFee)} each time your train uses it.</div>`;
-    } else if (ss.owner === this.you && ss.emptyRun > 0) {
+    } else if (ss.owner === this.you && (ss.emptyRun > 0 || users.some((l) => l.owner !== this.you))) {
+      // under attack, or a rival runs here and could start winning your riders
       const mine = users.filter((l) => l.owner === this.you);
-      action =
-        `<div class="tip bad">Nobody boarded ${ss.emptyRun === 1 ? "your last train" : `your last ${ss.emptyRun} trains`} here. At ${need} in a row you lose this track. Lower your fare or add trains, fast!</div>` +
-        this.defendCheck(users, mine) +
-        mine.map((l) => this.pushButton(l, "Defend")).join("");
+      const why = this.defendCheck(users, mine);
+      if (ss.emptyRun > 0)
+        action =
+          `<div class="tip bad">Nobody boarded ${ss.emptyRun === 1 ? "your last train" : `your last ${ss.emptyRun} trains`} here. At ${need} in a row you lose this track. Lower your fare or add trains, fast!</div>` +
+          why +
+          mine.map((l) => this.pushButton(l, "Defend")).join("");
+      else if (why) action = `<div class="tip">A rival runs trains on your track. You're safe for now, but they could start taking your riders.</div>` + why + mine.map((l) => this.pushButton(l, "Defend")).join("");
     } else if (ss.owner === this.you && !users.some((l) => l.owner === this.you)) {
       action = `<div class="tip">You own this track but none of your trains run on it yet.</div><button class="btn primary wide" data-act="new-line" data-arg="${sec.a},${sec.b}">Run a line here · ${money(trainCost(s, 2))}</button>`;
     }
@@ -1252,6 +1282,10 @@ export class GameScreen {
       <button class="back" data-act="back">← Back</button>
       <div class="owner-line"><img class="badge" src="/sprites/badge-${owner.color}.webp" alt=""><h3>${esc(this.lineTitle(l))}</h3></div>
       <div class="route">${route}</div>
+      <div class="row">
+        <button class="btn" data-act="extend" data-arg="${l.id}" data-d="start">Extend from ${esc(this.stationName(first))}</button>
+        <button class="btn" data-act="extend" data-arg="${l.id}" data-d="end">Extend from ${esc(this.stationName(last))}</button>
+      </div>
       ${stats}
       <div class="ctrl">
         <span class="ctrl-k">Fare per ride</span>
@@ -1276,10 +1310,6 @@ export class GameScreen {
         <div class="seg">${[1, 2, 3].map((x) => `<button data-act="speed" data-arg="${l.id}" data-d="${x}" class="${l.speed === x ? "on" : ""}" ${x < l.speed ? "disabled" : ""}>${x === 1 ? "Normal" : x === 2 ? "Fast" : "Metro"}</button>`).join("")}</div>
       </div>
       <p class="muted small">Running cost: ${fare(S.carCostPerMinute * l.cars * l.trains)}/min for ${l.trains} ${l.trains === 1 ? "train" : "trains"} of ${l.cars} ${l.cars === 1 ? "car" : "cars"}.</p>
-      <div class="row">
-        <button class="btn" data-act="extend" data-arg="${l.id}" data-d="start">Extend from ${esc(this.stationName(first))}</button>
-        <button class="btn" data-act="extend" data-arg="${l.id}" data-d="end">Extend from ${esc(this.stationName(last))}</button>
-      </div>
       ${l.stations.length > 2 ? `<div class="row small-row"><button class="link" data-act="trim" data-arg="${l.id}" data-d="start">Drop ${esc(this.stationName(first))}</button><button class="link" data-act="trim" data-arg="${l.id}" data-d="end">Drop ${esc(this.stationName(last))}</button></div>` : ""}
       <div class="rename"><input id="line-name" data-line="${l.id}" maxlength="24" placeholder="Give it a name" value="${esc(l.name ?? "")}" aria-label="Line name"><button class="btn" data-act="rename" data-arg="${l.id}">Save name</button></div>
       <button class="btn danger wide" data-act="delete" data-arg="${l.id}">${this.confirmDelete === l.id ? "Tap again to close this line" : "Close this line"}</button>`;

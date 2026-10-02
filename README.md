@@ -20,7 +20,7 @@ always start a line at your own hub, so a company that loses all its track can f
 - **Against bots:** pick 1–3 bots (the Builder, the Raider, the Banker), their skill (Easy until
   you've won a game), your starting hub and a round length. Runs entirely in the browser, with pause
   and 1×/2×/3× speed.
-- **World Tour:** nine cities in a row, from Sydney (easy bots) to Tokyo (hard bots). Win a city to
+- **World Tour:** nine cities in a row, from Sydney (one easy bot) to Tokyo (three hard bots). Win a city to
   unlock the next. Each city scores up to three stars (win, own the winning share, do it before 7:00);
   stamps on the menu show stars and best times.
 - **Daily challenge:** one setup per Sydney day (your hub, the bots, a twist like "Rush hour" or

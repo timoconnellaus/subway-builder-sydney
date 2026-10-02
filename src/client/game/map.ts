@@ -249,6 +249,23 @@ export class MapView {
     this.clampView();
   }
 
+  /** Pan (no zoom) just enough that these stations sit in the clear part of the screen. */
+  reveal(stations: StationId[], margin = 36) {
+    if (!this.ready || !stations.length) return;
+    const pts = stations.map((st) => this.stationScreen(st));
+    const xs = pts.map((p) => p[0]);
+    const ys = pts.map((p) => p[1]);
+    const { left, top, right, bottom } = this.insets;
+    const shift = (lo: number, hi: number, min: number, max: number) =>
+      hi - lo > max - min ? (min + max) / 2 - (lo + hi) / 2 : lo < min ? min - lo : hi > max ? max - hi : 0;
+    const dx = shift(Math.min(...xs), Math.max(...xs), left + margin, this.app.screen.width - right - margin);
+    const dy = shift(Math.min(...ys), Math.max(...ys), top + margin, this.app.screen.height - bottom - margin);
+    if (!dx && !dy) return;
+    this.world.x += dx;
+    this.world.y += dy;
+    this.clampView();
+  }
+
   setInsets(i: Partial<MapView["insets"]>) {
     this.insets = { ...this.insets, ...i };
   }
