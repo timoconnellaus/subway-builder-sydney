@@ -223,6 +223,27 @@ describe("daily challenge", () => {
 });
 
 describe("world maps", () => {
+  it("no track is drawn straight through a station it doesn't stop at", () => {
+    for (const [id, m] of Object.entries(MAPS)) {
+      const k = Math.cos((m.bounds.lat0 * Math.PI) / 180) * 111;
+      const xy = (s: { lon: number; lat: number }) => [s.lon * k, s.lat * 111];
+      const st = Object.fromEntries(m.stations.map((s) => [s.id, s]));
+      for (const sec of m.sections) {
+        const [ax, ay] = xy(st[sec.a]);
+        const [bx, by] = xy(st[sec.b]);
+        const L2 = (bx - ax) ** 2 + (by - ay) ** 2;
+        for (const s of m.stations) {
+          if (s.id === sec.a || s.id === sec.b) continue;
+          const [px, py] = xy(s);
+          const t = ((px - ax) * (bx - ax) + (py - ay) * (by - ay)) / L2;
+          if (t <= 0.05 || t >= 0.95) continue;
+          const km = Math.hypot(px - (ax + t * (bx - ax)), py - (ay + t * (by - ay)));
+          expect(km, `${id}: ${sec.a}–${sec.b} passes ${s.id}`).toBeGreaterThan(0.6);
+        }
+      }
+    }
+  });
+
   it("every map is connected, has valid hubs and events, and plays a bot round", () => {
     for (const [id, map] of Object.entries(MAPS)) {
       const net = buildNetwork(map);

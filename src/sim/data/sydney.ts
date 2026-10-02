@@ -26,7 +26,7 @@ export const SYDNEY: MapDef = {
   ],
   stations: [
     { id: "central", name: "Central", lon: 151.206, lat: -33.883, pop: 20, jobs: 200, icon: "city" },
-    { id: "redfern", name: "Redfern", lon: 151.198, lat: -33.893, pop: 25, jobs: 30, label: "b" },
+    { id: "redfern", name: "Redfern", lon: 151.193, lat: -33.893, pop: 25, jobs: 30, label: "b" },
     { id: "kingscross", name: "Kings Cross", lon: 151.222, lat: -33.875, pop: 30, jobs: 20, label: "t" },
     { id: "bondijn", name: "Bondi Junction", lon: 151.25, lat: -33.891, pop: 35, jobs: 25 },
     { id: "randwick", name: "Randwick", lon: 151.241, lat: -33.914, pop: 45, jobs: 25 },

@@ -39,7 +39,7 @@ export const LONDON: MapDef = {
     { id: "tottenham", name: "Tottenham Hale", lon: -0.06, lat: 51.588, pop: 45, jobs: 10, label: "t" },
     { id: "walthamstow", name: "Walthamstow", lon: -0.02, lat: 51.583, pop: 50, jobs: 10 },
     { id: "hackney", name: "Hackney Central", lon: -0.056, lat: 51.547, pop: 45, jobs: 12 },
-    { id: "whitechapel", name: "Whitechapel", lon: -0.061, lat: 51.519, pop: 40, jobs: 15, label: "t" },
+    { id: "whitechapel", name: "Whitechapel", lon: -0.061, lat: 51.514, pop: 40, jobs: 15, label: "t" },
     { id: "stratford", name: "Stratford", lon: -0.003, lat: 51.542, pop: 45, jobs: 35 },
     { id: "canadawater", name: "Canada Water", lon: -0.05, lat: 51.498, pop: 35, jobs: 10, label: "b" },
     { id: "canarywharf", name: "Canary Wharf", lon: -0.019, lat: 51.505, pop: 25, jobs: 125, icon: "parramatta", label: "t" },
