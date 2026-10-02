@@ -90,7 +90,14 @@ function achievementsHtml(): string {
 }
 
 function mapOptions(current: string): string {
-  return MAP_CHOICES.map((m) => `<option value="${m.id}" ${m.id === current ? "selected" : ""}>${esc(m.name)} (${esc(m.blurb)})</option>`).join("");
+  return (["Australia", "World"] as const)
+    .map(
+      (region) =>
+        `<optgroup label="${region}">${MAP_CHOICES.filter((m) => m.region === region)
+          .map((m) => `<option value="${m.id}" ${m.id === current ? "selected" : ""}>${m.flag} ${esc(m.name)} (${esc(m.blurb)})</option>`)
+          .join("")}</optgroup>`
+    )
+    .join("");
 }
 
 function recordLine(): string {
