@@ -206,6 +206,13 @@ details.rules summary { font-family: var(--display); font-weight: 800; cursor: p
 .ranks .num { text-align: right; font-family: var(--mono); }
 .help .how { margin: 0; padding-left: 22px; display: grid; gap: 8px; line-height: 1.45; }
 
+.paused-banner { position: absolute; left: 50%; top: 64px; transform: translateX(-50%); background: var(--ink); color: var(--paper); font-family: var(--display); font-weight: 900; font-size: 20px; padding: 8px 18px; border-radius: 12px; letter-spacing: 0.06em; text-transform: uppercase; }
+.emotes { display: flex; gap: 6px; flex-wrap: wrap; }
+.emotes button { font-size: 22px; width: 44px; height: 44px; border-radius: 12px; border: 2px solid var(--rule); background: var(--bg); cursor: pointer; }
+.emotes button:hover { border-color: var(--ink); }
+.toast.emote { font-size: 16px; }
+.toast.emote .emoji { font-size: 26px; vertical-align: middle; }
+
 /* ---------- phones ---------- */
 @media (max-width: 760px) {
   .panel { left: 0; right: 0; top: auto; bottom: 0; width: auto; max-height: 52%; border-radius: 18px 18px 0 0; padding-bottom: env(safe-area-inset-bottom, 0px); }

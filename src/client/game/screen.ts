@@ -2,6 +2,7 @@ import { MAPS, type Snapshot, type StationId, type LineView, type PlayerView, ty
 import type { GameEvent } from "../../sim/types";
 import type { GameConn } from "../conn";
 import { COLORS, CSS_COLORS, esc, fare, h, money, patch, remaining } from "../util";
+import { EMOTES } from "../../shared/protocol";
 import { MapView, type Pick } from "./map";
 import { sound } from "../sound";
 
@@ -51,7 +52,15 @@ export class GameScreen {
     if (!conn.local) this.map.delay = 300;
     this.bindInput();
     this.bindPanel();
-    this.unsub = conn.onSnapshot((s) => this.onSnap(s));
+    const offSnap = conn.onSnapshot((s) => this.onSnap(s));
+    const offEmote = conn.onEmote?.((from, e) => this.showEmote(from, e));
+    const lobbyConn = conn as unknown as { onLobby?: (cb: () => void) => () => void };
+    const offLobby = lobbyConn.onLobby?.(() => this.queueRender());
+    this.unsub = () => {
+      offSnap();
+      offEmote?.();
+      offLobby?.();
+    };
     void this.map.init().then(() => {
       this.mapReady = true;
       this.layoutInsets();
@@ -92,6 +101,7 @@ export class GameScreen {
       this.focusHome();
     }
     this.handleEvents(s);
+    if (first || (this.map.hintSections.length && s.players.find((p) => p.id === this.you)?.owned)) this.updateHighlight();
     const me = s.players.find((p) => p.id === this.you);
     if (me) {
       this.incomeLog.push({ t: s.time, v: me.income });
@@ -205,7 +215,15 @@ export class GameScreen {
       const owner = s.players.find((p) => p.id === line?.owner);
       this.map.setHighlight(line?.stations ?? [], owner ? COLORS[owner.color] : 0x1e2430);
     } else {
-      this.map.setHighlight([], 0);
+      this.map.setHighlight([], COLORS[this.myColor()]);
+    }
+    // first steps: pulse the track you can open from your hub
+    this.map.hintSections = [];
+    if (this.mode.kind === "idle" && s) {
+      const me = s.players.find((p) => p.id === this.you);
+      if (me && me.owned === 0) {
+        this.map.hintSections = this.map.net.adj[me.hub].filter((e) => !s.sections[e.section].owner).map((e) => e.section);
+      }
     }
   }
 
@@ -410,6 +428,9 @@ export class GameScreen {
         case "help":
           this.showHelp();
           break;
+        case "emote":
+          this.conn.emote?.(arg);
+          break;
         case "mute":
           sound.toggle();
           this.render();
@@ -506,6 +527,17 @@ export class GameScreen {
     setTimeout(() => t.remove(), cls.includes("big") ? 5600 : 3800);
   }
 
+  private showEmote(from: string, e: string) {
+    const s = this.snap;
+    const p = s?.players.find((x) => x.id === from);
+    const t = h("div", { class: "toast emote" });
+    if (p) t.style.setProperty("--c", CSS_COLORS[p.color]);
+    t.innerHTML = `<b>${esc(from === this.you ? "You" : p?.name ?? "Someone")}</b> <span class="emoji">${esc(e)}</span>`;
+    this.toasts.prepend(t);
+    setTimeout(() => t.classList.add("out"), 2600);
+    setTimeout(() => t.remove(), 3200);
+  }
+
   private lineUses(l: LineView, section: SectionId): boolean {
     for (let i = 0; i < l.stations.length - 1; i++) {
       const sec = this.map.sectionBetween(l.stations[i], l.stations[i + 1]);
@@ -586,16 +618,12 @@ export class GameScreen {
       </div>
       <div class="hud-r">
         <div class="pill mono ${left < 120 ? "warn" : ""}" title="Time left">${remaining(left)}</div>
-        ${
-          local
-            ? `<button class="hud-btn" data-act="pause" aria-label="${this.conn.paused ? "Resume" : "Pause"}"><img src="/sprites/${this.conn.paused ? "play" : "pause"}.webp" alt=""></button>
-               <div class="seg small">${[1, 2, 3].map((x) => `<button data-act="speedx" data-arg="${x}" class="${this.conn.speed === x ? "on" : ""}">${x}×</button>`).join("")}</div>`
-            : ""
-        }
+        ${this.conn.canPause?.() ? `<button class="hud-btn" data-act="pause" aria-label="${this.conn.paused ? "Resume" : "Pause"}" title="${this.conn.paused ? "Resume" : "Pause"}"><img src="/sprites/${this.conn.paused ? "play" : "pause"}.webp" alt=""></button>` : ""}
+        ${local ? `<div class="seg small">${[1, 2, 3].map((x) => `<button data-act="speedx" data-arg="${x}" class="${this.conn.speed === x ? "on" : ""}">${x}×</button>`).join("")}</div>` : ""}
         <button class="hud-btn" data-act="mute" aria-label="${sound.muted ? "Sound on" : "Sound off"}" title="${sound.muted ? "Sound on" : "Sound off"}">${sound.muted ? "🔇" : "🔊"}</button>
         <button class="hud-btn" data-act="help" aria-label="How to play">?</button>
       </div>`;
-    patch(this.hud, html);
+    patch(this.hud, html + (this.conn.paused && s.phase === "running" ? `<div class="paused-banner">Paused${this.conn.local || this.conn.canPause?.() ? "" : " by the host"}</div>` : ""));
   }
 
   private renderBoard(s: Snapshot) {
@@ -648,7 +676,8 @@ export class GameScreen {
       <div class="tip">${tip}</div>
       ${mine.length ? `<div class="lines">${mine.map((l) => this.lineRow(s, l)).join("")}</div>` : ""}
       <button class="btn primary wide" data-act="new-line" ${mine.length >= s.settings.maxLinesPerPlayer ? "disabled" : ""}>New line · ${money(trainCost(s, 2))}</button>
-      <p class="muted small">Drag to move the map. Scroll or pinch to zoom. Tap a station or a section for details.</p>`;
+      <p class="muted small">Drag to move the map. Scroll or pinch to zoom. Tap a station or a section for details.</p>
+      ${this.conn.emote ? `<div class="emotes" aria-label="Send a reaction">${EMOTES.map((e) => `<button data-act="emote" data-arg="${e}" aria-label="Send ${e}">${e}</button>`).join("")}</div>` : ""}`;
   }
 
   private lineRow(s: Snapshot, l: LineView): string {

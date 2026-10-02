@@ -104,6 +104,7 @@ function menu() {
         <p class="error" id="online-err" hidden></p>
       </section>
 
+      ${storage("last-room") ? `<button class="btn" id="rejoin">Rejoin room ${esc(storage("last-room"))}</button>` : ""}
       <button class="link" id="how">How to play</button>
     </div>`;
   app.append(el);
@@ -144,6 +145,7 @@ function menu() {
   };
   el.querySelector("#join")!.addEventListener("click", join);
   codeIn.addEventListener("keydown", (e) => e.key === "Enter" && join());
+  el.querySelector("#rejoin")?.addEventListener("click", () => go(`#/room/${storage("last-room")}`));
   el.querySelector("#how")!.addEventListener("click", () => {
     const ov = document.createElement("div");
     ov.className = "overlay";
@@ -173,6 +175,7 @@ function playLocal() {
 // ---------- online ----------
 function online(code: string) {
   const name = storage("me-name", "") || "Player";
+  setStorage("last-room", code);
   const room = new RemoteRoom(code, name, token());
   const wrap = document.createElement("div");
   wrap.className = "online";

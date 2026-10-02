@@ -1,6 +1,7 @@
 import { cleanRules, MAPS, Session, type GameState, type PlayerId } from "../sim";
 import {
   BOT_NAMES,
+  EMOTES,
   MAX_PLAYERS,
   SLOTS,
   type ClientMsg,
@@ -42,6 +43,8 @@ export class RoomCore {
   private session: Session | null = null;
   private conns = new Map<string, { conn: Conn; player: PlayerId | null }>();
   private nextPlayer = 1;
+  private paused = false;
+  private lastEmote = new Map<string, number>();
   dirty = true;
 
   constructor(public code: string) {}
@@ -177,7 +180,22 @@ export class RoomCore {
         if (!isHost || this.phase === "lobby") return;
         this.phase = "lobby";
         this.session = null;
+        this.paused = false;
         break;
+      }
+      case "pause": {
+        if (!isHost || this.phase !== "game") return;
+        this.paused = !!msg.paused;
+        break;
+      }
+      case "emote": {
+        if (!(EMOTES as readonly string[]).includes(msg.e)) return;
+        const now = Date.now();
+        if (now - (this.lastEmote.get(me) ?? 0) < 1200) return;
+        this.lastEmote.set(me, now);
+        const out: ServerMsg = { t: "emote", from: me, e: msg.e };
+        for (const x of this.conns.values()) x.conn.send(out);
+        return;
       }
     }
     this.dirty = true;
@@ -244,7 +262,8 @@ export class RoomCore {
         .sort((a, b) => a.slot - b.slot)
         .map(({ token: _t, slot: _s, ...p }) => p),
       options: this.options,
-      phase: this.phase
+      phase: this.phase,
+      paused: this.paused
     };
   }
 
@@ -256,6 +275,7 @@ export class RoomCore {
   /** Advance the game by real seconds and broadcast a snapshot. */
   tick(seconds: number) {
     if (!this.session || this.phase !== "game") return;
+    if (this.paused) return;
     this.session.tick(seconds * GAME_MINUTES_PER_SECOND);
     this.dirty = true;
     const snap = this.session.snapshot();

@@ -59,6 +59,10 @@ export class MapView {
   highlight: StationId[] = []; // route preview or selected line
   highlightColor = INK;
   candidates: StationId[] = []; // stations you can tap next while building
+  hintSections: SectionId[] = []; // sections to pulse as a hint (e.g. track you can open)
+  private floats: { text: Text; born: number; x: number; y: number }[] = [];
+  private lastLoad = new Map<string, number>();
+  private floatLayer = new Container();
   you: PlayerId = "";
   delay = 120; // ms of interpolation delay
   insets = { left: 0, top: 0, right: 0, bottom: 0 };
@@ -116,7 +120,7 @@ export class MapView {
       }
       water.poly([...L, ...R.reverse().flat()]).fill(WATER);
     }
-    this.world.addChild(land, this.territory, water, this.tracks, this.overlay, this.markers, this.stationsG, this.waitingG, this.hubLayer, this.trainLayer, this.selectG, this.labelLayer);
+    this.world.addChild(land, this.territory, water, this.tracks, this.overlay, this.markers, this.stationsG, this.waitingG, this.hubLayer, this.trainLayer, this.selectG, this.labelLayer, this.floatLayer);
 
     for (const s of this.map.stations) {
       const [x, y] = this.pos[s.id];
@@ -393,6 +397,14 @@ export class MapView {
         g.moveTo(ax, ay).lineTo(bx, by).stroke({ width: 20 * this.u, color: this.highlightColor, alpha: 0.28, cap: "round" });
       }
     }
+    for (const id of this.hintSections) {
+      const sec = this.net.section[id];
+      if (!sec) continue;
+      const [ax, ay] = this.pos[sec.a];
+      const [bx, by] = this.pos[sec.b];
+      const a = 0.35 + 0.35 * Math.sin(t / 220);
+      g.moveTo(ax, ay).lineTo(bx, by).stroke({ width: 14 * this.u, color: this.highlightColor || 0x1e2430, alpha: a, cap: "round" });
+    }
     for (const c of this.candidates) {
       const [x, y] = this.pos[c];
       const r = (11 + Math.sin(t / 180) * 2) * this.u;
@@ -514,13 +526,46 @@ export class MapView {
       ts.sprite.position.set(x, y);
       ts.sprite.rotation = rot;
       ts.sprite.alpha = tr.load > 0 ? 1 : 0.75;
+      // a little "+N" when your train picks people up
+      const prev = this.lastLoad.get(tr.id);
+      this.lastLoad.set(tr.id, tr.load);
+      if (line.owner === this.you && prev !== undefined && tr.load > prev && !tr.to) this.float(`+${tr.load - prev}`, x, y, COLORS[col]);
     }
+    this.animateFloats();
     for (const [id, ts] of this.trains) {
       if (!seen.has(id)) {
         ts.sprite.destroy();
         this.trains.delete(id);
       }
     }
+  }
+
+  private float(text: string, x: number, y: number, color: number) {
+    if (this.floats.length > 24) return;
+    const t = new Text({
+      text,
+      style: { fontFamily: "Overpass, Arial, sans-serif", fontWeight: "900", fontSize: 14, fill: color, stroke: { color: 0xffffff, width: 4, join: "round" } },
+      resolution: 3
+    });
+    t.anchor.set(0.5);
+    t.scale.set(this.u * 0.8);
+    t.position.set(x, y - 8 * this.u);
+    this.floatLayer.addChild(t);
+    this.floats.push({ text: t, born: performance.now(), x, y: y - 8 * this.u });
+  }
+
+  private animateFloats() {
+    const now = performance.now();
+    this.floats = this.floats.filter((f) => {
+      const age = (now - f.born) / 1000;
+      if (age > 1.2) {
+        f.text.destroy();
+        return false;
+      }
+      f.text.position.set(f.x, f.y - age * 18 * this.u);
+      f.text.alpha = 1 - age / 1.2;
+      return true;
+    });
   }
 
   setHighlight(stations: StationId[], color: number, candidates: StationId[] = []) {

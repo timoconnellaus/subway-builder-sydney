@@ -24,7 +24,10 @@ export interface LobbyState {
   players: LobbyPlayer[];
   options: RoomOptions;
   phase: "lobby" | "game" | "over";
+  paused: boolean;
 }
+
+export const EMOTES = ["👍", "😂", "😮", "😡", "🚆", "🎉"] as const;
 
 export type ClientMsg =
   | { t: "hello"; name: string; token: string }
@@ -34,6 +37,8 @@ export type ClientMsg =
   | { t: "setOptions"; options: Partial<RoomOptions> }
   | { t: "start" }
   | { t: "rematch" }
+  | { t: "pause"; paused: boolean }
+  | { t: "emote"; e: string }
   | { t: "cmd"; id: number; cmd: Command }
   | { t: "ping"; at: number };
 
@@ -43,7 +48,8 @@ export type ServerMsg =
   | { t: "snap"; s: Snapshot }
   | { t: "ack"; id: number; ok: boolean; error?: string }
   | { t: "error"; message: string }
-  | { t: "pong"; at: number };
+  | { t: "pong"; at: number }
+  | { t: "emote"; from: PlayerId; e: string };
 
 export const SLOTS: { color: Color; hub: StationId }[] = [
   { color: "red", hub: "central" },

@@ -14,6 +14,10 @@ export interface GameConn {
   paused?: boolean;
   setPaused?(p: boolean): void;
   restart?(): void;
+  canPause?(): boolean;
+  // online only
+  emote?(e: string): void;
+  onEmote?(cb: (from: PlayerId, e: string) => void): () => void;
 }
 
 export interface LocalOptions {
@@ -88,6 +92,9 @@ export class LocalGame implements GameConn {
   setPaused(p: boolean) {
     this.paused = p;
   }
+  canPause() {
+    return true;
+  }
 
   close() {
     if (this.timer) clearInterval(this.timer);
@@ -107,6 +114,7 @@ export class RemoteRoom implements GameConn {
   private snapListeners = new Set<(s: Snapshot) => void>();
   private lobbyListeners = new Set<(l: LobbyState) => void>();
   private statusListeners = new Set<(s: RemoteRoom["status"], message?: string) => void>();
+  private emoteListeners = new Set<(from: PlayerId, e: string) => void>();
   private pending = new Map<number, (r: CommandResult) => void>();
   private nextId = 1;
   private closed = false;
@@ -175,6 +183,9 @@ export class RemoteRoom implements GameConn {
       case "pong":
         this.latency = performance.now() - msg.at;
         break;
+      case "emote":
+        for (const l of this.emoteListeners) l(msg.from, msg.e);
+        break;
     }
   }
 
@@ -202,6 +213,23 @@ export class RemoteRoom implements GameConn {
     return () => this.statusListeners.delete(cb);
   }
 
+  get paused() {
+    return !!this.lobby?.paused;
+  }
+  setPaused(p: boolean) {
+    this.send({ t: "pause", paused: p });
+  }
+  canPause() {
+    return this.lobby?.host === this.you;
+  }
+  emote(e: string) {
+    this.send({ t: "emote", e });
+  }
+  onEmote(cb: (from: PlayerId, e: string) => void) {
+    this.emoteListeners.add(cb);
+    return () => this.emoteListeners.delete(cb);
+  }
+
   command(cmd: Command): Promise<CommandResult> {
     return new Promise((resolve) => {
       if (this.ws?.readyState !== WebSocket.OPEN) return resolve({ ok: false, error: "Not connected." });
@@ -224,5 +252,6 @@ export class RemoteRoom implements GameConn {
     this.snapListeners.clear();
     this.lobbyListeners.clear();
     this.statusListeners.clear();
+    this.emoteListeners.clear();
   }
 }

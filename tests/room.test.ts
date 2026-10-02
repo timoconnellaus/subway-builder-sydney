@@ -92,4 +92,27 @@ describe("room", () => {
     expect(snap.s.settings.startMoney).toBe(3000);
     expect(snap.s.settings.botSkill).toBe(3);
   });
+
+  it("lets the host pause, and relays emotes", () => {
+    const room = new RoomCore("PAWS");
+    const a = client(room, "c1");
+    const b = client(room, "c2");
+    room.message("c1", { t: "hello", name: "A", token: "a" });
+    room.message("c2", { t: "hello", name: "B", token: "b" });
+    room.message("c1", { t: "start" });
+    room.tick(1);
+    const t0 = a.last("snap")!.s.time;
+    room.message("c2", { t: "pause", paused: true }); // not the host: ignored
+    expect(a.last("lobby")!.lobby.paused).toBe(false);
+    room.message("c1", { t: "pause", paused: true });
+    expect(b.last("lobby")!.lobby.paused).toBe(true);
+    room.tick(1);
+    expect(a.last("snap")!.s.time).toBe(t0);
+    room.message("c1", { t: "pause", paused: false });
+    room.tick(1);
+    expect(a.last("snap")!.s.time).toBeGreaterThan(t0);
+    room.message("c2", { t: "emote", e: "🎉" });
+    room.message("c2", { t: "emote", e: "not an emote" });
+    expect(a.inbox.filter((m) => m.t === "emote")).toEqual([{ t: "emote", from: "P2", e: "🎉" }]);
+  });
 });
