@@ -1,0 +1,78 @@
+# Metro Empire — build log
+
+Overnight build, started 2026-10-02 20:30 AEST.
+
+## Status
+- [x] Simulation core (pure TypeScript, shared by browser and server) with tests and a fuzz test
+- [x] Online multiplayer: Cloudflare Worker + Durable Object rooms, lobby with QR code, bots in seats,
+      reconnect, spectators, host pause, emotes, chunked saves, idle-room cleanup
+- [x] Browser client: PixiJS map, live trains, waiting passengers, panel, toasts, end screen with chart
+- [x] Single player vs bots with pause, 1–3× speed, resume after closing the tab, personal record
+- [x] House rules (capture count, win share, money, track fee, busyness, bot skill, events)
+- [x] Sydney events (Swans at the SCG, Vivid, Easter Show…) announced ahead with crowds
+- [x] Balance passes (flat fares, boarding-based capture, scaling open cost, hub protection, hub bonuses)
+- [x] Polish: sounds, welcome card, hints, hover tooltips, capture flash, head-to-head panel, line names
+- [x] Deploy config (wrangler.toml, GitHub Actions), README, CLAUDE.md
+- [x] Code review pass: fixed ghost trains, refunds, input validation, host edge cases
+- [x] Guided tutorial (9 steps with a coach and pulsing hints) and 15 achievements
+- [x] Greater Sydney map (Gosford, Wollongong, Katoomba, Richmond, Leppington, Olympic Park)
+- [x] "Watch the bots" mode, installable PWA (icons + manifest), phone layout
+- [x] World cities: London, New York, Tokyo, Paris, Berlin, Hong Kong, Singapore, plus Melbourne (each with hubs, events, rivers; tested for connectivity)
+- [x] World Tour campaign: nine cities that unlock in order, bots getting harder
+- [x] Daily challenge with a seeded sim and a leaderboard (one Durable Object per day)
+- [x] Line renaming/trimming, station destinations panel, online rooms keep score across rounds
+
+## Ideas for later
+- Interchanges between rival networks (from the design doc's version 1.5)
+- Express trains that skip stations
+- More stations (CBD split into Central / Town Hall / Wynyard, Metro City line)
+
+## Log
+- Sim core: network + gravity demand model, route choice (fare + 50c/min + 4 min per change),
+  platform boarding rule, capture rule, track fees, running costs, bots (builder/raider/banker).
+- Multiplayer: transport-agnostic RoomCore (tested) wrapped by a Durable Object; state saved every 10s.
+- Verified in Cloudflare's runtime (wrangler dev): two browsers in one room, commands sync, reload rejoins,
+  saves survive a server restart.
+- Balance: flat fare per ride; "empty" = nobody boarded at that platform; opening track costs more the
+  more you own; only the hub owner can open track at their hub; weaker hubs get extra starting cash.
+- Fresh-eyes playtest (subagent) found the tutorial's last step could never finish, the coach
+  covering the target on phones, beginners being wiped out on Normal, tiny phone labels. All fixed:
+  tutorial setup moved into the sim with a test; Easy bots by default until your first win.
+- World cities added by four parallel subagents (one per city), then registered, tested for
+  connectivity / no track through stations, and balance-tuned for 3 and 4 players.
+- /simplify passes (reuse, simplification, efficiency, altitude reviewers) after each batch.
+- Second playtest (online + world cities): host handover on reconnect, lobby names, label
+  overlaps, starting zoom, water-coloured territory — fixed. A correctness review found 7 bugs — fixed.
+- Four more cities (Melbourne, Berlin, Hong Kong, Singapore) and a World Tour campaign.
+- "Can a kid win?" test: a scripted tutorial-level player won 2/12 on Easy and often lost while
+  owning the most track. Changed the clock rule to most track (passengers break ties) and made
+  Easy bots gentler; now 4/6. Hub bonuses retuned for the new rule.
+- Offline play (service worker), landmark icons for world cities, optional music, trams for
+  one-car trains, choose your starting hub.
+- iPad playtest: portrait bottom-sheet layout, bigger touch targets, arrival card for tour cities,
+  'spend your money' nudge, smarter label placement (your neighbourhood first, other sides tried).
+- Two more correctness reviews and three more /simplify passes; e2e smoke now covers the tour and daily.
+- Fun-focused playtest: comeback rule (a line may start at your hub), capture confetti,
+  close-race alerts, one-tap Undercut/Defend, World Tour stars (win / own the share / under 7:00),
+  daily intro card, faster tutorial wait, phone speed buttons.
+- Online family playtest (laptop + iPad portrait): bots join the tapped seat, skill next to the bot
+  buttons, guests see "waiting" first, names sync as typed, bigger maps default to 10 minutes,
+  edits allowed while paused (and shown), "paused by", host-handover toast, away markers, capture
+  toasts above the sheet. The sim no longer sends a "3 of 3" warning for the run that captures.
+- New-player iPad playtest: first tour city has one Easy bot, rival-near-win warning and a rival
+  tick on the goal bar, Defend offered whenever a rival runs on your track, Extend at the top of
+  the line panel, the map pans so selections aren't under the sheet, tappable money nudge.
+- Re-playtest of tour city 1: now winnable by a new player. Follow-ups: hub-locked sections say so
+  up front, "Extend <line> here" before buying a new line, dead-end extend explained, phone layout
+  fixes (trophy cards, lobby seats, end table), encouraging loss card.
+- Shared rules moved into the sim/shared code: networkOf, hubLock, winNeed, openPrice (network.ts)
+  and startRound, ROUND_CHOICES, minRoundFor (protocol.ts) — no client copies of game rules.
+- Three more cities: Brisbane, Seoul and Madrid (13 maps), balance-checked with bot games.
+- Second online family playtest (Seoul, then Brisbane): Easy bots now really stay off people's
+  track (tested), one-tap "onto their track" buttons on rival sections, "You beat Dad!" on the
+  online end card, hosting messages debounced across quick reconnects. A correctness review
+  caught single-player player order changing with the shared startRound (would have changed
+  seeded dailies) — fixed and pinned by a test.
+- Final polish: tappable event toasts, selections scroll into view, "While you were away" on
+  rejoin, "Loading the map…", reactions pinned to the panel foot, one extendOptions() for bots and
+  panel. Final correctness review clean; deploy dry run passes (worker 213 KB, ROOMS + BOARDS).
