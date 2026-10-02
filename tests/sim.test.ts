@@ -221,3 +221,27 @@ describe("daily challenge", () => {
     expect(run()).toBe(run());
   });
 });
+
+describe("world maps", () => {
+  it("every map is connected, has valid hubs and events, and plays a bot round", () => {
+    for (const [id, map] of Object.entries(MAPS)) {
+      const net = buildNetwork(map);
+      expect(map.hubs.length, id).toBe(4);
+      for (const h of map.hubs) expect(net.station[h], `${id} hub ${h}`).toBeTruthy();
+      for (const e of map.events ?? []) expect(net.station[e.station], `${id} event ${e.station}`).toBeTruthy();
+      // everything reachable from the first hub
+      const seen = new Set([map.hubs[0]]);
+      const queue = [map.hubs[0]];
+      while (queue.length) for (const e of net.adj[queue.pop()!]) if (!seen.has(e.to)) (seen.add(e.to), queue.push(e.to));
+      expect(seen.size, id).toBe(map.stations.length);
+      const s = Session.create(
+        map,
+        map.hubs.slice(0, 3).map((hub, i) => ({ id: `P${i}`, name: `B${i}`, color: (["red", "blue", "gold"] as const)[i], hub, isBot: true, botStyle: (["builder", "raider", "banker"] as const)[i] })),
+        { roundMinutes: 200 },
+        7
+      );
+      s.tick(200);
+      expect(s.snapshot().players.some((p) => p.owned > 0), id).toBe(true);
+    }
+  });
+});

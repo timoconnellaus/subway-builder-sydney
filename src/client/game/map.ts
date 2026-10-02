@@ -125,14 +125,16 @@ export class MapView {
     const water = new Graphics();
     const ocean = (this.map.water?.ocean ?? []).map(([lo, la]) => this.project(lo, la));
     if (ocean.length) water.poly(ocean.flat()).fill(WATER);
+    // rivers: a round-capped stroke per segment, so bends, loops and north-south rivers keep their width
     for (const rib of this.map.water?.ribbons ?? []) {
-      const L: number[] = [];
-      const R: [number, number][] = [];
-      for (const [lo, la, w] of rib) {
-        L.push(...this.project(lo, la - w));
-        R.push(this.project(lo, la + w));
+      for (let i = 0; i < rib.length - 1; i++) {
+        const [lo, la, w] = rib[i];
+        const [lo2, la2, w2] = rib[i + 1];
+        const a = this.project(lo, la);
+        const b = this.project(lo2, la2);
+        const width = Math.abs(this.project(lo, la + (w + w2) / 2)[1] - a[1]) * 2;
+        water.moveTo(a[0], a[1]).lineTo(b[0], b[1]).stroke({ width, color: WATER, cap: "round" });
       }
-      water.poly([...L, ...R.reverse().flat()]).fill(WATER);
     }
     this.world.addChild(land, this.territory, water, this.tracks, this.overlay, this.markers, this.stationsG, this.waitingG, this.hubLayer, this.trainLayer, this.selectG, this.labelLayer, this.floatLayer);
 

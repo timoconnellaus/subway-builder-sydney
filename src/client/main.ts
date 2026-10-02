@@ -115,7 +115,7 @@ function menu() {
   el.innerHTML = `
     <div class="menu-card">
       <img class="logo" src="/sprites/logo-full.webp" alt="Metro Empire">
-      <p class="tagline">Own Sydney's rail network, one section at a time.</p>
+      <p class="tagline">Own the city's rail network, one section at a time. Sydney, London, New York, Tokyo and Paris.</p>
       <label class="field"><span>Your name</span><input id="name" maxlength="16" placeholder="Your name" value="${esc(name)}" autocomplete="nickname"></label>
 
       ${storage("tutorial-done") !== "1" ? `<div class="newbie"><span>New to Metro Empire?</span><button class="btn primary" id="tutorial-top">Learn to play (2 minutes)</button></div>` : ""}

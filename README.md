@@ -10,13 +10,15 @@ the network, or carry the most passengers before the clock runs out.
 
 ## Play
 
-- **Maps:** *Sydney* (37 stations, quick games) or *Greater Sydney* (49 stations, out to Gosford,
-  Wollongong and Katoomba).
+- **Maps:** *Sydney* (37 stations, quick games), *Greater Sydney* (49 stations, out to Gosford,
+  Wollongong and Katoomba), and world cities: *London*, *New York*, *Tokyo* and *Paris*. Each map has
+  its own four starting hubs (seat 1 is the city centre) and local events.
 - **Tutorial:** a guided practice game that teaches the whole loop in about two minutes.
 - **Against bots:** pick 1–3 bots (the Builder, the Raider, the Banker) and a round length. Runs
   entirely in the browser, with pause and 1×/2×/3× speed.
 - **Daily challenge:** one setup per Sydney day (your hub, the bots, a twist like "Rush hour" or
   "Toll roads"), the same random seed for everyone, and a shared leaderboard. Fastest win ranks first.
+  Saturdays are in a world city, Sundays on Greater Sydney.
 - **Online:** create a room, share the link or the four-letter code, and add bots to any empty seats.
   Close the tab and come back: you rejoin as the same player.
 

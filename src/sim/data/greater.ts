@@ -9,6 +9,12 @@ export const GREATER: MapDef = {
   bounds: { lon0: 150.24, lon1: 151.48, lat0: -33.36, lat1: -34.5 },
   hubs: SYDNEY.hubs,
   hubBonus: SYDNEY.hubBonus,
+  events: [
+    ...SYDNEY.events!,
+    { station: "katoomba", title: "Winter Magic festival in Katoomba", emoji: "❄️" },
+    { station: "wollongong", title: "Dragons game at WIN Stadium", emoji: "🏉" },
+    { station: "gosford", title: "Mariners game in Gosford", emoji: "⚽" }
+  ],
   stations: [
     ...SYDNEY.stations,
     { id: "olympicpark", name: "Olympic Park", lon: 151.069, lat: -33.847, pop: 5, jobs: 30, label: "t" },

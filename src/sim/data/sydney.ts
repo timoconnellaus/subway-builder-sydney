@@ -10,6 +10,20 @@ export const SYDNEY: MapDef = {
   hubs: ["central", "parramatta", "airport", "liverpool"],
   // extra starting money for hubs with fewer passengers nearby
   hubBonus: { central: 0, parramatta: 1500, airport: 1500, liverpool: 1500 },
+  events: [
+    { station: "randwick", title: "Swans at the SCG", emoji: "🏉" },
+    { station: "randwick", title: "Cricket at the SCG", emoji: "🏏" },
+    { station: "lidcombe", title: "Concert at Olympic Park", emoji: "🎸" },
+    { station: "lidcombe", title: "The Royal Easter Show", emoji: "🎡" },
+    { station: "parramatta", title: "Eels game at CommBank Stadium", emoji: "🏉" },
+    { station: "northsydney", title: "Vivid lights on the harbour", emoji: "✨" },
+    { station: "central", title: "New Year's Eve fireworks", emoji: "🎆" },
+    { station: "bondijn", title: "Hot day at Bondi Beach", emoji: "🏖️" },
+    { station: "airport", title: "Holiday rush at the airport", emoji: "✈️" },
+    { station: "cronulla", title: "Surf carnival at Cronulla", emoji: "🏄" },
+    { station: "penrith", title: "Panthers game at Penrith", emoji: "🏉" },
+    { station: "macpark", title: "Big tech expo", emoji: "💻" }
+  ],
   stations: [
     { id: "central", name: "Central", lon: 151.206, lat: -33.883, pop: 20, jobs: 200, icon: "city" },
     { id: "redfern", name: "Redfern", lon: 151.198, lat: -33.893, pop: 25, jobs: 30, label: "b" },

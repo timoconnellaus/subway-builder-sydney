@@ -32,20 +32,6 @@ export interface PlayerSetup {
 
 const MAX_EVENTS = 60;
 
-const EVENT_LIST: Omit<CityEvent, "id" | "announce" | "start" | "end" | "crowd">[] = [
-  { station: "randwick", title: "Swans at the SCG", emoji: "🏉" },
-  { station: "randwick", title: "Cricket at the SCG", emoji: "🏏" },
-  { station: "lidcombe", title: "Concert at Olympic Park", emoji: "🎸" },
-  { station: "lidcombe", title: "The Royal Easter Show", emoji: "🎡" },
-  { station: "parramatta", title: "Eels game at CommBank Stadium", emoji: "🏉" },
-  { station: "northsydney", title: "Vivid lights on the harbour", emoji: "✨" },
-  { station: "central", title: "New Year's Eve fireworks", emoji: "🎆" },
-  { station: "bondijn", title: "Hot day at Bondi Beach", emoji: "🏖️" },
-  { station: "airport", title: "Holiday rush at the airport", emoji: "✈️" },
-  { station: "cronulla", title: "Surf carnival at Cronulla", emoji: "🏄" },
-  { station: "penrith", title: "Panthers game at Penrith", emoji: "🏉" },
-  { station: "macpark", title: "Big tech expo", emoji: "💻" }
-];
 
 export function createGame(map: MapDef, players: PlayerSetup[], settings: Partial<Settings> = {}, seed?: number): GameState {
   const net = buildNetwork(map);
@@ -96,8 +82,10 @@ export function createGame(map: MapDef, players: PlayerSetup[], settings: Partia
 export class Game {
   readonly net: Network;
   readonly router: Router;
+  private cityEventList: NonNullable<MapDef["events"]>;
   constructor(public state: GameState, map: MapDef) {
     this.net = buildNetwork(map);
+    this.cityEventList = map.events ?? [];
     this.router = new Router(this.net);
     state.rng ??= (Math.random() * 2 ** 32) >>> 0; // saves from before seeding
   }
@@ -475,7 +463,7 @@ export class Game {
     st.nextEventAt ??= 120;
     const end = st.settings.roundMinutes;
     if (st.time >= st.nextEventAt && st.time < end - 90) {
-      const options = EVENT_LIST.filter((e) => this.net.station[e.station] && !st.cityEvents.some((c) => c.station === e.station && c.end > st.time));
+      const options = this.cityEventList.filter((e) => this.net.station[e.station] && !st.cityEvents.some((c) => c.station === e.station && c.end > st.time));
       const pick = options[Math.floor(this.random() * options.length)];
       if (pick) {
         const ev: CityEvent = { id: st.nextId++, ...pick, announce: st.time, start: st.time + 45, end: st.time + 45 + 40, crowd: st.settings.demandPerMinute * 0.35 };

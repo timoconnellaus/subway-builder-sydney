@@ -6,7 +6,8 @@ Browser rail-strategy game set on the Sydney network, with online multiplayer on
 - `src/sim/` — all game rules, pure TypeScript with no DOM or Workers APIs. Shared by the browser
   (single player) and the server (online). `game.ts` (commands, trains, boarding, captures, money),
   `routing.ts` (passenger route choice), `bots.ts`, `session.ts` (fixed-step tick + snapshots),
-  `types.ts` (state, settings, house rules), `data/sydney.ts` (stations, sections, coastline).
+  `types.ts` (state, settings, house rules), `data/*.ts` (one file per map: stations, sections,
+  hubs in seat order, events, water), registered in `index.ts` (`MAPS`, `MAP_CHOICES`).
 - `src/shared/` — online protocol (`protocol.ts`) and `room.ts` (RoomCore: lobby, seats, tokens,
   reconnects, pause, emotes, message validation). Transport-agnostic so tests drive it directly.
 - `src/server/worker.ts` — Worker routes (`/api/rooms`, `/api/rooms/:code/ws`) and the `GameRoom`

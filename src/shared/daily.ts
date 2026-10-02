@@ -1,4 +1,4 @@
-import { seeded, type BotStyle, type HouseRules } from "../sim";
+import { seeded, WORLD_MAPS, type BotStyle, type HouseRules } from "../sim";
 
 // The daily challenge: one setup per Sydney day, the same for everyone, with a shared leaderboard.
 
@@ -70,15 +70,19 @@ export function dailyChallenge(date: string): DailyChallenge {
   }
   const bots = styles.slice(0, 2 + next(2));
   const twist = TWISTS[next(TWISTS.length)];
-  const weekend = new Date(`${date}T12:00:00Z`).getUTCDay() % 6 === 0;
+  // weekdays in Sydney, Saturdays in a world city (a different one each week), Sundays on the big map
+  const noon = new Date(`${date}T12:00:00Z`);
+  const day = noon.getUTCDay();
+  const week = Math.floor(noon.getTime() / (7 * 86400000));
+  const map = day === 6 ? WORLD_MAPS[week % WORLD_MAPS.length] : day === 0 ? "greater" : "sydney";
   return {
     date,
     seed,
-    map: weekend ? "greater" : "sydney",
+    map,
     slot: next(4),
     bots,
     rules: { botSkill: 2, ...twist.rules },
-    roundMinutes: weekend ? 900 : 600,
+    roundMinutes: map === "sydney" ? 600 : 900,
     twist: twist.text
   };
 }

@@ -766,7 +766,7 @@ export class GameScreen {
       <div class="card end">
         ${winner ? `<img class="end-badge" src="/sprites/badge-${winner.color}.webp" alt="">` : ""}
         <h2>${youWon ? "You win!" : winner ? `${esc(winner.name)} wins` : "Round over"}</h2>
-        <p class="muted">${reason && reason.kind === "win" && reason.reason === "share" ? `${youWon ? "You own" : "They own"} ${Math.round(s.settings.winShare * 100)}% of Sydney's network.` : "Most passengers carried when the clock ran out."}</p>
+        <p class="muted">${reason && reason.kind === "win" && reason.reason === "share" ? `${youWon ? "You own" : "They own"} ${Math.round(s.settings.winShare * 100)}% of ${esc(MAPS[s.mapId]?.name ?? "the")}'s network.` : "Most passengers carried when the clock ran out."}</p>
         ${historyChart(s)}
         ${this.conn.daily && me ? `<div class="daily-end"><h3>Daily challenge · ${esc(this.conn.daily)}</h3><div id="daily-board"><p class="muted">Saving your score…</p></div></div>` : ""}
         <table class="ranks">
@@ -905,7 +905,7 @@ export class GameScreen {
 
   private homeHtml(s: Snapshot, me: PlayerView | undefined): string {
     if (!me)
-      return `<h3>Watching</h3><p class="muted">${this.conn.local ? "Three bots are fighting over Sydney. Tap stations, track and lines to see what they're doing." : "The game started before you joined. Enjoy the show."}</p>
+      return `<h3>Watching</h3><p class="muted">${this.conn.local ? `Three bots are fighting over ${esc(MAPS[s.mapId]?.name ?? "the city")}. Tap stations, track and lines to see what they're doing.` : "The game started before you joined. Enjoy the show."}</p>
         <div class="lines">${s.lines.map((l) => this.lineRow(s, l)).join("")}</div>`;
     const mine = s.lines.filter((l) => l.owner === me.id);
     const owned = me.owned;
