@@ -332,6 +332,36 @@ describe("easy bots", () => {
   });
 });
 
+describe("easy bots and people", () => {
+  it("never run trains on track a person owns", () => {
+    const s = Session.create(
+      MAPS.sydney,
+      [
+        { id: "H", name: "Kid", color: "red", hub: "central" },
+        { id: "A", name: "A", color: "blue", hub: "parramatta", isBot: true, botStyle: "raider" },
+        { id: "B", name: "B", color: "gold", hub: "airport", isBot: true, botStyle: "builder" }
+      ],
+      { roundMinutes: 900, botSkill: 1, startMoney: 20000 },
+      5
+    );
+    // the kid owns a busy patch in the middle and never defends it
+    for (const id of ["central~redfern", "ashfield~redfern", "ashfield~strathfield", "central~kingscross", "mascot~redfern"]) s.command("H", { type: "open", section: id });
+    const human = new Set(Object.keys(s.state.sections).filter((k) => s.state.sections[k].owner === "H"));
+    expect(human.size).toBeGreaterThanOrEqual(4);
+    for (let t = 0; t < 900 && s.state.phase === "running"; t += 15) {
+      s.tick(15);
+      for (const l of s.state.lines) {
+        if (l.owner === "H") continue;
+        for (let i = 0; i < l.stations.length - 1; i++) {
+          const sec = [l.stations[i], l.stations[i + 1]].sort().join("~");
+          if (human.has(sec)) expect(s.state.sections[sec].owner).not.toBe("H"); // only allowed if it changed hands some other way
+        }
+      }
+    }
+    for (const id of human) expect(s.state.sections[id].owner).toBe("H");
+  });
+});
+
 describe("comeback", () => {
   it("a company with no track can still run a line from its hub onto rival track", () => {
     const s = Session.create(

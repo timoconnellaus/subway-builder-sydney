@@ -18,6 +18,7 @@ interface StyleTuning {
   retake: boolean; // fight back for track just lost
   maxLines: number; // most lines this bot runs
   richAttack: boolean; // attack whenever it has money to spare
+  spareHumans: boolean; // never attack or run trains on track a person owns
 }
 
 type Style = Pick<StyleTuning, "reserve" | "openAppetite" | "attack" | "undercut" | "premium">;
@@ -27,7 +28,7 @@ const STYLES: Record<BotStyle, Style> = {
   banker: { reserve: 400, openAppetite: 0.7, attack: 0.45, undercut: 0.5, premium: true }
 };
 
-const NORMAL = { fareFloor: 0, defendTrains: Infinity, defendAfter: 1, rivalTrack: 0.4, retake: true, maxLines: Infinity, richAttack: true };
+const NORMAL = { fareFloor: 0, defendTrains: Infinity, defendAfter: 1, rivalTrack: 0.4, retake: true, maxLines: Infinity, richAttack: true, spareHumans: false };
 
 /** A style adjusted for the bot skill house rule. */
 export function tuning(style: BotStyle | undefined, skill: number): StyleTuning {
@@ -47,7 +48,8 @@ export function tuning(style: BotStyle | undefined, skill: number): StyleTuning 
       rivalTrack: 0.1,
       retake: false,
       maxLines: 4,
-      richAttack: false
+      richAttack: false,
+      spareHumans: true
     };
   if (skill === 3) return { ...base, ...NORMAL, reserve: Math.max(100, base.reserve - 100), attack: Math.min(1, base.attack * 1.8), undercut: base.undercut + 0.25 };
   return { ...base, ...NORMAL };
@@ -154,7 +156,7 @@ function cover(game: Game, p: Player, tune: StyleTuning) {
       }
     }
     if ((p.money >= game.trainCost(2) + tune.reserve / 2 && lines.length < tune.maxLines) || lines.length === 0) {
-      const route = longRoute(game, p, s.a, s.b, tune.rivalTrack);
+      const route = longRoute(game, p, s.a, s.b, tune);
       const r = game.apply(p.id, { type: "createLine", stations: route });
       if (!r.ok) game.apply(p.id, { type: "createLine", stations: [s.a, s.b] });
     }
@@ -163,7 +165,7 @@ function cover(game: Game, p: Player, tune: StyleTuning) {
 }
 
 /** Grow a route out from a section along opened track, towards busy stations. */
-function longRoute(game: Game, p: Player, a: StationId, b: StationId, rivalTrack: number): StationId[] {
+function longRoute(game: Game, p: Player, a: StationId, b: StationId, tune: StyleTuning): StationId[] {
   const st = game.state;
   const route = [a, b];
   const grow = (atEnd: boolean) => {
@@ -174,9 +176,9 @@ function longRoute(game: Game, p: Player, a: StationId, b: StationId, rivalTrack
       for (const e of game.net.adj[end]) {
         if (route.includes(e.to)) continue;
         const owner = st.sections[e.section].owner;
-        if (!owner) continue;
+        if (!owner || (tune.spareHumans && isHuman(game, owner))) continue;
         // prefer our own track; rival track costs us fees
-        const v = stationValue(game, e.to) * (owner === p.id ? 1 : rivalTrack);
+        const v = stationValue(game, e.to) * (owner === p.id ? 1 : tune.rivalTrack);
         if (v > bestV) {
           bestV = v;
           best = e.to;
@@ -190,6 +192,10 @@ function longRoute(game: Game, p: Player, a: StationId, b: StationId, rivalTrack
   grow(true);
   grow(false);
   return route;
+}
+
+function isHuman(game: Game, id: string): boolean {
+  return !game.player(id)?.isBot;
 }
 
 function loadFactor(l: Line): number {
@@ -258,7 +264,7 @@ function attack(game: Game, p: Player, tune: StyleTuning) {
   let bestTraffic = 1;
   for (const s of game.net.sections) {
     const ss = st.sections[s.id];
-    if (!ss.owner || ss.owner === p.id) continue;
+    if (!ss.owner || ss.owner === p.id || (tune.spareHumans && isHuman(game, ss.owner))) continue;
     if (lines.some((l) => game.lineUses(l, s.id))) continue;
     for (const [here, y] of [[s.a, s.b], [s.b, s.a]] as const) {
       // need one of our own sections touching `here`

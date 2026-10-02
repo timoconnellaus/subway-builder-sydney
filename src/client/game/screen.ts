@@ -98,13 +98,21 @@ export class GameScreen {
   private onResize = () => this.layoutInsets();
 
   private lastHost: string | null | undefined;
-  /** Online: explain hosting changes, since the host's pause button moves with them. */
+  private hostTimer = 0;
+  /** Online: explain hosting changes, since the host's pause button moves with them. Waits a few
+   * seconds so a quick reconnect (everyone dropping and rejoining) doesn't announce anything. */
   private lobbyChanged(l: LobbyState) {
     const was = this.lastHost;
     this.lastHost = l.host;
     if (was === undefined || l.phase !== "game" || was === l.host) return;
-    if (l.host === this.you) this.toastText(`${this.lobbyName(was)} is away, so you're in charge: you can pause the game.`);
-    else if (was === this.you) this.toastText(`${this.lobbyName(l.host)} is back and in charge again.`);
+    clearTimeout(this.hostTimer);
+    this.hostTimer = window.setTimeout(() => {
+      const now = this.conn.lobby;
+      if (this.destroyed || !now || now.phase !== "game" || now.host !== l.host || now.host === was) return;
+      const wasAway = now.players.find((p) => p.id === was)?.connected === false;
+      if (now.host === this.you && wasAway) this.toastText(`${this.lobbyName(was)} is away, so you're in charge: you can pause the game.`);
+      else if (was === this.you) this.toastText(`${this.lobbyName(now.host)} is back and in charge again.`);
+    }, 3000);
   }
 
   private lobbyName(id: string | null, fallback = "The host"): string {
@@ -859,9 +867,8 @@ export class GameScreen {
     this.richNudgeAt = 60;
   }
 
-  /** Put trains on a section: extend one of your lines that ends there (free), or start a new line. */
-  private runLineButton(s: Snapshot, a: StationId, b: StationId): string {
-    const fresh = `<button class="btn primary wide" data-act="new-line" data-arg="${a},${b}">Run a new line here · ${money(trainCost(s, 2))}</button>`;
+  /** "Extend <line> …" for one of your lines that ends at a or b and could take in the other, or "". */
+  private extendButton(s: Snapshot, a: StationId, b: StationId, label: string): string {
     for (const l of s.lines) {
       if (l.owner !== this.you) continue;
       const first = l.stations[0];
@@ -870,9 +877,27 @@ export class GameScreen {
       if (!end) continue;
       const to = (end === "end" ? last : first) === a ? b : a;
       if (l.stations.includes(to)) continue;
-      return `<button class="btn primary wide" data-act="extend-to" data-arg="${l.id}" data-d="${end}" data-st="${to}">Extend ${esc(this.lineTitle(l))} here</button>${fresh.replace("btn primary", "btn")}`;
+      return `<button class="btn primary wide" data-act="extend-to" data-arg="${l.id}" data-d="${end}" data-st="${to}">Extend ${esc(this.lineTitle(l))} ${label}</button>`;
     }
-    return fresh;
+    return "";
+  }
+
+  /** Put trains on your own section: extend a line that ends there (no new trains to buy), or start a new line. */
+  private runLineButton(s: Snapshot, a: StationId, b: StationId): string {
+    const extend = this.extendButton(s, a, b, "here");
+    return `${extend}<button class="btn ${extend ? "" : "primary"} wide" data-act="new-line" data-arg="${a},${b}">Run a new line here · ${money(trainCost(s, 2))}</button>`;
+  }
+
+  /** Get onto a rival's section: extend a line that ends next to it, or start a line from your own track (or hub) beside it. */
+  private ontoRivalButton(s: Snapshot, a: StationId, b: StationId, me: PlayerView): string {
+    const extend = this.extendButton(s, a, b, "onto their track");
+    if (extend) return extend;
+    for (const [here, y] of [[a, b], [b, a]]) {
+      const own = this.map.net.adj[here].find((e) => s.sections[e.section].owner === me.id && e.to !== y);
+      const route = own ? [own.to, here, y] : here === me.hub ? [here, y] : null;
+      if (route) return `<button class="btn primary wide" data-act="new-line" data-arg="${route.join(",")}">Run a line onto their track · ${money(trainCost(s, 2))}</button>`;
+    }
+    return "";
   }
 
   private netCache: { s: Snapshot; id: string; set: Set<StationId> } | null = null;
@@ -1269,7 +1294,7 @@ export class GameScreen {
         ? `<div class="tip">Be cheaper <b>and</b> come more often. When nobody boards ${esc(owner?.name ?? "the owner")}'s train ${need} times in a row, it's yours.</div>` +
           this.attackCheck(s, users, mine) +
           mine.map((l) => this.pushButton(l, "Undercut")).join("")
-        : `<div class="tip">Run one of your lines over this section, then undercut ${esc(owner?.name ?? "the owner")}'s fare to win their passengers. You'll pay them ${money(s.settings.trackFee)} each time your train uses it.</div>`;
+        : `<div class="tip">Run one of your lines over this section, then undercut ${esc(owner?.name ?? "the owner")}'s fare to win their passengers. You'll pay them ${money(s.settings.trackFee)} each time your train uses it.</div>${this.ontoRivalButton(s, sec.a, sec.b, me)}`;
     } else if (ss.owner === this.you && (ss.emptyRun > 0 || rivalOnIt)) {
       // under attack, or a rival runs here and could start winning your riders
       const mine = users.filter((l) => l.owner === this.you);
@@ -1418,6 +1443,7 @@ export class GameScreen {
 
   destroy() {
     this.destroyed = true;
+    clearTimeout(this.hostTimer);
     sound.stopMusic();
     if (this.flashTimer) clearTimeout(this.flashTimer);
     this.unsub();

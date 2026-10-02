@@ -36,6 +36,7 @@ export function endHtml(s: Snapshot, c: EndContext): string {
               ? `<p class="so-close cheer">Good effort! You built ${me.owned} ${me.owned === 1 ? "section" : "sections"} and carried ${me.carried.toLocaleString("en-AU")} passengers. Have another go!</p>`
               : ""
         }
+        ${familyLine(s, c.you)}
         <p class="muted">${reason && reason.kind === "win" && reason.reason === "share" ? `${youWon ? "You own" : "They own"} ${Math.round(s.settings.winShare * 100)}% of ${esc(MAPS[s.mapId]?.name ?? "the")}'s network.` : "Most track when the clock ran out (passengers break a tie)."}</p>
         ${historyChart(s)}
         ${me && c.tour !== undefined ? tourEnd(c.tour, youWon, c.replay, c.stars, s.settings.winShare) : ""}
@@ -56,6 +57,16 @@ export function endHtml(s: Snapshot, c: EndContext): string {
         </div>
         ${c.daily && me ? `<div class="daily-end"><h3>Daily challenge · ${esc(dailyDateLabel(c.daily))}</h3><div id="daily-board"><p class="muted">Saving your score…</p></div></div>` : ""}
       </div>`;
+}
+
+/** Online with other people: how you did against them, whoever won overall. */
+function familyLine(s: Snapshot, you: string): string {
+  const people = s.players.filter((p) => !p.isBot).sort(byStanding);
+  const me = people.findIndex((p) => p.id === you);
+  if (people.length < 2 || me < 0) return "";
+  const names = (ps: PlayerView[]) => ps.map((p) => esc(p.name)).join(" and ");
+  if (me === 0) return `<p class="so-close cheer">🏅 You beat ${names(people.slice(1))}!</p>`;
+  return `<p class="muted">${names(people.slice(0, me))} beat you this time.</p>`;
 }
 
 /** World Tour result: unlock the next city on a win. */
