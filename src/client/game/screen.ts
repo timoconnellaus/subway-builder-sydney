@@ -1223,7 +1223,7 @@ export class GameScreen {
       <div class="stats">
         <div><span class="v mono">${sec.minutes} min</span><span class="k">trip</span></div>
         <div><span class="v mono">${ss.traffic}</span><span class="k">recent riders</span></div>
-        <div><span class="v">${dots(ss.emptyRun, need, owner ? CSS_COLORS[owner.color] : "#888")}</span><span class="k">empty trains</span></div>
+        ${owner && users.some((l) => l.owner !== owner.id) ? `<div><span class="v">${dots(ss.emptyRun, need, CSS_COLORS[owner.color])}</span><span class="k">empty trains (${need} to lose it)</span></div>` : `<div><span class="v">${owner ? "Safe" : "–"}</span><span class="k">no rival trains</span></div>`}
       </div>
       ${action}
       ${this.headToHead(s, users)}

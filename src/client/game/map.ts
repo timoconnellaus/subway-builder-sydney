@@ -502,8 +502,8 @@ export class MapView {
         const row = Math.floor(i / 6);
         const col = i % 6;
         const u = this.u;
-        const dy = st.label === "b" ? -(10 + row * 3.4) : 10 + row * 3.4; // keep clear of a label underneath
-        g.circle(x + (-8 + col * 3.4) * u, y + dy * u, 1.3 * u).fill(INK);
+        const dy = st.label === "b" ? -(10 + row * 4.2) : 10 + row * 4.2; // keep clear of a label underneath
+        g.circle(x + (-10.5 + col * 4.2) * u, y + dy * u, 1.7 * u).fill(INK);
       }
     }
   }
