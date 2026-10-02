@@ -8,7 +8,7 @@ import { clearLocalSave, LocalGame, RemoteRoom, savedLocalGame, type LocalOption
 import { ACHIEVEMENTS, unlocked } from "./achievements";
 import { boardHtml, fetchBoard, localBest } from "./daily";
 import { starText, stopName, TOUR, TOUR_MINUTES, tourBest, tourCity, tourProgress, tourStars } from "./tour";
-import { dailyChallenge, dailyLabel, mmss, sydneyDate, type DailyChallenge } from "../shared/daily";
+import { dailyChallenge, dailyDateLabel, dailyLabel, mmss, sydneyDate, type DailyChallenge } from "../shared/daily";
 import { GameScreen, HELP_HTML } from "./game/screen";
 import { COLOR_BLIND, COLOR_NAMES, CSS_COLORS, esc, patch, readRecord, setStorage, storage, token } from "./util";
 
@@ -321,7 +321,7 @@ function dailyHtml(c: DailyChallenge): string {
   const hub = stationName(MAPS[c.map], MAPS[c.map].hubs[c.slot]);
   const best = localBest(c.date);
   return `<section class="menu-sec daily">
-    <h2>Daily challenge <small class="muted">${new Date(`${c.date}T12:00:00Z`).toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" })}</small></h2>
+    <h2>Daily challenge <small class="muted">${dailyDateLabel(c.date)}</small></h2>
     <p class="twist">${esc(c.twist)}</p>
     <p class="muted">You start at <b>${esc(hub)}</b> against ${c.bots.map((b) => BOT_NAMES[b]).join(", ")} on the ${esc(MAPS[c.map].name)} map. ${c.roundMinutes / 60} minutes. Win as fast as you can!</p>
     ${best !== null ? `<p>Your best today: <b>${esc(dailyLabel(best))}</b></p>` : ""}

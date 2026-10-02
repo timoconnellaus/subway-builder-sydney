@@ -37,7 +37,8 @@ export function tourStarsFor(byShare: boolean, minutes: number): number {
 
 /** Best stars earned at a stop (0 if not won). */
 export function tourStars(stop: number): number {
-  return Number(storage(`tour-stars:${stop}`, "0")) || 0;
+  // cities won before stars existed count as one star
+  return Math.max(Number(storage(`tour-stars:${stop}`, "0")) || 0, stop < tourProgress() ? 1 : 0);
 }
 
 export const starText = (n: number) => "★".repeat(n) + "☆".repeat(3 - n);

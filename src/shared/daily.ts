@@ -90,6 +90,11 @@ export function dailyChallenge(date: string): DailyChallenge {
   };
 }
 
+/** "Saturday 3 October" for a YYYY-MM-DD date. */
+export function dailyDateLabel(date: string): string {
+  return new Date(`${date}T12:00:00Z`).toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
+}
+
 /** Whole seconds (or game minutes) as m:ss. */
 export function mmss(n: number): string {
   const s = Math.max(0, Math.floor(n));

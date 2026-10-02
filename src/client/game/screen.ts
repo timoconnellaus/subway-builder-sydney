@@ -9,14 +9,11 @@ import { STEPS } from "./tutorial";
 import { checkAchievements } from "../achievements";
 import { STAR_MINUTES, starText, stopName, TOUR, tourProgress, tourStarsFor, tourWon } from "../tour";
 import { boardHtml, submitScore } from "../daily";
-import { dailyChallenge, dailyLabel, dailyScore, mmss } from "../../shared/daily";
+import { dailyChallenge, dailyDateLabel, dailyLabel, dailyScore, mmss } from "../../shared/daily";
 
 type Mode = { kind: "idle" } | { kind: "build"; stations: StationId[] } | { kind: "extend"; line: string; end: "start" | "end" };
 
 type Sel = Pick | { kind: "line"; id: string };
-
-/** Did the round end by someone owning the winning share (not on the clock)? */
-const reasonIsShare = (s: Snapshot) => s.events.some((e) => e.kind === "win" && e.reason === "share");
 
 /** Money sitting above this gets a "spend it" nudge. */
 const RICH = 3500;
@@ -113,8 +110,7 @@ export class GameScreen {
     const me = this.snap.players.find((p) => p.id === this.you);
     if (me) this.map.focus(me.hub, this.map.zoomFor(me.hub, isTablet() ? 2 : isNarrow() ? 3 : 1.7));
     if (me && this.conn.local && storage("seen-intro") !== "1" && this.step < 0) this.showIntro(me);
-    else if (me && this.conn.tour !== undefined && this.freshGame) this.showTourIntro(this.conn.tour);
-    else if (me && this.conn.daily && this.freshGame) this.showDailyIntro(this.conn.daily);
+    else if (me && this.freshGame) this.showModeIntro();
   }
   private freshGame = false; // the first snapshot was at the very start of a game
 
@@ -142,6 +138,14 @@ export class GameScreen {
         </ol>`, "welcome");
   }
   private introPaused = false;
+
+  /** The World Tour or daily challenge card for a fresh game; false if neither applies. */
+  private showModeIntro(): boolean {
+    if (this.conn.tour !== undefined) this.showTourIntro(this.conn.tour);
+    else if (this.conn.daily) this.showDailyIntro(this.conn.daily);
+    else return false;
+    return true;
+  }
 
   /** Today's challenge: the twist, the rivals and how the leaderboard ranks you. */
   private showDailyIntro(date: string) {
@@ -227,9 +231,10 @@ export class GameScreen {
       const rivals = s.players.filter((p) => p.id !== me.id).sort((a, b) => b.owned - a.owned);
       const top = rivals[0];
       let msg = "";
-      if (top && top.owned > me.owned && top.owned - me.owned <= 2) msg = `You're ${top.owned - me.owned} behind ${top.name}! Grab one more section to catch up.`;
+      if (top && top.owned > me.owned && top.owned - me.owned <= 2) msg = `You're ${top.owned - me.owned} behind ${top.name}! Take a section from them to catch up.`;
       else if (top && me.owned >= top.owned && me.owned - top.owned <= 1) msg = me.owned === top.owned ? `Neck and neck with ${top.name}! Every section counts.` : `${top.name} is only 1 section behind you. Hold on!`;
-      if (msg && msg !== this.raceMsg) {
+      if (!msg) this.raceMsg = "";
+      else if (msg !== this.raceMsg) {
         this.raceMsg = msg;
         this.raceAt = s.time;
         this.toastText(`⏱️ ${msg}`, "big event");
@@ -598,7 +603,7 @@ export class GameScreen {
           if (!l) break;
           const S = this.snap!.settings;
           if (l.fare - 0.25 >= S.minFare) await this.run({ type: "setFare", line: l.id, fare: l.fare - 0.25 });
-          if (l.trains < S.maxTrainsPerLine) await this.run({ type: "setTrains", line: l.id, trains: l.trains + 1 });
+          if (this.canAddTrain(l, this.snap!.players.find((p) => p.id === this.you))) await this.run({ type: "setTrains", line: l.id, trains: l.trains + 1 });
           break;
         }
         case "trains": {
@@ -696,10 +701,7 @@ export class GameScreen {
           if (this.introKind === "welcome") {
             setStorage("seen-intro", "1");
             // a new player's first tour city: show who they're up against next
-            if (this.conn.tour !== undefined && this.freshGame) {
-              this.showTourIntro(this.conn.tour);
-              break;
-            }
+            if (this.freshGame && this.showModeIntro()) break;
           }
           this.introKind = null;
           if (this.conn.local && this.introPaused) this.conn.setPaused?.(false);
@@ -876,7 +878,7 @@ export class GameScreen {
     // World Tour: a win unlocks the next city (remember whether it was already unlocked)
     const tourStop = this.conn.tour;
     const replay = tourStop !== undefined && tourStop < tourProgress();
-    const byShare = reasonIsShare(s);
+    const byShare = reason?.kind === "win" && reason.reason === "share";
     const stars = youWon ? tourStarsFor(byShare, s.time) : 0;
     if (tourStop !== undefined && youWon) tourWon(tourStop, s.time, stars);
     const host = this.hooks.isHost?.() ?? false;
@@ -886,7 +888,11 @@ export class GameScreen {
       <div class="card end">
         ${winner ? `<img class="end-badge" src="/sprites/badge-${winner.color}.webp" alt="">` : ""}
         <h2>${youWon ? "You win!" : winner ? `${esc(winner.name)} wins` : "Round over"}</h2>
-        ${!youWon && me && winner && winner.owned - me.owned === 1 ? `<p class="so-close">So close! You lost by just 1 section.</p>` : ""}
+        ${
+          !youWon && me && winner && winner.owned - me.owned <= 1
+            ? `<p class="so-close">${winner.owned === me.owned ? "So close! Level on track, beaten on passengers." : "So close! You lost by just 1 section."}</p>`
+            : ""
+        }
         <p class="muted">${reason && reason.kind === "win" && reason.reason === "share" ? `${youWon ? "You own" : "They own"} ${Math.round(s.settings.winShare * 100)}% of ${esc(MAPS[s.mapId]?.name ?? "the")}'s network.` : "Most track when the clock ran out (passengers break a tie)."}</p>
         ${historyChart(s)}
         ${me && this.conn.tour !== undefined ? this.tourEnd(this.conn.tour, youWon, replay, stars) : ""}
@@ -905,7 +911,7 @@ export class GameScreen {
           <button class="btn" data-act="exit">Main menu</button>
           <button class="btn ghost" data-act="close-overlay">Look at the map</button>
         </div>
-        ${this.conn.daily && me ? `<div class="daily-end"><h3>Daily challenge · ${esc(new Date(`${this.conn.daily}T12:00:00Z`).toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" }))}</h3><div id="daily-board"><p class="muted">Saving your score…</p></div></div>` : ""}
+        ${this.conn.daily && me ? `<div class="daily-end"><h3>Daily challenge · ${esc(dailyDateLabel(this.conn.daily))}</h3><div id="daily-board"><p class="muted">Saving your score…</p></div></div>` : ""}
       </div>`;
     if (this.conn.daily && me) this.sendDaily(this.conn.daily, me.name, dailyScore(youWon, s.time, me.owned / s.totalSections));
   }
@@ -998,7 +1004,7 @@ export class GameScreen {
       <div class="hud-r">
         <div class="pill mono ${left < 120 ? "warn" : ""}" title="Time left">${remaining(left)}</div>
         ${this.conn.canPause?.() ? `<button class="hud-btn" data-act="pause" aria-label="${this.conn.paused ? "Resume" : "Pause"}" title="${this.conn.paused ? "Resume" : "Pause"}"><img src="/sprites/${this.conn.paused ? "play" : "pause"}.webp" alt=""></button>` : ""}
-        ${local ? `<div class="seg small">${[1, 2, 3].map((x) => `<button data-act="speedx" data-arg="${x}" class="${this.conn.speed === x ? "on" : ""}">${x}×</button>`).join("")}</div>` : ""}
+        ${local ? this.speedSeg("seg small") : ""}
         <button class="hud-btn music ${sound.musicOn ? "" : "off"}" data-act="music" aria-pressed="${sound.musicOn}" title="${sound.musicOn ? "Music is on (tap to stop)" : "Music is off (tap to play)"}">🎵</button>
         <button class="hud-btn" data-act="mute" aria-label="${sound.muted ? "Sound on" : "Sound off"}" title="${sound.muted ? "Sound on" : "Sound off"}">${sound.muted ? "🔇" : "🔊"}</button>
         <button class="hud-btn" data-act="help" aria-label="How to play">?</button>
@@ -1059,11 +1065,19 @@ export class GameScreen {
   }
 
   /** One tap to fight for a section with a line: 25¢ cheaper and one more train. */
+  private speedSeg(cls: string): string {
+    return `<div class="${cls}">${[1, 2, 3].map((x) => `<button data-act="speedx" data-arg="${x}" class="${this.conn.speed === x ? "on" : ""}">${x}×</button>`).join("")}</div>`;
+  }
+
+  private canAddTrain(l: LineView, me: PlayerView | undefined): boolean {
+    const s = this.snap!;
+    return l.trains < s.settings.maxTrainsPerLine && (me?.money ?? 0) >= lineTrainCost(s, l);
+  }
+
   private pushButton(l: LineView, verb: "Undercut" | "Defend"): string {
     const s = this.snap!;
     const me = s.players.find((p) => p.id === this.you);
-    const cost = trainCost(s, l.cars) + (l.speed - 1) * s.settings.speedCost;
-    const can = l.fare - 0.25 >= s.settings.minFare || (l.trains < s.settings.maxTrainsPerLine && (me?.money ?? 0) >= cost);
+    const can = l.fare - 0.25 >= s.settings.minFare || this.canAddTrain(l, me);
     return `<div class="push"><button class="btn primary" data-act="push" data-arg="${l.id}" ${can ? "" : "disabled"}>${verb}: −25¢ and +1 train</button>
       <button class="link" data-act="select-line" data-arg="${l.id}">${esc(this.lineTitle(l))} ›</button></div>`;
   }
@@ -1095,12 +1109,12 @@ export class GameScreen {
     const owned = me.owned;
     let tip = "";
     if (me.money < 0) tip = `<b>You're spending more than you earn.</b> Take trains off quiet lines (look for low "seats full"), shorten long trains, or raise fares where nobody competes with you.`;
-    else if (owned === 0 && !this.map.net.adj[me.hub].some((e) => !s.sections[e.section].owner))
+    else if (owned === 0 && !mine.length && !this.map.net.adj[me.hub].some((e) => !s.sections[e.section].owner))
       tip = `Rivals own all the track around <b>${esc(this.stationName(me.hub))}</b>. Fight back: press <b>New line</b>, start at ${esc(this.stationName(me.hub))} and run onto their track with a cheaper fare.`;
     else if (owned === 0) tip = `Tap a <b>dotted section</b> next to your hub, <b>${esc(this.stationName(me.hub))}</b>, then press <b>Open</b>.`;
     else if (!mine.length) tip = `Now press <b>New line</b> and tap the stations along your track to start running trains.`;
     else if (s.time < 120 && this.conn.local && (this.conn.speed ?? 1) === 1 && me.money < openCost(s, 4, me.owned))
-      tip = `Your trains are earning. Press <b>2×</b> or <b>3×</b> at the top to speed up while you save for more track.`;
+      tip = `Your trains are earning. Press <b>2×</b> or <b>3×</b> to speed up while you save for more track.`;
     else if (s.time < 120) tip = `Open more track and extend your lines. Busy lines need more trains.`;
     else if (me.money > RICH) tip = `You have <b>${money(me.money)}</b> to spend. Open more track and add trains: money in the bank doesn't win.`;
     else tip = `Run a line onto a rival's track, then cut your fare and add trains to win their passengers.`;
@@ -1110,7 +1124,7 @@ export class GameScreen {
       ${mine.length ? `<div class="lines">${mine.map((l) => this.lineRow(s, l)).join("")}</div>` : ""}
       <button class="btn primary wide" data-act="new-line" ${mine.length >= s.settings.maxLinesPerPlayer ? "disabled" : ""}>New line · ${money(trainCost(s, 2))}</button>
       <p class="muted small">${matchMedia("(pointer: coarse)").matches ? "Drag to move the map, pinch to zoom." : "Drag to move the map, scroll to zoom."} Tap a station or a section for details.</p>
-      ${this.conn.local ? `<div class="row small-row phone-only"><span class="muted small">Speed</span><div class="seg">${[1, 2, 3].map((x) => `<button data-act="speedx" data-arg="${x}" class="${this.conn.speed === x ? "on" : ""}">${x}×</button>`).join("")}</div></div>` : ""}
+      ${this.conn.local ? `<div class="row small-row phone-only"><span class="muted small">Speed</span>${this.speedSeg("seg")}</div>` : ""}
       <div class="row small-row phone-only"><button class="link" data-act="mute">${sound.muted ? "🔇 Sound off" : "🔊 Sound on"}</button><button class="link" data-act="music">${sound.musicOn ? "🎵 Music on" : "🎵 Music off"}</button></div>
       ${this.conn.emote ? `<div class="emotes" aria-label="Send a reaction">${EMOTES.map((e) => `<button data-act="emote" data-arg="${e}" aria-label="Send ${e}">${e}</button>`).join("")}</div>` : ""}`;
   }
@@ -1270,7 +1284,7 @@ export class GameScreen {
         ${stats}
         <div class="stats"><div><span class="v mono">${fare(l.fare)}</span><span class="k">per ride</span></div><div><span class="v mono">${l.trains}</span><span class="k">trains</span></div><div><span class="v mono">${l.speed}</span><span class="k">speed</span></div></div>`;
     }
-    const tc = trainCost(s, l.cars) + (l.speed - 1) * S.speedCost;
+    const tc = lineTrainCost(s, l);
     const first = l.stations[0];
     const last = l.stations[l.stations.length - 1];
     return `
@@ -1370,6 +1384,11 @@ function historyChart(s: Snapshot): string {
     out += `<path d="${d}" fill="none" stroke="${CSS_COLORS[p.color]}" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>`;
   });
   return out + "</svg>";
+}
+
+/** Cost of one more train on a line (its cars and speed). */
+function lineTrainCost(s: Snapshot, l: LineView) {
+  return trainCost(s, l.cars) + (l.speed - 1) * s.settings.speedCost;
 }
 
 function trainCost(s: Snapshot, cars: number) {
