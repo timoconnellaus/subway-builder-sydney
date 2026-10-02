@@ -10,7 +10,7 @@ export const HONG_KONG: MapDef = {
   bounds: { lon0: 113.875, lon1: 114.3, lat0: 22.55, lat1: 22.22 },
   hubs: ["central", "kwuntong", "airport", "shatin"],
   // extra starting money for hubs with fewer passengers nearby
-  hubBonus: { central: 0, kwuntong: 1300, airport: 3200, shatin: 3200 },
+  hubBonus: { central: 0, kwuntong: 600, airport: 1600, shatin: 1600 },
   events: [
     { station: "kaitak", title: "Rugby Sevens at Kai Tak Stadium", emoji: "🏉" },
     { station: "causewaybay", title: "Night races at Happy Valley", emoji: "🐎" },

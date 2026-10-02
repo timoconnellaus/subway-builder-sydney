@@ -285,3 +285,23 @@ describe("tutorial", () => {
     expect(st.sections["ashfield~strathfield"].owner).toBe("P1");
   });
 });
+
+describe("winning on the clock", () => {
+  it("goes to whoever owns the most track, not the most passengers", () => {
+    const s = Session.create(
+      MAPS.sydney,
+      [
+        { id: "A", name: "A", color: "red", hub: "central" },
+        { id: "B", name: "B", color: "blue", hub: "parramatta" }
+      ],
+      { roundMinutes: 30, events: 0 }
+    );
+    const st = s.state;
+    for (const id of ["central~redfern", "central~kingscross", "central~randwick"]) st.sections[id].owner = "A";
+    for (const id of ["granville~parramatta", "blacktown~parramatta"]) st.sections[id].owner = "B";
+    st.players[1].carried = 99999;
+    s.tick(31);
+    expect(st.phase).toBe("over");
+    expect(st.winner).toBe("A");
+  });
+});

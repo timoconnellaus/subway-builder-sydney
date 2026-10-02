@@ -11,7 +11,7 @@ export const SINGAPORE: MapDef = {
   bounds: { lon0: 103.6, lon1: 104.03, lat0: 1.475, lat1: 1.235 },
   hubs: ["raffles", "jurongeast", "changi", "woodlands"],
   // extra starting money for hubs with fewer passengers nearby
-  hubBonus: { raffles: 0, jurongeast: 600, changi: 1200, woodlands: 2300 },
+  hubBonus: { raffles: 0, jurongeast: 300, changi: 600, woodlands: 1200 },
   stations: [
     // city centre
     { id: "raffles", name: "Raffles Place", lon: 103.851, lat: 1.284, pop: 15, jobs: 200, icon: "city", label: "l" },

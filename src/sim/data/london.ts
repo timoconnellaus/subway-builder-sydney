@@ -9,7 +9,7 @@ export const LONDON: MapDef = {
   bounds: { lon0: -0.5, lon1: 0.23, lat0: 51.65, lat1: 51.31 },
   hubs: ["bank", "canarywharf", "heathrow", "croydon"],
   // extra starting money; the Bank gets some too because the crowded City leaves it little room to grow
-  hubBonus: { bank: 800, canarywharf: 500, heathrow: 1000, croydon: 1500 },
+  hubBonus: { bank: 400, canarywharf: 200, heathrow: 500, croydon: 800 },
   events: [
     { station: "finsburypark", title: "Arsenal at the Emirates", emoji: "⚽" },
     { station: "tottenham", title: "Spurs at Tottenham Hotspur Stadium", emoji: "⚽" },

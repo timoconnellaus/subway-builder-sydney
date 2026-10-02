@@ -6,7 +6,7 @@ Each player is a train company starting at a home hub on the real Sydney Trains 
 track next to your network, run lines, and win passengers. You can run your trains on rivals' track
 (paying them a fee); passengers wait for a cheaper train if it's coming soon and has room. When
 nobody boards the owner's train on a section three times in a row, the section is yours. Own 60% of
-the network, or carry the most passengers before the clock runs out.
+the network, or own the most track when the clock runs out (passengers carried break a tie).
 
 ## Play
 

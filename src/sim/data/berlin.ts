@@ -10,7 +10,7 @@ export const BERLIN: MapDef = {
   bounds: { lon0: 13.02, lon1: 13.7, lat0: 52.62, lat1: 52.35 },
   hubs: ["alex", "zoo", "ber", "spandau"],
   // extra starting money for hubs with fewer passengers nearby
-  hubBonus: { alex: 0, zoo: 1500, ber: 900, spandau: 300 },
+  hubBonus: { alex: 0, zoo: 800, ber: 400, spandau: 200 },
   stations: [
     // Mitte and the Stadtbahn
     { id: "alex", name: "Alexanderplatz", lon: 13.412, lat: 52.521, pop: 25, jobs: 200, icon: "city", label: "r" },

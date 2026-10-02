@@ -774,7 +774,7 @@ export class GameScreen {
       <div class="card end">
         ${winner ? `<img class="end-badge" src="/sprites/badge-${winner.color}.webp" alt="">` : ""}
         <h2>${youWon ? "You win!" : winner ? `${esc(winner.name)} wins` : "Round over"}</h2>
-        <p class="muted">${reason && reason.kind === "win" && reason.reason === "share" ? `${youWon ? "You own" : "They own"} ${Math.round(s.settings.winShare * 100)}% of ${esc(MAPS[s.mapId]?.name ?? "the")}'s network.` : "Most passengers carried when the clock ran out."}</p>
+        <p class="muted">${reason && reason.kind === "win" && reason.reason === "share" ? `${youWon ? "You own" : "They own"} ${Math.round(s.settings.winShare * 100)}% of ${esc(MAPS[s.mapId]?.name ?? "the")}'s network.` : "Most track when the clock ran out (passengers break a tie)."}</p>
         ${historyChart(s)}
         ${me && this.conn.tour !== undefined ? this.tourEnd(this.conn.tour, youWon) : me && this.conn.local ? `<p class="end-tip">💡 ${this.endTip(s, me, youWon)}</p>` : ""}
         <table class="ranks">
@@ -1244,7 +1244,7 @@ export const HELP_HTML = `
     <li><b>Grow.</b> Open more track, extend your lines, and add trains where they're full.</li>
     <li><b>Fight.</b> You can run trains on a rival's track (you pay them a small fee). Passengers wait for a cheaper train if it's coming soon and has room: <b>1 minute for every 50 cents</b> they save.</li>
     <li><b>Capture.</b> When nobody boards the owner's train on a section 3 times in a row (because they all took yours), the section is yours.</li>
-    <li><b>Win.</b> Own 60% of the network, or carry the most passengers when time runs out.</li>
+    <li><b>Win.</b> Own 60% of the network, or own the most track when time runs out.</li>
     <li><b>Home hubs.</b> Only you can open the track touching your hub, so nobody can box you in at the start.</li>
   </ol>
   <p class="muted small">Passengers pick routes by fare plus time (50 cents a minute), and changing trains costs them 4 minutes.</p>

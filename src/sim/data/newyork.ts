@@ -9,7 +9,7 @@ export const NEW_YORK: MapDef = {
   bounds: { lon0: -74.25, lon1: -73.72, lat0: 40.965, lat1: 40.55 },
   hubs: ["timessq", "newark", "jfk", "fordham"],
   // extra starting money for hubs with fewer passengers nearby
-  hubBonus: { timessq: 600, newark: 1200, jfk: 0, fordham: 800 },
+  hubBonus: { timessq: 300, newark: 600, jfk: 0, fordham: 400 },
   events: [
     { station: "timessq", title: "New Year's Eve in Times Square", emoji: "🎆" },
     { station: "yankee", title: "Yankees at Yankee Stadium", emoji: "⚾" },

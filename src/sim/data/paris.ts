@@ -9,7 +9,7 @@ export const PARIS: MapDef = {
   bounds: { lon0: 2.03, lon1: 2.82, lat0: 49.06, lat1: 48.6 },
   hubs: ["chatelet", "ladefense", "orly", "marne"],
   // extra starting money for hubs with fewer passengers nearby
-  hubBonus: { chatelet: 0, ladefense: 1800, orly: 1500, marne: 2200 },
+  hubBonus: { chatelet: 0, ladefense: 900, orly: 800, marne: 1100 },
   stations: [
     // central Paris
     { id: "chatelet", name: "Châtelet–Les Halles", lon: 2.347, lat: 48.862, pop: 25, jobs: 200, icon: "city", label: "b" },

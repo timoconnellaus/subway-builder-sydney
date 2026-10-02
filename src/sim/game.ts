@@ -849,7 +849,8 @@ export class Game {
       }
     }
     if (st.time >= st.settings.roundMinutes - 1e-6) {
-      const best = [...st.players].sort((a, b) => b.carried - a.carried)[0];
+      // the goal is to own the network: most track wins, passengers carried break a tie
+      const best = [...st.players].sort((a, b) => this.ownedCount(b.id) - this.ownedCount(a.id) || b.carried - a.carried)[0];
       st.phase = "over";
       st.winner = best?.id ?? null;
       if (best) this.emit({ t: st.time, kind: "win", player: best.id, reason: "time" });

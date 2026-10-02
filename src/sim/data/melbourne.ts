@@ -10,7 +10,7 @@ export const MELBOURNE: MapDef = {
   bounds: { lon0: 144.63, lon1: 145.26, lat0: -37.58, lat1: -38.165 },
   hubs: ["flinders", "boxhill", "airport", "dandenong"],
   // extra starting money for hubs with fewer passengers nearby
-  hubBonus: { flinders: 0, boxhill: 2500, airport: 3500, dandenong: 3200 },
+  hubBonus: { flinders: 0, boxhill: 1200, airport: 1800, dandenong: 1600 },
   events: [
     { station: "richmond", title: "AFL Grand Final at the MCG", emoji: "🏉" },
     { station: "richmond", title: "Australian Open at Melbourne Park", emoji: "🎾" },
