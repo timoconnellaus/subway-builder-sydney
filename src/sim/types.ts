@@ -30,6 +30,7 @@ export interface MapDef {
   name: string;
   bounds: { lon0: number; lon1: number; lat0: number; lat1: number };
   hubs: StationId[];
+  hubBonus?: Record<StationId, number>;
   stations: StationDef[];
   sections: SectionDef[];
 }

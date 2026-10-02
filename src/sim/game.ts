@@ -64,7 +64,7 @@ export function createGame(map: MapDef, players: PlayerSetup[], settings: Partia
       name: p.name,
       color: p.color,
       hub: p.hub,
-      money: S.startMoney,
+      money: S.startMoney + (map.hubBonus?.[p.hub] ?? 0),
       isBot: !!p.isBot,
       botStyle: p.botStyle,
       carried: 0,
