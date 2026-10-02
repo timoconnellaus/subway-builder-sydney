@@ -12,15 +12,20 @@ Browser rail-strategy game set on the Sydney network, with online multiplayer on
   reconnects, pause, emotes, message validation). Transport-agnostic so tests drive it directly.
 - `src/server/worker.ts` — Worker routes (`/api/rooms`, `/api/rooms/:code/ws`) and the `GameRoom`
   Durable Object that wraps RoomCore, ticks at 4 Hz, saves state in chunks, and forgets idle rooms.
-- `src/client/` — PixiJS map (`game/map.ts`), game screen and panel (`game/screen.ts`), menu and
-  lobby (`main.ts`), connections (`conn.ts`: LocalGame / RemoteRoom), sounds, styles.
+- `src/client/` — PixiJS map (`game/map.ts`), game screen and panel (`game/screen.ts`) with its end
+  card (`game/end.ts`), intro cards (`game/intros.ts`), tutorial steps and helpers; menu and lobby
+  (`main.ts`), connections (`conn.ts`: LocalGame / RemoteRoom), World Tour (`tour.ts`), daily
+  leaderboard client (`daily.ts`), achievements, sounds/music, styles. `public/sw.js` = offline cache.
+- `src/shared/daily.ts` — the daily challenge (seeded setup per Sydney date, scoring) used by client
+  and server; the server's `DailyBoard` Durable Object keeps one leaderboard per day.
 
 ## Commands
 - `npm test` — Vitest: rules, rooms, fuzz invariants.
 - `npm run build` — typecheck client + worker, build to `dist/`.
 - `npx wrangler dev` — serves `dist/` plus the multiplayer server on :8787. Restart it after a build.
 - `npm run dev` — Vite on :5173 with `/api` proxied to wrangler for hot reload.
-- `npm run balance -- 4 key=value` — bot-vs-bot games with economy printout.
+- `npm run balance -- 4 key=value [map=london] [players=4]` — bot-vs-bot games with economy printout.
+- `node scripts/e2e-smoke.mjs` — browser smoke test against `wrangler dev` (needs Playwright).
 - `npx vite-node scripts/perf.ts` — tick time and snapshot size.
 
 ## Conventions
