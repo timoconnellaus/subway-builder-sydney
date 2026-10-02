@@ -10,7 +10,7 @@ export const SEOUL: MapDef = {
   bounds: { lon0: 126.43, lon1: 127.16, lat0: 37.76, lat1: 37.24 },
   hubs: ["seoul", "gangnam", "gimpoair", "suwon"],
   // extra starting money for hubs with fewer passengers nearby
-  hubBonus: { seoul: 0, gangnam: 400, gimpoair: 500, suwon: 1300 },
+  hubBonus: { seoul: 0, gangnam: 400, gimpoair: 500, suwon: 2200 },
   stations: [
     // the old city
     { id: "seoul", name: "Seoul Station", lon: 126.972, lat: 37.555, pop: 20, jobs: 150, icon: "🐯", label: "b" },

@@ -19,8 +19,9 @@ import { BERLIN } from "./data/berlin";
 import { SINGAPORE } from "./data/singapore";
 import { BRISBANE } from "./data/brisbane";
 import { MADRID } from "./data/madrid";
+import { SEOUL } from "./data/seoul";
 import type { MapDef } from "./types";
-export const MAPS: Record<string, MapDef> = { sydney: SYDNEY, greater: GREATER, london: LONDON, newyork: NEW_YORK, tokyo: TOKYO, paris: PARIS, melbourne: MELBOURNE, hongkong: HONG_KONG, berlin: BERLIN, singapore: SINGAPORE, brisbane: BRISBANE, madrid: MADRID };
+export const MAPS: Record<string, MapDef> = { sydney: SYDNEY, greater: GREATER, london: LONDON, newyork: NEW_YORK, tokyo: TOKYO, paris: PARIS, melbourne: MELBOURNE, hongkong: HONG_KONG, berlin: BERLIN, singapore: SINGAPORE, brisbane: BRISBANE, madrid: MADRID, seoul: SEOUL };
 export const MAP_CHOICES: { id: string; name: string; blurb: string; flag: string; region: "Australia" | "World" }[] = [
   { id: "sydney", name: "Sydney", blurb: "quick games", flag: "🇦🇺", region: "Australia" },
   { id: "greater", name: "Greater Sydney", blurb: "Gosford to Wollongong, longer games", flag: "🇦🇺", region: "Australia" },
@@ -33,6 +34,7 @@ export const MAP_CHOICES: { id: string; name: string; blurb: string; flag: strin
   { id: "berlin", name: "Berlin", blurb: "Alexanderplatz, Zoo, BER, Spandau", flag: "🇩🇪", region: "World" },
   { id: "hongkong", name: "Hong Kong", blurb: "harbour crossings and the Airport Express", flag: "🇭🇰", region: "World" },
   { id: "singapore", name: "Singapore", blurb: "Raffles Place, Jurong East, Changi", flag: "🇸🇬", region: "World" },
+  { id: "seoul", name: "Seoul", blurb: "Seoul Station, Gangnam, Gimpo, Suwon", flag: "🇰🇷", region: "World" },
   { id: "madrid", name: "Madrid", blurb: "Sol, Barajas, Móstoles, Alcobendas", flag: "🇪🇸", region: "World" }
 ];
 /** Cities outside Australia, for the daily challenge's world-city Saturdays. */

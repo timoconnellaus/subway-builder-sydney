@@ -13,8 +13,8 @@ always start a line at your own hub, so a company that loses all its track can f
 ## Play
 
 - **Maps:** *Sydney* (37 stations, quick games), *Greater Sydney* (49 stations, out to Gosford,
-  Wollongong and Katoomba), *Melbourne*, and world cities: *London*, *New York*, *Tokyo*, *Paris*,
-  *Berlin*, *Hong Kong* and *Singapore*. Each map has
+  Wollongong and Katoomba), *Melbourne*, *Brisbane*, and world cities: *London*, *New York*,
+  *Tokyo*, *Paris*, *Berlin*, *Hong Kong*, *Singapore*, *Seoul* and *Madrid*. Each map has
   its own four starting hubs (seat 1 is the city centre) and local events.
 - **Tutorial:** a guided practice game that teaches the whole loop in about two minutes.
 - **Against bots:** pick 1–3 bots (the Builder, the Raider, the Banker), their skill (Easy until
