@@ -33,6 +33,8 @@ interface Saved {
   game: GameState | null;
   nextPlayer: number;
   paused?: boolean;
+  wins?: Record<PlayerId, number>;
+  rounds?: number;
 }
 
 export const GAME_MINUTES_PER_SECOND = 1;
@@ -78,6 +80,8 @@ export class RoomCore {
   private conns = new Map<string, { conn: Conn; player: PlayerId | null; greeted: boolean; bucket: number; last: number }>();
   private nextPlayer = 1;
   private paused = false;
+  private wins: Record<PlayerId, number> = {};
+  private rounds = 0;
   private lastEmote = new Map<string, number>();
   dirty = true;
 
@@ -92,6 +96,8 @@ export class RoomCore {
     r.phase = s.phase;
     r.nextPlayer = s.nextPlayer;
     r.paused = !!s.paused;
+    r.wins = s.wins ?? {};
+    r.rounds = s.rounds ?? 0;
     if (s.game) {
       r.session = new Session(MAPS[s.game.mapId] ?? MAPS.sydney, s.game);
       for (const p of r.session.state.players) p.connected = p.isBot;
@@ -109,7 +115,9 @@ export class RoomCore {
       phase: this.phase,
       game: this.session ? this.session.state : null,
       nextPlayer: this.nextPlayer,
-      paused: this.paused
+      paused: this.paused,
+      wins: this.wins,
+      rounds: this.rounds
     };
     return JSON.stringify(s);
   }
@@ -324,7 +332,9 @@ export class RoomCore {
         .map(({ token: _t, slot: _s, ...p }) => p),
       options: this.options,
       phase: this.phase,
-      paused: this.paused
+      paused: this.paused,
+      wins: this.wins,
+      rounds: this.rounds
     };
   }
 
@@ -355,6 +365,9 @@ export class RoomCore {
     for (const c of this.conns.values()) c.conn.send(msg);
     if (this.session.state.phase === "over") {
       this.phase = "over";
+      this.rounds++;
+      const w = this.session.state.winner;
+      if (w) this.wins[w] = (this.wins[w] ?? 0) + 1;
       this.broadcastLobby();
     }
   }

@@ -307,8 +307,9 @@ function online(code: string) {
       const hubName = MAPS.sydney.stations.find((s) => s.id === slot.hub)?.name ?? slot.hub;
       const bonus = MAPS.sydney.hubBonus?.[slot.hub] ?? 0;
       const bonusText = bonus ? ` · +$${bonus.toLocaleString("en-AU")} to start` : "";
+      const won = p ? l.wins?.[p.id] ?? 0 : 0;
       if (p)
-        return `<div class="slot" data-key="s${i}" style="--c:${CSS_COLORS[slot.color]}"><img src="/sprites/badge-${slot.color}.webp" alt=""><div><b>${esc(p.name)}${p.id === room.you ? " (you)" : ""}</b><small>${COLOR_NAMES[slot.color]} · starts at ${hubName}${bonusText}${p.id === l.host ? " · host" : ""}${!p.connected && !p.isBot ? " · away" : ""}</small></div>${isHost && p.id !== room.you ? `<button class="link" data-act="kick" data-arg="${p.id}">Remove</button>` : ""}</div>`;
+        return `<div class="slot" data-key="s${i}" style="--c:${CSS_COLORS[slot.color]}"><img src="/sprites/badge-${slot.color}.webp" alt=""><div><b>${esc(p.name)}${p.id === room.you ? " (you)" : ""}${l.rounds ? ` · ${won} ${won === 1 ? "win" : "wins"}` : ""}</b><small>${COLOR_NAMES[slot.color]} · starts at ${hubName}${bonusText}${p.id === l.host ? " · host" : ""}${!p.connected && !p.isBot ? " · away" : ""}</small></div>${isHost && p.id !== room.you ? `<button class="link" data-act="kick" data-arg="${p.id}">Remove</button>` : ""}</div>`;
       return `<div class="slot empty" data-key="s${i}" style="--c:${CSS_COLORS[slot.color]}"><img src="/sprites/badge-${slot.color}.webp" alt=""><div><b>Empty seat</b><small>${COLOR_NAMES[slot.color]} · starts at ${hubName}${bonusText}</small></div>
         <div class="slot-actions">${l.phase === "lobby" && l.players.some((x) => x.id === room.you) ? `<button class="link" data-act="slot" data-arg="${i}">Sit here</button>` : ""}
         ${isHost ? `<button class="link" data-act="bot" data-arg="builder">+ Builder</button><button class="link" data-act="bot" data-arg="raider">+ Raider</button><button class="link" data-act="bot" data-arg="banker">+ Banker</button>` : ""}</div></div>`;

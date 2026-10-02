@@ -200,4 +200,20 @@ describe("hardening", () => {
     room.housekeep(Date.now() + 61_000);
     expect(a.last("lobby")!.lobby.players.length).toBe(1);
   });
+
+  it("counts wins across rounds", () => {
+    const room = new RoomCore("WINS");
+    const a = client(room, "c1");
+    room.message("c1", { t: "hello", name: "A", token: "a" });
+    room.message("c1", { t: "addBot", style: "builder" });
+    room.message("c1", { t: "setOptions", options: { roundMinutes: 300 } });
+    room.message("c1", { t: "start" });
+    for (let i = 0; i < 320; i++) room.tick(1);
+    const lobby = a.last("lobby")!.lobby;
+    expect(lobby.phase).toBe("over");
+    expect(lobby.rounds).toBe(1);
+    expect(Object.values(lobby.wins).reduce((x, y) => x + y, 0)).toBe(1);
+    room.message("c1", { t: "rematch" });
+    expect(RoomCore.restore(room.serialize()).lobby().rounds).toBe(1);
+  });
 });

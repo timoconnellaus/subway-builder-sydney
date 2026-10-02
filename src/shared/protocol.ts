@@ -26,6 +26,8 @@ export interface LobbyState {
   options: RoomOptions;
   phase: "lobby" | "game" | "over";
   paused: boolean;
+  wins: Record<PlayerId, number>; // rounds won in this room
+  rounds: number;
 }
 
 export const EMOTES = ["👍", "😂", "😮", "😡", "🚆", "🎉"] as const;
