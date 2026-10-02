@@ -346,3 +346,22 @@ describe("comeback", () => {
     expect(s.command("A", { type: "createLine", stations: ["redfern", "ashfield"] }).ok).toBe(false);
   });
 });
+
+describe("bot comeback", () => {
+  it("a bot with no track runs a line from its hub onto a rival's", () => {
+    const s = Session.create(
+      MAPS.sydney,
+      [
+        { id: "A", name: "A", color: "red", hub: "central" },
+        { id: "B", name: "B", color: "blue", hub: "parramatta", isBot: true, botStyle: "builder" }
+      ],
+      { events: 0 }
+    );
+    for (const e of s.game.net.adj.parramatta) s.state.sections[e.section].owner = "A";
+    s.state.netVersion++;
+    s.tick(10);
+    const lines = s.state.lines.filter((l) => l.owner === "B");
+    expect(lines.length).toBeGreaterThan(0);
+    expect(lines[0].stations).toContain("parramatta");
+  });
+});

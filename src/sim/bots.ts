@@ -80,6 +80,7 @@ function botTurn(game: Game, p: Player) {
     sellEmptiest(game, p);
     return;
   }
+  if (comeback(game, p)) return;
   defend(game, p, tune);
   if (tune.retake) retake(game, p, tune);
   cover(game, p, tune);
@@ -93,6 +94,20 @@ function botTurn(game: Game, p: Player) {
     if (game.random() < tune.attack || (p.money > 2500 && tune.richAttack)) attack(game, p, tune);
   }
   if (tune.premium) adjustFares(game, p);
+}
+
+/** Lost everything: run a line from home onto the busiest neighbouring track (lines may start at your hub). */
+function comeback(game: Game, p: Player): boolean {
+  if (game.ownedCount(p.id) > 0 || game.linesOf(p.id).length > 0) return false;
+  const options = game.net.adj[p.hub].filter((e) => game.state.sections[e.section].owner);
+  if (!options.length || p.money < game.trainCost(2)) return false;
+  const best = options.sort((a, b) => stationValue(game, b.to) - stationValue(game, a.to))[0];
+  const r = game.apply(p.id, { type: "createLine", stations: [p.hub, best.to] });
+  if (r.ok) {
+    const line = game.linesOf(p.id).at(-1)!;
+    game.apply(p.id, { type: "setFare", line: line.id, fare: Math.max(game.state.settings.minFare, line.fare - 0.75) });
+  }
+  return r.ok;
 }
 
 function stationValue(game: Game, s: StationId): number {
