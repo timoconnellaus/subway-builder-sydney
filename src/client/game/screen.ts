@@ -14,6 +14,16 @@ type Mode = { kind: "idle" } | { kind: "build"; stations: StationId[] } | { kind
 
 type Sel = Pick | { kind: "line"; id: string };
 
+const maxToasts = () => (window.innerWidth <= 760 ? 2 : 3);
+
+/** Show a toast at the top of a stack, keep at most `max`, and fade it out after `ms`. */
+function pushToast(stack: HTMLElement, t: HTMLElement, max: number, ms: number) {
+  stack.prepend(t);
+  while (stack.children.length > max) stack.lastChild?.remove();
+  setTimeout(() => t.classList.add("out"), ms);
+  setTimeout(() => t.remove(), ms + 600);
+}
+
 export interface GameScreenHooks {
   onExit(): void;
   onRestart?(): void;
@@ -139,13 +149,10 @@ export class GameScreen {
     }
     this.handleEvents(s);
     if (this.step < 0 && this.you !== "spectator" && (s.phase === "over" || Math.floor(s.time) % 2 === 0)) {
-      for (const a of checkAchievements(s, this.you, this.conn.local, !!this.conn.daily)) {
+      for (const a of checkAchievements(s, this.you, { local: this.conn.local, daily: !!this.conn.daily })) {
         const t = h("div", { class: "trophy" });
         t.innerHTML = `<span class="e">${a.emoji}</span><span><b>${esc(a.name)}</b><small>${esc(a.how)}</small></span>`;
-        this.trophies.prepend(t);
-        while (this.trophies.children.length > 3) this.trophies.lastChild?.remove();
-        setTimeout(() => t.classList.add("out"), 4500);
-        setTimeout(() => t.remove(), 5100);
+        pushToast(this.trophies, t, 3, 4500);
         sound.play("good");
       }
     }
@@ -699,11 +706,7 @@ export class GameScreen {
     const t = h("div", { class: `toast ${cls}`, "data-key": key || undefined });
     if (color) t.style.setProperty("--c", CSS_COLORS[color]);
     t.textContent = text;
-    this.toasts.prepend(t);
-    const max = window.innerWidth <= 760 ? 2 : 3;
-    while (this.toasts.children.length > max) this.toasts.lastChild?.remove();
-    setTimeout(() => t.classList.add("out"), cls.includes("big") ? 5000 : 3200);
-    setTimeout(() => t.remove(), cls.includes("big") ? 5600 : 3800);
+    pushToast(this.toasts, t, maxToasts(), cls.includes("big") ? 5000 : 3200);
   }
 
   private warnedBroke = false;
@@ -711,9 +714,7 @@ export class GameScreen {
   private toastText(text: string, cls = "") {
     const t = h("div", { class: `toast ${cls}` });
     t.textContent = text;
-    this.toasts.prepend(t);
-    setTimeout(() => t.classList.add("out"), 4000);
-    setTimeout(() => t.remove(), 4600);
+    pushToast(this.toasts, t, maxToasts(), 4000);
   }
 
   private showEmote(from: string, e: string) {
@@ -722,9 +723,7 @@ export class GameScreen {
     const t = h("div", { class: "toast emote" });
     if (p) t.style.setProperty("--c", CSS_COLORS[p.color]);
     t.innerHTML = `<b>${esc(from === this.you ? "You" : p?.name ?? "Someone")}</b> <span class="emoji">${esc(e)}</span>`;
-    this.toasts.prepend(t);
-    setTimeout(() => t.classList.add("out"), 2600);
-    setTimeout(() => t.remove(), 3200);
+    pushToast(this.toasts, t, maxToasts(), 2600);
   }
 
   private lineUses(l: LineView, section: SectionId): boolean {
@@ -762,7 +761,6 @@ export class GameScreen {
     const youWon = s.winner === this.you;
     const host = this.hooks.isHost?.() ?? false;
     const me = s.players.find((p) => p.id === this.you);
-    const youPlayed = !!me;
     this.overlay.hidden = false;
     this.overlay.innerHTML = `
       <div class="card end">
@@ -770,7 +768,7 @@ export class GameScreen {
         <h2>${youWon ? "You win!" : winner ? `${esc(winner.name)} wins` : "Round over"}</h2>
         <p class="muted">${reason && reason.kind === "win" && reason.reason === "share" ? `${youWon ? "You own" : "They own"} ${Math.round(s.settings.winShare * 100)}% of Sydney's network.` : "Most passengers carried when the clock ran out."}</p>
         ${historyChart(s)}
-        ${this.conn.daily && youPlayed ? `<div class="daily-end"><h3>Daily challenge · ${esc(this.conn.daily)}</h3><div id="daily-board"><p class="muted">Saving your score…</p></div></div>` : ""}
+        ${this.conn.daily && me ? `<div class="daily-end"><h3>Daily challenge · ${esc(this.conn.daily)}</h3><div id="daily-board"><p class="muted">Saving your score…</p></div></div>` : ""}
         <table class="ranks">
           <thead><tr><th></th><th>Company</th><th>Track</th><th>Passengers</th><th>Money</th></tr></thead>
           <tbody>${ranked

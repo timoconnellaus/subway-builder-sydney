@@ -1,15 +1,5 @@
-import { dailyChallenge, sydneyDate, type DailyEntry } from "../shared/daily";
+import type { BoardView } from "../shared/daily";
 import { esc, setStorage, storage, token } from "./util";
-
-export interface BoardView {
-  top: DailyEntry[];
-  players: number;
-  you: DailyEntry | null;
-  rank: number;
-}
-
-export const today = () => sydneyDate();
-export const todaysChallenge = () => dailyChallenge(today());
 
 export async function fetchBoard(date: string): Promise<BoardView | null> {
   try {
@@ -22,8 +12,7 @@ export async function fetchBoard(date: string): Promise<BoardView | null> {
 
 export async function submitScore(date: string, name: string, score: number): Promise<BoardView | null> {
   // remember the best score locally too, for when the server can't be reached
-  const key = `daily-best:${date}`;
-  if (score > Number(storage(key, "-1"))) setStorage(key, String(score));
+  if (score > (localBest(date) ?? -1)) setStorage(`daily-best:${date}`, String(score));
   try {
     const r = await fetch(`/api/daily/${date}`, {
       method: "POST",

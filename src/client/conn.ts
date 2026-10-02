@@ -1,7 +1,6 @@
 import { cleanRules, MAPS, Session, type BotStyle, type Command, type CommandResult, type HouseRules, type PlayerId, type Snapshot } from "../sim";
-import { SLOTS, type ClientMsg, type LobbyState, type ServerMsg } from "../shared/protocol";
-import type { GameState } from "../sim";
-import { dailyChallenge } from "../shared/daily";
+import { BOT_NAMES, seat, SLOTS, type ClientMsg, type LobbyState, type ServerMsg } from "../shared/protocol";
+import type { GameState, PlayerSetup, Settings } from "../sim";
 import { setStorage, storage } from "./util";
 
 const SAVE_KEY = "local-save";
@@ -50,7 +49,9 @@ export interface LocalOptions {
   tutorial?: boolean;
   map?: string;
   watch?: boolean; // bots only, you just watch
-  daily?: string; // date of the daily challenge being played
+  daily?: string; // date of the daily challenge being played (a label; the setup is in the fields above)
+  slot?: number; // your seat, default 0
+  seed?: number; // fixed random seed
 }
 
 export class LocalGame implements GameConn {
@@ -95,51 +96,27 @@ export class LocalGame implements GameConn {
     return this.opts.daily;
   }
   get mapId() {
-    if (this.opts.daily) return dailyChallenge(this.opts.daily).map;
     return this.opts.tutorial ? "sydney" : this.opts.map && MAPS[this.opts.map] ? this.opts.map : "sydney";
   }
 
   restart() {
     if (this.opts.tutorial) return this.startTutorial();
-    if (this.opts.daily) return this.startDaily(this.opts.daily);
-    const human = this.opts.watch ? [] : [{ id: "P1", name: this.opts.name || "You", color: SLOTS[0].color, hub: SLOTS[0].hub }];
-    const offset = human.length;
-    const players = [
-      ...human,
-      ...this.opts.bots.map((style, i) => ({
-        id: `P${i + 1 + offset}`,
-        name: style === "builder" ? "The Builder" : style === "raider" ? "The Raider" : "The Banker",
-        color: SLOTS[i + offset].color,
-        hub: SLOTS[i + offset].hub,
-        isBot: true,
-        botStyle: style
-      }))
-    ];
-    this.session = Session.create(MAPS[this.mapId], players, { ...cleanRules(this.opts.rules), roundMinutes: this.opts.roundMinutes });
-    this.paused = false;
-    if (!this.timer) {
-      this.last = performance.now();
-      this.timer = setInterval(() => this.loop(), 100);
-    }
-    this.emit();
+    // you take your seat (default the first); bots fill the other seats in order
+    const slot = this.opts.watch ? -1 : (this.opts.slot ?? 0);
+    const human = slot < 0 ? [] : [{ id: "P1", name: this.opts.name || "You", ...seat(this.mapId, slot) }];
+    const free = SLOTS.map((_, i) => i).filter((i) => i !== slot);
+    const bots = this.opts.bots.map((style, i) => ({
+      id: `P${i + 1 + human.length}`,
+      name: BOT_NAMES[style],
+      ...seat(this.mapId, free[i]),
+      isBot: true,
+      botStyle: style
+    }));
+    this.begin([...human, ...bots], { ...cleanRules(this.opts.rules), roundMinutes: this.opts.roundMinutes }, this.opts.seed);
   }
 
-  /** Today's challenge: fixed seat, bots, rules and random seed, so everyone starts the same. */
-  private startDaily(date: string) {
-    const c = dailyChallenge(date);
-    const others = SLOTS.map((_, i) => i).filter((i) => i !== c.slot);
-    const players = [
-      { id: "P1", name: this.opts.name || "You", color: SLOTS[c.slot].color, hub: SLOTS[c.slot].hub },
-      ...c.bots.map((style, i) => ({
-        id: `P${i + 2}`,
-        name: style === "builder" ? "The Builder" : style === "raider" ? "The Raider" : "The Banker",
-        color: SLOTS[others[i]].color,
-        hub: SLOTS[others[i]].hub,
-        isBot: true,
-        botStyle: style
-      }))
-    ];
-    this.session = Session.create(MAPS[c.map] ?? MAPS.sydney, players, { ...cleanRules(c.rules), roundMinutes: c.roundMinutes }, c.seed);
+  private begin(players: PlayerSetup[], settings: Partial<Settings>, seed?: number) {
+    this.session = Session.create(MAPS[this.mapId], players, settings, seed);
     this.paused = false;
     if (!this.timer) {
       this.last = performance.now();
@@ -150,11 +127,10 @@ export class LocalGame implements GameConn {
 
   /** A calm practice game: one sleepy rival that never changes its line. */
   private startTutorial() {
-    this.session = Session.create(
-      MAPS.sydney,
+    this.begin(
       [
-        { id: "P1", name: this.opts.name || "You", color: SLOTS[0].color, hub: SLOTS[0].hub },
-        { id: "P2", name: "Western Rail", color: SLOTS[1].color, hub: SLOTS[1].hub }
+        { id: "P1", name: this.opts.name || "You", ...seat("sydney", 0) },
+        { id: "P2", name: "Western Rail", ...seat("sydney", 1) }
       ],
       { roundMinutes: 3600, events: 0, winShare: 1 }
     );
@@ -163,13 +139,7 @@ export class LocalGame implements GameConn {
     st.netVersion++;
     st.players[1].money = 100000;
     this.session.command("P2", { type: "createLine", stations: ["parramatta", "granville", "lidcombe", "strathfield", "ashfield"] });
-    const line = st.lines[0];
-    this.session.command("P2", { type: "setTrains", line: line.id, trains: 2 });
-    this.paused = false;
-    if (!this.timer) {
-      this.last = performance.now();
-      this.timer = setInterval(() => this.loop(), 100);
-    }
+    this.session.command("P2", { type: "setTrains", line: st.lines[0].id, trains: 2 });
     this.emit();
   }
 

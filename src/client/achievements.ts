@@ -3,12 +3,18 @@ import { setStorage, storage } from "./util";
 
 // Small goals that unlock once and are remembered in this browser.
 
+/** How this game is being played. */
+export interface PlayContext {
+  local: boolean;
+  daily: boolean;
+}
+
 export interface Achievement {
   id: string;
   emoji: string;
   name: string;
   how: string;
-  check(s: Snapshot, you: string, ctx: { local: boolean; daily: boolean }): boolean;
+  check(s: Snapshot, you: string, ctx: PlayContext): boolean;
 }
 
 const owns = (s: Snapshot, you: string, id: string) => s.sections[id]?.owner === you;
@@ -74,9 +80,9 @@ export function unlocked(): Set<string> {
 }
 
 /** Check a snapshot; returns achievements unlocked for the first time. */
-export function checkAchievements(s: Snapshot, you: string, local: boolean, daily = false): Achievement[] {
+export function checkAchievements(s: Snapshot, you: string, ctx: PlayContext): Achievement[] {
   const have = unlocked();
-  const fresh = ACHIEVEMENTS.filter((a) => !have.has(a.id) && a.check(s, you, { local, daily }));
+  const fresh = ACHIEVEMENTS.filter((a) => !have.has(a.id) && a.check(s, you, ctx));
   if (fresh.length) {
     for (const a of fresh) have.add(a.id);
     setStorage("achievements", JSON.stringify([...have]));

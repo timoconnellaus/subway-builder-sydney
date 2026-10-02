@@ -1,7 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
-import { isRoomCode, makeRoomCode } from "../shared/protocol";
+import { cleanPlayerName, isRoomCode, makeRoomCode } from "../shared/protocol";
 import { RoomCore } from "../shared/room";
-import { dailyLabel, isDailyDate, sydneyDate, validScore, type DailyEntry } from "../shared/daily";
+import { dailyLabel, sydneyDate, validScore, type BoardView, type DailyEntry } from "../shared/daily";
 
 export interface Env {
   ROOMS: DurableObjectNamespace<GameRoom>;
@@ -32,7 +32,6 @@ export default {
     const d = url.pathname.match(/^\/api\/daily\/(\d{4}-\d{2}-\d{2})$/);
     if (d) {
       const date = d[1];
-      if (!isDailyDate(date)) return new Response("Bad date", { status: 400 });
       const stub = env.BOARDS.get(env.BOARDS.idFromName(date));
       const token = url.searchParams.get("token") ?? "";
       if (request.method === "GET") return Response.json(await stub.top(token));
@@ -46,7 +45,7 @@ export default {
         } catch {
           return new Response("Bad JSON", { status: 400 });
         }
-        const name = typeof body.name === "string" ? body.name.replace(/[^\p{L}\p{N} '._-]/gu, "").trim().slice(0, 16) : "";
+        const name = cleanPlayerName(body.name);
         const tok = typeof body.token === "string" && /^[A-Za-z0-9_-]{6,64}$/.test(body.token) ? body.token : "";
         if (!name || !tok || !validScore(body.score)) return new Response("Bad entry", { status: 400 });
         return Response.json(await stub.submit(tok, name, body.score));
@@ -201,23 +200,29 @@ export class GameRoom extends DurableObject<Env> {
 }
 
 /** One leaderboard per Sydney day. Keeps each player's best score (by browser token). */
+type Stored = { name: string; score: number };
+
 export class DailyBoard extends DurableObject<Env> {
-  private async entries(): Promise<Record<string, { name: string; score: number }>> {
-    return (await this.ctx.storage.get<Record<string, { name: string; score: number }>>("entries")) ?? {};
+  private all: Record<string, Stored> | null = null;
+
+  private async entries(): Promise<Record<string, Stored>> {
+    this.all ??= (await this.ctx.storage.get<Record<string, Stored>>("entries")) ?? {};
+    return this.all;
   }
 
-  async top(token: string): Promise<{ top: DailyEntry[]; players: number; you: DailyEntry | null; rank: number }> {
-    const all = await this.entries();
-    const sorted = Object.entries(all).sort((a, b) => b[1].score - a[1].score);
-    const view = ([tok, e]: [string, { name: string; score: number }]): DailyEntry => ({ name: e.name, score: e.score, label: dailyLabel(e.score), you: tok === token || undefined });
+  async top(token: string): Promise<BoardView> {
+    const sorted = Object.entries(await this.entries()).sort((a, b) => b[1].score - a[1].score);
+    const view = ([tok, e]: [string, Stored]): DailyEntry => ({ name: e.name, score: e.score, label: dailyLabel(e.score), you: tok === token || undefined });
     const i = token ? sorted.findIndex(([tok]) => tok === token) : -1;
     return { top: sorted.slice(0, 10).map(view), players: sorted.length, you: i >= 0 ? view(sorted[i]) : null, rank: i + 1 };
   }
 
-  async submit(token: string, name: string, score: number) {
+  async submit(token: string, name: string, score: number): Promise<BoardView> {
     const all = await this.entries();
     const had = all[token];
-    if (!had || score > had.score || name !== had.name) all[token] = { name, score: Math.max(score, had?.score ?? 0) };
+    if (had && had.name === name && had.score >= score) return this.top(token); // nothing new
+    const first = Object.keys(all).length === 0;
+    all[token] = { name, score: Math.max(score, had?.score ?? score) };
     // keep the board small: drop the lowest if it grows huge
     const keys = Object.keys(all);
     if (keys.length > 500) {
@@ -225,11 +230,12 @@ export class DailyBoard extends DurableObject<Env> {
       for (const k of keys.slice(0, keys.length - 500)) if (k !== token) delete all[k];
     }
     await this.ctx.storage.put("entries", all);
-    if (!(await this.ctx.storage.getAlarm())) await this.ctx.storage.setAlarm(Date.now() + 14 * 24 * 60 * 60 * 1000);
+    if (first) await this.ctx.storage.setAlarm(Date.now() + 14 * 24 * 60 * 60 * 1000); // old boards are forgotten
     return this.top(token);
   }
 
   async alarm() {
-    await this.ctx.storage.deleteAll(); // old boards are forgotten after two weeks
+    this.all = null;
+    await this.ctx.storage.deleteAll();
   }
 }

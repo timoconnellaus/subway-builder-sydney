@@ -26,6 +26,8 @@ async function page(name, viewport = { width: 1200, height: 800 }) {
   });
   return p;
 }
+// the map loads its sprites asynchronously; wait until it can be tapped
+const mapReady = (p) => p.waitForFunction(() => window.__screen?.mapReady, null, { timeout: 20000 });
 const stationXY = (p, id) => p.evaluate((id) => window.__screen.map.stationScreen(id), id);
 async function tapBetween(p, a, b) {
   const A = await stationXY(p, a);
@@ -38,7 +40,7 @@ async function tapBetween(p, a, b) {
 {
   const p = await page("solo");
   await p.goto(`${BASE}/#/play`, { waitUntil: "networkidle" });
-  await p.waitForTimeout(1500);
+  await mapReady(p);
   await tapBetween(p, "central", "redfern");
   await p.click("[data-act=open]");
   await tapBetween(p, "redfern", "ashfield");
@@ -75,7 +77,7 @@ async function tapBetween(p, a, b) {
   await dad.waitForTimeout(300);
   await dad.click("[data-act=start]");
   await son.waitForSelector(".game");
-  await son.waitForTimeout(1500);
+  await mapReady(son);
   await tapBetween(son, "parramatta", "granville");
   await son.click("[data-act=open]");
   await dad.waitForTimeout(1200);

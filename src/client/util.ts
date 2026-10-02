@@ -25,20 +25,15 @@ const CB: Record<Color, [number, number]> = {
   gold: [0xe8c700, 0xf7eda6],
   green: [0xcc79a7, 0xf0d2e3]
 };
-export function colorBlind(): boolean {
-  try {
-    return localStorage.getItem("color-blind") === "1";
-  } catch {
-    return false;
-  }
-}
+export const colorBlind = () => storage("color-blind") === "1";
+// read once at start-up; the menu toggle reloads the page
 if (colorBlind()) {
   for (const c of Object.keys(CB) as Color[]) {
     COLORS[c] = CB[c][0];
     SOFT[c] = CB[c][1];
     CSS_COLORS[c] = `#${CB[c][0].toString(16).padStart(6, "0")}`;
+    document.documentElement.style.setProperty(`--${c}`, CSS_COLORS[c]);
   }
-  if (typeof document !== "undefined") for (const c of Object.keys(CB) as Color[]) document.documentElement.style.setProperty(`--${c}`, CSS_COLORS[c]);
 }
 
 export const COLOR_NAMES: Record<Color, string> = { red: "Red", blue: "Blue", gold: "Gold", green: "Green" };

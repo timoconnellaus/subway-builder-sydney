@@ -86,3 +86,8 @@ export function buildNetwork(map: MapDef): Network {
 export function sectionBetween(net: Network, a: StationId, b: StationId): SectionInfo | undefined {
   return net.section[sectionId(a, b)];
 }
+
+/** A station's display name on a map (its id if unknown). */
+export function stationName(map: MapDef, id: StationId): string {
+  return buildNetwork(map).station[id]?.name ?? id;
+}

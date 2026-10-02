@@ -1,5 +1,6 @@
 import type { BotStyle, Color, Command, HouseRules, PlayerId, StationId } from "../sim/types";
 import type { Snapshot } from "../sim/session";
+import { MAPS } from "../sim";
 
 export const MAX_PLAYERS = 4;
 
@@ -7,7 +8,6 @@ export interface LobbyPlayer {
   id: PlayerId;
   name: string;
   color: Color;
-  hub: StationId;
   isBot: boolean;
   botStyle?: BotStyle;
   connected: boolean;
@@ -54,12 +54,19 @@ export type ServerMsg =
   | { t: "pong"; at: number }
   | { t: "emote"; from: PlayerId; e: string };
 
-export const SLOTS: { color: Color; hub: StationId }[] = [
-  { color: "red", hub: "central" },
-  { color: "blue", hub: "parramatta" },
-  { color: "gold", hub: "airport" },
-  { color: "green", hub: "liverpool" }
-];
+// Seat i plays colour SLOTS[i] and starts at the map's hubs[i].
+export const SLOTS: { color: Color }[] = [{ color: "red" }, { color: "blue" }, { color: "gold" }, { color: "green" }];
+
+/** Colour and starting hub for a seat on a map. */
+export function seat(mapId: string, slot: number): { color: Color; hub: StationId } {
+  const map = MAPS[mapId] ?? MAPS.sydney;
+  return { color: SLOTS[slot].color, hub: map.hubs[slot] };
+}
+
+/** Player names: letters, numbers and simple punctuation, at most 16 characters. */
+export function cleanPlayerName(name: unknown): string {
+  return typeof name === "string" ? name.replace(/[^\p{L}\p{N} '._-]/gu, "").trim().slice(0, 16) : "";
+}
 
 export const BOT_NAMES: Record<BotStyle, string> = {
   builder: "The Builder",

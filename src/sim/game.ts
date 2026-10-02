@@ -1,5 +1,6 @@
 import { buildNetwork, sectionBetween, sectionId, type Network } from "./network";
 import { Router, lineRunMinutes, lineHeadway } from "./routing";
+import { nextRandom } from "./random";
 import {
   DEFAULT_SETTINGS,
   type BotStyle,
@@ -87,7 +88,7 @@ export function createGame(map: MapDef, players: PlayerSetup[], settings: Partia
     cityEvents: [],
     nextEventAt: 120,
     history: [],
-    rng: seed === undefined ? undefined : seed >>> 0
+    rng: (seed ?? Math.random() * 2 ** 32) >>> 0
   };
   return state;
 }
@@ -98,16 +99,14 @@ export class Game {
   constructor(public state: GameState, map: MapDef) {
     this.net = buildNetwork(map);
     this.router = new Router(this.net);
+    state.rng ??= (Math.random() * 2 ** 32) >>> 0; // saves from before seeding
   }
 
-  /** Seeded random number in [0, 1) (mulberry32), stored in the state so saves carry on the same sequence. */
+  /** Seeded random number in [0, 1); the state lives in GameState so saves carry on the same sequence. */
   random(): number {
-    const st = this.state;
-    st.rng ??= (Math.random() * 2 ** 32) >>> 0;
-    let t = (st.rng = (st.rng + 0x6d2b79f5) >>> 0);
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    const [next, r] = nextRandom(this.state.rng);
+    this.state.rng = next;
+    return r;
   }
 
   // ---------- queries ----------

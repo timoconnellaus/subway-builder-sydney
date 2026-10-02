@@ -3,6 +3,7 @@ export * from "./network";
 export * from "./routing";
 export * from "./game";
 export * from "./session";
+export * from "./random";
 export { SYDNEY, SYDNEY_WATER } from "./data/sydney";
 
 import { SYDNEY } from "./data/sydney";

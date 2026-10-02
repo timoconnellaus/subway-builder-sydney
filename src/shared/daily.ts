@@ -1,4 +1,4 @@
-import type { BotStyle, HouseRules } from "../sim";
+import { seeded, type BotStyle, type HouseRules } from "../sim";
 
 // The daily challenge: one setup per Sydney day, the same for everyone, with a shared leaderboard.
 
@@ -13,11 +13,24 @@ export interface DailyChallenge {
   twist: string;
 }
 
+// Scores: a loss scores share-owned × 1000 (0–1000); a win scores WIN_BASE minus the minutes it took,
+// so any win beats any loss and faster wins beat slower ones.
+const WIN_BASE = 10000;
+const LOSS_MAX = 1000;
+
 export interface DailyEntry {
   name: string;
   score: number;
   label: string; // "Won in 412 min" or "Owned 38%"
   you?: boolean;
+}
+
+/** What the leaderboard returns. */
+export interface BoardView {
+  top: DailyEntry[];
+  players: number;
+  you: DailyEntry | null;
+  rank: number;
 }
 
 const TWISTS: { text: string; rules: HouseRules }[] = [
@@ -32,13 +45,11 @@ const TWISTS: { text: string; rules: HouseRules }[] = [
   { text: "Quick win: own half the network to win.", rules: { winShare: 0.5 } }
 ];
 
+const SYDNEY_DAY = new Intl.DateTimeFormat("en-CA", { timeZone: "Australia/Sydney", year: "numeric", month: "2-digit", day: "2-digit" });
+
 /** Today's date in Sydney as YYYY-MM-DD. */
 export function sydneyDate(now = new Date()): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Australia/Sydney", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
-}
-
-export function isDailyDate(s: unknown): s is string {
-  return typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
+  return SYDNEY_DAY.format(now);
 }
 
 function hash(s: string): number {
@@ -49,12 +60,8 @@ function hash(s: string): number {
 
 export function dailyChallenge(date: string): DailyChallenge {
   const seed = hash(`metro-empire:${date}`);
-  let r = seed;
-  const next = (n: number) => {
-    r = Math.imul(r ^ (r >>> 13), 0x5bd1e995) >>> 0;
-    r = (r ^ (r >>> 15)) >>> 0;
-    return r % n;
-  };
+  const rand = seeded(seed);
+  const next = (n: number) => Math.floor(rand() * n);
   // two or three different bots, in a shuffled order
   const styles: BotStyle[] = ["builder", "raider", "banker"];
   for (let i = styles.length - 1; i > 0; i--) {
@@ -77,14 +84,16 @@ export function dailyChallenge(date: string): DailyChallenge {
 }
 
 /** Higher is better: any win beats any loss, and faster wins beat slower ones. */
-export function dailyScore(won: boolean, minutes: number, share: number): DailyEntry["score"] {
-  return won ? 10000 - Math.round(minutes) : Math.round(share * 1000);
+export function dailyScore(won: boolean, minutes: number, share: number): number {
+  return won ? WIN_BASE - Math.round(minutes) : Math.round(share * LOSS_MAX);
 }
 
+const isWin = (score: number) => score > LOSS_MAX;
+
 export function dailyLabel(score: number): string {
-  return score > 5000 ? `Won in ${10000 - score} min` : `Owned ${Math.round(score / 10)}%`;
+  return isWin(score) ? `Won in ${WIN_BASE - score} min` : `Owned ${Math.round((score / LOSS_MAX) * 100)}%`;
 }
 
 export function validScore(score: unknown): score is number {
-  return typeof score === "number" && Number.isInteger(score) && ((score >= 0 && score <= 1000) || (score > 5000 && score < 10000));
+  return typeof score === "number" && Number.isInteger(score) && score >= 0 && score < WIN_BASE && (score <= LOSS_MAX || score > WIN_BASE - 5000);
 }

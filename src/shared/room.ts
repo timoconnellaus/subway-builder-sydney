@@ -3,6 +3,8 @@ import {
   BOT_NAMES,
   EMOTES,
   MAX_PLAYERS,
+  cleanPlayerName,
+  seat,
   SLOTS,
   type ClientMsg,
   type LobbyPlayer,
@@ -205,7 +207,6 @@ export class RoomCore {
           id: `P${this.nextPlayer++}`,
           name: BOT_NAMES[msg.style],
           color: SLOTS[slot].color,
-          hub: SLOTS[slot].hub,
           isBot: true,
           botStyle: msg.style,
           connected: true,
@@ -227,7 +228,6 @@ export class RoomCore {
         const m = this.members.find((x) => x.id === me)!;
         m.slot = slot;
         m.color = SLOTS[slot].color;
-        m.hub = SLOTS[slot].hub;
         break;
       }
       case "setOptions": {
@@ -271,7 +271,7 @@ export class RoomCore {
   }
 
   private hello(c: { conn: Conn; player: PlayerId | null }, rawName: string, token: string) {
-    const name = (rawName || "Player").replace(/[^\p{L}\p{N} '._-]/gu, "").trim().slice(0, 16) || "Player";
+    const name = cleanPlayerName(rawName) || "Player";
     let m = token ? this.members.find((x) => x.token === token) : undefined;
     if (!m && this.phase === "lobby") {
       const slot = this.freeSlot();
@@ -280,7 +280,6 @@ export class RoomCore {
           id: `P${this.nextPlayer++}`,
           name,
           color: SLOTS[slot].color,
-          hub: SLOTS[slot].hub,
           isBot: false,
           connected: true,
           token,
@@ -316,7 +315,7 @@ export class RoomCore {
     const sorted = [...this.members].sort((a, b) => a.slot - b.slot);
     this.session = Session.create(
       map,
-      sorted.map((m) => ({ id: m.id, name: m.name, color: m.color, hub: m.hub, isBot: m.isBot, botStyle: m.botStyle })),
+      sorted.map((m) => ({ id: m.id, name: m.name, ...seat(map.id, m.slot), isBot: m.isBot, botStyle: m.botStyle })),
       { ...cleanRules(this.options.rules), roundMinutes: this.options.roundMinutes }
     );
     for (const p of this.session.state.players) p.connected = p.isBot || this.members.find((m) => m.id === p.id)!.connected;

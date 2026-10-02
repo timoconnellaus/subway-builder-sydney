@@ -24,7 +24,7 @@ describe("room", () => {
     expect(b.last("welcome")?.you).toBe("P2");
     const lobby = a.last("lobby")!.lobby;
     expect(lobby.host).toBe("P1");
-    expect(lobby.players.map((p) => p.hub)).toEqual(["central", "parramatta"]);
+    expect(lobby.players.map((p) => p.color)).toEqual(["red", "blue"]);
 
     // only the host can add bots and start
     room.message("c2", { t: "addBot", style: "raider" });
@@ -44,6 +44,7 @@ describe("room", () => {
     expect(snap.time).toBeGreaterThan(9);
     expect(snap.sections["granville~parramatta"].owner).toBe("P2");
     expect(snap.players.length).toBe(3);
+    expect(snap.players.map((p) => p.hub)).toEqual(["central", "parramatta", "airport"]);
   });
 
   it("lets a player reconnect with their token and survives a save/restore", () => {

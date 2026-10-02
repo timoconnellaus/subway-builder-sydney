@@ -3,11 +3,11 @@ import { HOUSE_RULES, type BotStyle, type HouseRuleKey, type HouseRules } from "
 import { DEFAULT_SETTINGS } from "../sim/types";
 import { BOT_NAMES, isRoomCode, SLOTS, type LobbyState } from "../shared/protocol";
 import qrcode from "qrcode-generator";
-import { MAP_CHOICES, MAPS } from "../sim";
-import { clearLocalSave, LocalGame, RemoteRoom, savedLocalGame } from "./conn";
+import { MAP_CHOICES, MAPS, stationName } from "../sim";
+import { clearLocalSave, LocalGame, RemoteRoom, savedLocalGame, type LocalOptions } from "./conn";
 import { ACHIEVEMENTS, unlocked } from "./achievements";
-import { boardHtml, fetchBoard, localBest, today, todaysChallenge } from "./daily";
-import { dailyLabel } from "../shared/daily";
+import { boardHtml, fetchBoard, localBest } from "./daily";
+import { dailyChallenge, dailyLabel, sydneyDate, type DailyChallenge } from "../shared/daily";
 import { GameScreen, HELP_HTML } from "./game/screen";
 import { COLOR_NAMES, colorBlind, CSS_COLORS, esc, patch, setStorage, storage, token } from "./util";
 
@@ -21,19 +21,15 @@ function route() {
   const hash = location.hash.replace(/^#\/?/, "");
   const [page, arg] = hash.split("/");
   if (page === "play") {
-    // a bare #/play resumes a saved game (reload, Back button); the Play button asks for a fresh one
-    const fresh = storage("new-game") === "1";
+    // a bare #/play resumes a saved game (reload, Back button); Play and the daily challenge ask for a fresh one
+    const fresh = storage("new-game");
     setStorage("new-game", "");
-    return playLocal(arg === "continue" || (!fresh && !!savedLocalGame()));
+    if (fresh === "daily") return playLocal(new LocalGame(dailyOptions()));
+    const saved = fresh ? null : savedLocalGame();
+    return playLocal(saved ? new LocalGame(saved.opts, saved.state) : new LocalGame(menuOptions()));
   }
   if (page === "tutorial") return playTutorial();
   if (page === "watch") return watchBots();
-  if (page === "daily") {
-    const fresh = storage("new-game") === "1";
-    setStorage("new-game", "");
-    const saved = savedLocalGame();
-    return playLocal(!fresh && saved?.opts.daily === today(), { daily: today() });
-  }
   if (page === "room" && arg && isRoomCode(arg.toUpperCase())) return online(arg.toUpperCase());
   return menu();
 }
@@ -110,6 +106,8 @@ function go(hash: string) {
 // ---------- menu ----------
 function menu() {
   const name = storage("me-name", "");
+  const saved = savedLocalGame();
+  const challenge = dailyChallenge(sydneyDate());
   const bots = storage("bots", "builder,raider").split(",").filter(Boolean) as BotStyle[];
   const minutes = storage("round", "900");
   const el = document.createElement("div");
@@ -121,8 +119,8 @@ function menu() {
       <label class="field"><span>Your name</span><input id="name" maxlength="16" placeholder="Your name" value="${esc(name)}" autocomplete="nickname"></label>
 
       ${storage("tutorial-done") !== "1" ? `<div class="newbie"><span>New to Metro Empire?</span><button class="btn primary" id="tutorial-top">Learn to play (2 minutes)</button></div>` : ""}
-      ${savedLocalGame() ? `<button class="btn primary big" id="continue">Continue your ${savedLocalGame()!.opts.daily ? "daily challenge" : "game"}</button>` : ""}
-      ${dailyHtml()}
+      ${saved ? `<button class="btn primary big" id="continue">Continue your ${saved.opts.daily ? "daily challenge" : "game"}</button>` : ""}
+      ${dailyHtml(challenge)}
       <section class="menu-sec">
         <h2>Play against bots</h2>
         <div class="bots">
@@ -165,7 +163,7 @@ function menu() {
   const nameIn = el.querySelector<HTMLInputElement>("#name")!;
   const saveName = () => setStorage("me-name", nameIn.value.trim());
   nameIn.addEventListener("change", saveName);
-  el.querySelector("#continue")?.addEventListener("click", () => go(savedLocalGame()?.opts.daily === today() ? "#/daily" : "#/play"));
+  el.querySelector("#continue")?.addEventListener("click", () => go("#/play"));
   el.querySelector("#daily")!.addEventListener("click", () => {
     if (!nameIn.value.trim()) {
       // the leaderboard needs a name
@@ -175,25 +173,21 @@ function menu() {
       nameIn.focus();
       return;
     }
-    clearLocalSave();
-    setStorage("new-game", "1");
     saveName();
-    go("#/daily");
+    startFresh("daily");
   });
-  fetchBoard(today()).then((b) => {
+  fetchBoard(challenge.date).then((b) => {
     const host = el.querySelector("#daily-top");
     if (host && b) host.innerHTML = boardHtml(b, 3);
   });
   el.querySelector("#play")!.addEventListener("click", () => {
-    clearLocalSave();
-    setStorage("new-game", "1");
     saveName();
     const chosen = [...el.querySelectorAll<HTMLInputElement>(".bot-opt input:checked")].map((i) => i.value);
     setStorage("bots", (chosen.length ? chosen : ["builder"]).join(","));
     setStorage("round", el.querySelector<HTMLSelectElement>("#round")!.value);
     setStorage("map", el.querySelector<HTMLSelectElement>("#map")!.value);
     setStorage("rules", JSON.stringify(readRules(el.querySelector(".rules")!)));
-    go("#/play");
+    startFresh("menu");
   });
   const err = el.querySelector<HTMLElement>("#online-err")!;
   el.querySelector("#create")!.addEventListener("click", async () => {
@@ -245,9 +239,15 @@ function menu() {
   });
 }
 
-function dailyHtml(): string {
-  const c = todaysChallenge();
-  const hub = MAPS[c.map].stations.find((s) => s.id === SLOTS[c.slot].hub)?.name ?? SLOTS[c.slot].hub;
+/** Start a new single-player game, dropping any saved one. */
+function startFresh(kind: "menu" | "daily") {
+  clearLocalSave();
+  setStorage("new-game", kind);
+  go("#/play");
+}
+
+function dailyHtml(c: DailyChallenge): string {
+  const hub = stationName(MAPS[c.map], MAPS[c.map].hubs[c.slot]);
   const best = localBest(c.date);
   return `<section class="menu-sec daily">
     <h2>Daily challenge <small class="muted">${new Date(`${c.date}T12:00:00Z`).toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" })}</small></h2>
@@ -260,17 +260,27 @@ function dailyHtml(): string {
 }
 
 // ---------- single player ----------
-function playLocal(resume = false, extra: { daily?: string } = {}) {
+const playerName = () => storage("me-name", "") || "You";
+
+/** A game set up from the menu choices. */
+function menuOptions(): LocalOptions {
   const bots = storage("bots", "builder,raider").split(",").filter(Boolean) as BotStyle[];
-  const saved = resume ? savedLocalGame() : null;
-  const conn = saved ? new LocalGame(saved.opts, saved.state) : new LocalGame({
-    name: storage("me-name", "") || "You",
+  return {
+    name: playerName(),
     bots: bots.slice(0, 3),
     roundMinutes: Number(storage("round", "900")) || 900,
     rules: loadRules(),
-    map: storage("map", "sydney"),
-    ...extra
-  });
+    map: storage("map", "sydney")
+  };
+}
+
+/** Today's daily challenge as an ordinary game with a fixed seat and seed. */
+function dailyOptions(): LocalOptions {
+  const c = dailyChallenge(sydneyDate());
+  return { name: playerName(), bots: c.bots, roundMinutes: c.roundMinutes, rules: c.rules, map: c.map, slot: c.slot, seed: c.seed, daily: c.date };
+}
+
+function playLocal(conn: LocalGame) {
   let screen: GameScreen;
   const mount = () => {
     screen = new GameScreen(conn, {
@@ -351,8 +361,9 @@ function online(code: string) {
     const link = `${location.origin}/#/room/${l.room}`;
     const slots = SLOTS.map((slot, i) => {
       const p = l.players.find((x) => x.color === slot.color);
-      const hubName = MAPS.sydney.stations.find((s) => s.id === slot.hub)?.name ?? slot.hub;
-      const bonus = MAPS.sydney.hubBonus?.[slot.hub] ?? 0;
+      const map = MAPS[l.options.map] ?? MAPS.sydney;
+      const hubName = stationName(map, map.hubs[i]);
+      const bonus = map.hubBonus?.[map.hubs[i]] ?? 0;
       const bonusText = bonus ? ` · +$${bonus.toLocaleString("en-AU")} to start` : "";
       const won = p ? l.wins?.[p.id] ?? 0 : 0;
       if (p)

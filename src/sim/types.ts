@@ -30,8 +30,10 @@ export interface MapDef {
   id: string;
   name: string;
   bounds: { lon0: number; lon1: number; lat0: number; lat1: number };
-  hubs: StationId[];
+  hubs: StationId[]; // seat i starts at hubs[i]
   hubBonus?: Record<StationId, number>;
+  // big local events that bring crowds to a station (sports, concerts, festivals)
+  events?: { station: StationId; title: string; emoji: string }[];
   // coastline and rivers for drawing: an ocean polygon plus ribbons of [lon, lat, half-width]
   water?: { ocean: [number, number][]; ribbons: [number, number, number][][] };
   stations: StationDef[];
@@ -217,7 +219,7 @@ export interface GameState {
   cityEvents: CityEvent[];
   nextEventAt: number;
   history: { t: number; owned: number[]; carried: number[] }[]; // sampled every 30 game minutes
-  rng?: number; // seeded random state, so a daily challenge starts the same for everyone
+  rng: number; // seeded random state, so a daily challenge starts the same for everyone
 }
 
 export type Command =
