@@ -1,4 +1,4 @@
-import type { Snapshot } from "../sim";
+import { WORLD_MAPS, type Snapshot } from "../sim";
 import { setStorage, storage } from "./util";
 
 // Small goals that unlock once and are remembered in this browser.
@@ -54,6 +54,13 @@ export const ACHIEVEMENTS: Achievement[] = [
     name: "Legend",
     how: "Beat hard bots",
     check: (s, you, c) => c.local && s.phase === "over" && s.winner === you && s.players.some((p) => p.isBot) && s.settings.botSkill >= 3
+  },
+  {
+    id: "globetrotter",
+    emoji: "🌏",
+    name: "Globetrotter",
+    how: "Win in London, New York, Tokyo or Paris",
+    check: (s, you) => s.phase === "over" && s.winner === you && WORLD_MAPS.includes(s.mapId)
   },
   {
     id: "win-daily",
