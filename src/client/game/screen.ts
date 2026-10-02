@@ -309,7 +309,7 @@ export class GameScreen {
           this.select(null);
           break;
         case "new-line":
-          this.mode = { kind: "build", stations: arg ? [arg] : [] };
+          this.mode = { kind: "build", stations: arg ? arg.split(",") : [] };
           this.sel = null;
           this.map.selected = null;
           this.updateHighlight();
@@ -441,19 +441,27 @@ export class GameScreen {
         text = `${this.pname(s, e.player)} captured ${this.secName(e.section)}${e.from ? ` from ${this.pname(s, e.from)}` : ""}!`;
         cls = e.player === this.you ? "big good" : e.from === this.you ? "big bad" : "big";
         break;
-      case "open":
+      case "open": {
         if (e.player === this.you) return;
-        text = `${this.pname(s, e.player)} opened ${this.secName(e.section)}`;
+        // only worth a toast when it's next to your network
+        const sec = this.map.net.section[e.section];
+        const me = s.players.find((p) => p.id === this.you);
+        if (!sec || !me) return;
+        const mine = new Set<string>([me.hub]);
+        for (const x of this.map.net.sections) if (s.sections[x.id]?.owner === this.you) (mine.add(x.a), mine.add(x.b));
+        if (!mine.has(sec.a) && !mine.has(sec.b)) return;
+        text = `${this.pname(s, e.player)} opened ${this.secName(e.section)}, next to you`;
         break;
+      }
       case "empty": {
         const need = s.settings.emptyToCapture;
         if (e.player === this.you) {
-          text = `Your train left ${this.secName(e.section)} empty (${e.run} of ${need})`;
+          text = `Nobody boarded your train on ${this.secName(e.section)} (${e.run} of ${need})`;
           cls = "bad";
         } else {
           const runsThere = s.lines.some((l) => l.owner === this.you && this.lineUses(l, e.section));
           if (!runsThere) return;
-          text = `${this.pname(s, e.player)}'s train left ${this.secName(e.section)} empty (${e.run} of ${need})`;
+          text = `Nobody boarded ${this.pname(s, e.player)}'s train on ${this.secName(e.section)} (${e.run} of ${need})`;
           cls = "good";
         }
         break;
@@ -468,7 +476,8 @@ export class GameScreen {
     if (color) t.style.setProperty("--c", CSS_COLORS[color]);
     t.textContent = text;
     this.toasts.prepend(t);
-    while (this.toasts.children.length > 4) this.toasts.lastChild?.remove();
+    const max = window.innerWidth <= 760 ? 2 : 4;
+    while (this.toasts.children.length > max) this.toasts.lastChild?.remove();
     setTimeout(() => t.classList.add("out"), cls.includes("big") ? 5000 : 3200);
     setTimeout(() => t.remove(), cls.includes("big") ? 5600 : 3800);
   }
@@ -492,13 +501,13 @@ export class GameScreen {
       <div class="card end">
         ${winner ? `<img class="end-badge" src="/sprites/badge-${winner.color}.webp" alt="">` : ""}
         <h2>${youWon ? "You win!" : winner ? `${esc(winner.name)} wins` : "Round over"}</h2>
-        <p class="muted">${reason && reason.kind === "win" && reason.reason === "share" ? "They own half of Sydney's network." : "Most passengers carried when the clock ran out."}</p>
+        <p class="muted">${reason && reason.kind === "win" && reason.reason === "share" ? `${youWon ? "You own" : "They own"} ${Math.round(s.settings.winShare * 100)}% of Sydney's network.` : "Most passengers carried when the clock ran out."}</p>
         <table class="ranks">
           <thead><tr><th></th><th>Company</th><th>Track</th><th>Passengers</th><th>Money</th></tr></thead>
           <tbody>${ranked
             .map(
               (p) =>
-                `<tr><td><span class="chip" style="--c:${CSS_COLORS[p.color]}"></span></td><td>${esc(p.name)}${p.id === this.you ? " (you)" : ""}</td><td class="num">${p.owned}</td><td class="num">${p.carried.toLocaleString("en-AU")}</td><td class="num">${money(p.money)}</td></tr>`
+                `<tr><td><span class="chip" style="--c:${CSS_COLORS[p.color]}"></span></td><td>${esc(p.name)}${p.id === this.you && p.name !== "You" ? " (you)" : ""}</td><td class="num">${p.owned}</td><td class="num">${p.carried.toLocaleString("en-AU")}</td><td class="num">${money(p.money)}</td></tr>`
             )
             .join("")}</tbody>
         </table>
@@ -666,10 +675,12 @@ export class GameScreen {
     } else if (ss.owner && ss.owner !== this.you && me) {
       const runs = users.some((l) => l.owner === this.you);
       action = runs
-        ? `<div class="tip">To take it, make ${esc(owner?.name ?? "the owner")}'s trains run empty ${need} times in a row: charge less than them, and run enough trains with enough room for everyone.</div>`
+        ? `<div class="tip">To take it, win the passengers here: when nobody boards ${esc(owner?.name ?? "the owner")}'s train ${need} times in a row, it's yours. Charge less, and run enough trains with room for everyone.</div>`
         : `<div class="tip">Run one of your lines over this section, then undercut ${esc(owner?.name ?? "the owner")}'s fare to win their passengers. You'll pay them ${money(s.settings.trackFee)} each time your train uses it.</div>`;
     } else if (ss.owner === this.you && ss.emptyRun > 0) {
-      action = `<div class="tip bad">Your trains have left empty ${ss.emptyRun} of ${need} times. Lower your fare or add trains, fast!</div>`;
+      action = `<div class="tip bad">Nobody boarded your last ${ss.emptyRun} of ${need} trains here. Lower your fare or add trains, fast!</div>`;
+    } else if (ss.owner === this.you && !users.some((l) => l.owner === this.you)) {
+      action = `<div class="tip">You own this track but none of your trains run on it yet.</div><button class="btn primary wide" data-act="new-line" data-arg="${sec.a},${sec.b}">Run a line here · ${money(trainCost(s, 2))}</button>`;
     }
     return `
       <button class="back" data-act="back">← Back</button>
@@ -679,7 +690,7 @@ export class GameScreen {
       <div class="stats">
         <div><span class="v mono">${sec.minutes} min</span><span class="k">trip</span></div>
         <div><span class="v mono">${ss.traffic}</span><span class="k">recent riders</span></div>
-        <div><span class="v">${dots(ss.emptyRun, need, owner ? CSS_COLORS[owner.color] : "#888")}</span><span class="k">empty in a row</span></div>
+        <div><span class="v">${dots(ss.emptyRun, need, owner ? CSS_COLORS[owner.color] : "#888")}</span><span class="k">empty trains</span></div>
       </div>
       ${action}
       ${users.length ? `<h4>Lines on this track</h4><div class="lines">${users.map((l) => this.lineRow(s, l)).join("")}</div>` : ""}
@@ -804,7 +815,8 @@ export const HELP_HTML = `
     <li><b>Run trains.</b> Press New line and tap stations along opened track. Passengers start riding and paying fares.</li>
     <li><b>Grow.</b> Open more track, extend your lines, and add trains where they're full.</li>
     <li><b>Fight.</b> You can run trains on a rival's track (you pay them a small fee). Passengers wait for a cheaper train if it's coming soon and has room: <b>1 minute for every 50 cents</b> they save.</li>
-    <li><b>Capture.</b> When the owner's trains leave a section empty 3 times in a row, it's yours.</li>
-    <li><b>Win.</b> Own half the network, or carry the most passengers when time runs out.</li>
+    <li><b>Capture.</b> When nobody boards the owner's train on a section 3 times in a row (because they all took yours), the section is yours.</li>
+    <li><b>Win.</b> Own 60% of the network, or carry the most passengers when time runs out.</li>
+    <li><b>Home hubs.</b> Only you can open the track touching your hub, so nobody can box you in at the start.</li>
   </ol>
   <p class="muted small">Passengers pick routes by fare plus time (50 cents a minute), and changing trains costs them 4 minutes.</p>`;

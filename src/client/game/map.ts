@@ -473,15 +473,18 @@ export class MapView {
       }
       // keep trains upright-ish and offset by owner so rivals sharing track are both visible
       const slot = this.slotOf[line.owner] ?? 0;
-      const off = (slot - 1.5) * 3.2;
+      const off = (slot - 1.5) * Math.max(3.2, 4 / this.world.scale.x);
       x += -Math.sin(rot) * off;
       y += Math.cos(rot) * off;
       ts.x = x;
       ts.y = y;
       ts.rot = rot;
-      const len = 6 + line.cars * 2.6;
+      // keep trains readable when zoomed out: never smaller than ~22px on screen
+      const k = this.world.scale.x;
+      const minLen = 22 / k;
+      const len = Math.max(minLen, 9 + line.cars * 2.4);
       ts.sprite.width = len;
-      ts.sprite.height = 5.2;
+      ts.sprite.height = len / (line.speed >= 3 ? 4.6 : 5.6);
       ts.sprite.position.set(x, y);
       ts.sprite.rotation = rot;
       ts.sprite.alpha = tr.load > 0 ? 1 : 0.75;

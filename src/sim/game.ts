@@ -124,6 +124,8 @@ export class Game {
     if (this.state.sections[section].owner) return fail("Someone already owns that section.");
     const mine = this.networkStations(id);
     if (!mine.has(sec.a) && !mine.has(sec.b)) return fail("You can only open track next to your own network.");
+    const hubOwner = this.state.players.find((p) => p.id !== id && (p.hub === sec.a || p.hub === sec.b));
+    if (hubOwner) return fail(`Only ${hubOwner.name} can open track at their home hub. You can still win it later by taking its passengers.`);
     const p = this.player(id)!;
     const cost = this.openCost(section, id);
     if (p.money < cost) return fail(`You need $${cost} to open this section.`);
@@ -706,7 +708,7 @@ export class Game {
         return;
       }
     }
-    if (st.time >= st.settings.roundMinutes) {
+    if (st.time >= st.settings.roundMinutes - 1e-6) {
       const best = [...st.players].sort((a, b) => b.carried - a.carried)[0];
       st.phase = "over";
       st.winner = best?.id ?? null;

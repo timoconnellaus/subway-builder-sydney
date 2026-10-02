@@ -59,6 +59,7 @@ function open(game: Game, p: Player, tune: StyleTuning) {
   for (const s of game.net.sections) {
     if (game.state.sections[s.id].owner) continue;
     if (!mine.has(s.a) && !mine.has(s.b)) continue;
+    if (!game.canOpen(p.id, s.id).ok && game.state.players.some((o) => o.id !== p.id && (o.hub === s.a || o.hub === s.b))) continue;
     const far = mine.has(s.a) ? s.b : s.a;
     const score = stationValue(game, far) / game.openCost(s.id, p.id) + Math.random() * 0.02;
     if (score > bestScore) {

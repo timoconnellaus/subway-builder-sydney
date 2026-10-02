@@ -212,5 +212,7 @@ button { font: inherit; color: inherit; }
   .pill { padding: 6px 10px; font-size: 14px; }
   .pill.you span { display: none; }
   .toasts { top: 120px; }
+  .toast { font-size: 13px; padding: 7px 10px; }
+  .toast.big { font-size: 15px; padding: 9px 12px; }
   .stats .v { font-size: 15px; }
 }
