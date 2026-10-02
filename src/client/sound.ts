@@ -46,6 +46,8 @@ class Sound {
   private ensure(): AudioContext | null {
     if (this.muted) return null;
     if (!this.ctx) {
+      // browsers only allow audio after the player has tapped or clicked something
+      if (!(navigator.userActivation?.hasBeenActive ?? true)) return null;
       try {
         this.ctx = new AudioContext();
       } catch {
