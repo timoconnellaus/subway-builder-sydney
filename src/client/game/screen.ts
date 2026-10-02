@@ -1,4 +1,4 @@
-import { hubLock, MAPS, networkOf, winNeed, type Snapshot, type StationId, type LineView, type PlayerView, type SectionId } from "../../sim";
+import { extendOptions, hubLock, MAPS, networkOf, winNeed, type Snapshot, type StationId, type LineView, type PlayerView, type SectionId } from "../../sim";
 import type { GameEvent } from "../../sim/types";
 import type { GameConn } from "../conn";
 import type { LobbyState } from "../../shared/protocol";
@@ -872,13 +872,9 @@ export class GameScreen {
   /** "Extend <line> …" for one of your lines that ends at a or b and could take in the other, or "". */
   private extendButton(s: Snapshot, a: StationId, b: StationId, label: string): string {
     for (const l of s.lines) {
-      if (l.owner !== this.you) continue;
-      const first = l.stations[0];
-      const last = l.stations[l.stations.length - 1];
-      const end = last === a || last === b ? "end" : first === a || first === b ? "start" : null;
-      if (!end) continue;
-      const to = (end === "end" ? last : first) === a ? b : a;
-      if (l.stations.includes(to)) continue;
+      const opt = l.owner === this.you ? extendOptions(l.stations, a, b)[0] : undefined;
+      if (!opt) continue;
+      const { end, to } = opt;
       return `<button class="btn primary wide" data-act="extend-to" data-arg="${l.id}" data-d="${end}" data-st="${to}">Extend ${esc(this.lineTitle(l))} ${label}</button>`;
     }
     return "";

@@ -115,6 +115,18 @@ export function hubLock<P extends { id: PlayerId; hub: StationId }>(players: P[]
   return players.find((p) => p.id !== id && (p.hub === a || p.hub === b));
 }
 
+/** Ways a line could be extended over section a–b: from an end at one side to the other side
+ * (the far end first), skipping a side the line already visits. */
+export function extendOptions(stations: StationId[], a: StationId, b: StationId): { end: "start" | "end"; to: StationId }[] {
+  const out: { end: "start" | "end"; to: StationId }[] = [];
+  for (const [end, st] of [["end", stations[stations.length - 1]], ["start", stations[0]]] as const) {
+    if (st !== a && st !== b) continue;
+    const to = st === a ? b : a;
+    if (!stations.includes(to)) out.push({ end, to });
+  }
+  return out;
+}
+
 /** The price of opening a section: dearer for longer track and for players who already own more. */
 export function openPrice(S: Pick<Settings, "openBaseCost" | "openCostPerMinute" | "openCostPerOwned">, minutes: number, owned = 0): number {
   return Math.round(S.openBaseCost + S.openCostPerMinute * minutes + S.openCostPerOwned * owned);

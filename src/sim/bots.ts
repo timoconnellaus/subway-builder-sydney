@@ -1,5 +1,5 @@
 import type { Game } from "./game";
-import { hubLock, sectionBetween, sectionId } from "./network";
+import { extendOptions, hubLock, sectionBetween, sectionId } from "./network";
 import type { BotStyle, Line, Player, SectionId, StationId } from "./types";
 
 // Simple rule-based bots. They act through Game.apply like a human would, so they
@@ -146,14 +146,8 @@ function cover(game: Game, p: Player, tune: StyleTuning) {
     if (lines.some((l) => game.lineUses(l, s.id))) continue;
     // extend a line that ends at one side of this section
     for (const l of lines) {
-      const first = l.stations[0];
-      const last = l.stations[l.stations.length - 1];
-      for (const [end, st] of [["end", last], ["start", first]] as const) {
-        if (st !== s.a && st !== s.b) continue;
-        const other = st === s.a ? s.b : s.a;
-        if (l.stations.includes(other) || l.stations.length >= 8) continue;
-        if (game.apply(p.id, { type: "extendLine", line: l.id, station: other, end }).ok) return;
-      }
+      if (l.stations.length >= 8) continue;
+      for (const { end, to } of extendOptions(l.stations, s.a, s.b)) if (game.apply(p.id, { type: "extendLine", line: l.id, station: to, end }).ok) return;
     }
     if ((p.money >= game.trainCost(2) + tune.reserve / 2 && lines.length < tune.maxLines) || lines.length === 0) {
       const route = longRoute(game, p, s.a, s.b, tune);
@@ -176,7 +170,7 @@ function longRoute(game: Game, p: Player, a: StationId, b: StationId, tune: Styl
       for (const e of game.net.adj[end]) {
         if (route.includes(e.to)) continue;
         const owner = st.sections[e.section].owner;
-        if (!owner || (tune.spareHumans && isHuman(game, owner))) continue;
+        if (!owner || (tune.spareHumans && game.player(owner)?.isBot === false)) continue;
         // prefer our own track; rival track costs us fees
         const v = stationValue(game, e.to) * (owner === p.id ? 1 : tune.rivalTrack);
         if (v > bestV) {
@@ -192,10 +186,6 @@ function longRoute(game: Game, p: Player, a: StationId, b: StationId, tune: Styl
   grow(true);
   grow(false);
   return route;
-}
-
-function isHuman(game: Game, id: string): boolean {
-  return !game.player(id)?.isBot;
 }
 
 function loadFactor(l: Line): number {
@@ -264,7 +254,7 @@ function attack(game: Game, p: Player, tune: StyleTuning) {
   let bestTraffic = 1;
   for (const s of game.net.sections) {
     const ss = st.sections[s.id];
-    if (!ss.owner || ss.owner === p.id || (tune.spareHumans && isHuman(game, ss.owner))) continue;
+    if (!ss.owner || ss.owner === p.id || (tune.spareHumans && game.player(ss.owner)?.isBot === false)) continue;
     if (lines.some((l) => game.lineUses(l, s.id))) continue;
     for (const [here, y] of [[s.a, s.b], [s.b, s.a]] as const) {
       // need one of our own sections touching `here`
