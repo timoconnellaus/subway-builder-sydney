@@ -206,6 +206,7 @@ describe("daily challenge", () => {
     expect(dailyLabel(dailyScore(false, 600, 0.38))).toBe("Owned 38%");
     expect(validScore(dailyScore(true, 412, 0.6))).toBe(true);
     expect(validScore(3000)).toBe(false);
+    expect(validScore(9999)).toBe(false); // "won in 1 minute" is not believable
   });
 
   it("seeded games start the same way", () => {

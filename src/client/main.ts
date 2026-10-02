@@ -1,7 +1,7 @@
 import "./styles.css";
 import { HOUSE_RULES, type BotStyle, type HouseRuleKey, type HouseRules } from "../sim/types";
 import { DEFAULT_SETTINGS } from "../sim/types";
-import { BOT_NAMES, isRoomCode, SLOTS, type LobbyState } from "../shared/protocol";
+import { BOT_NAMES, cleanPlayerName, isRoomCode, SLOTS, type LobbyState } from "../shared/protocol";
 import qrcode from "qrcode-generator";
 import { MAP_CHOICES, MAPS, stationName } from "../sim";
 import { clearLocalSave, LocalGame, RemoteRoom, savedLocalGame, type LocalOptions } from "./conn";
@@ -41,6 +41,16 @@ function loadRules(): HouseRules {
   } catch {
     return {};
   }
+}
+
+/** New players start against easy bots until they've won a game. */
+const defaultSkill = () => (readRecord().wins > 0 ? 2 : 1);
+
+/** Saved house rules with the bot skill filled in. */
+function effectiveRules(): HouseRules {
+  const r = loadRules();
+  r.botSkill ??= defaultSkill();
+  return r;
 }
 
 function ruleLabel(k: HouseRuleKey, v: number): string {
@@ -104,9 +114,7 @@ function go(hash: string) {
 // ---------- menu ----------
 function menu() {
   const name = storage("me-name", "");
-  // new players start against easy bots until they've won a game
-  const menuRules = loadRules();
-  menuRules.botSkill ??= readRecord().wins > 0 ? 2 : 1;
+  const menuRules = effectiveRules();
   const saved = savedLocalGame();
   const challenge = dailyChallenge(sydneyDate());
   const bots = storage("bots", "builder,raider").split(",").filter(Boolean) as BotStyle[];
@@ -163,17 +171,23 @@ function menu() {
     </div>`;
   app.append(el);
   const nameIn = el.querySelector<HTMLInputElement>("#name")!;
+  // the rules to remember; bot skill only once picked, so the easy-until-you-win default can move up
+  const chosenRules = (): HouseRules => {
+    const r = readRules(el.querySelector(".bots-sec")!);
+    if (loadRules().botSkill === undefined && r.botSkill === defaultSkill()) delete r.botSkill;
+    return r;
+  };
   const saveName = () => setStorage("me-name", nameIn.value.trim());
   nameIn.addEventListener("change", saveName);
   el.querySelector("#continue")?.addEventListener("click", () => go("#/play"));
   el.querySelector("#daily")!.addEventListener("click", () => {
-    if (!nameIn.value.trim()) {
+    if (!cleanPlayerName(nameIn.value)) {
       // the leaderboard needs a name
       nameIn.classList.add("need");
       nameIn.placeholder = "Your name";
       const err = el.querySelector<HTMLElement>("#daily-err")!;
       err.hidden = false;
-      err.textContent = "Type your name at the top first, so you can go on the leaderboard.";
+      err.textContent = "Type your name at the top first (letters or numbers), so you can go on the leaderboard.";
       nameIn.scrollIntoView({ block: "center", behavior: "smooth" });
       nameIn.focus();
       return;
@@ -191,7 +205,7 @@ function menu() {
     setStorage("bots", (chosen.length ? chosen : ["builder"]).join(","));
     setStorage("round", el.querySelector<HTMLSelectElement>("#round")!.value);
     setStorage("map", el.querySelector<HTMLSelectElement>("#map")!.value);
-    setStorage("rules", JSON.stringify(readRules(el.querySelector(".bots-sec")!)));
+    setStorage("rules", JSON.stringify(chosenRules()));
     startFresh("menu");
   });
   const err = el.querySelector<HTMLElement>("#online-err")!;
@@ -201,7 +215,7 @@ function menu() {
       const r = await fetch("/api/rooms", { method: "POST" });
       if (!r.ok) throw new Error();
       const { code } = await r.json();
-      setStorage("rules", JSON.stringify(readRules(el.querySelector(".bots-sec")!)));
+      setStorage("rules", JSON.stringify(chosenRules()));
       setStorage("map", el.querySelector<HTMLSelectElement>("#map")!.value);
       go(`#/room/${code}`);
     } catch {
@@ -275,7 +289,7 @@ function menuOptions(): LocalOptions {
     name: playerName(),
     bots: bots.slice(0, 3),
     roundMinutes: Number(storage("round", "900")) || 900,
-    rules: loadRules(),
+    rules: effectiveRules(),
     map: storage("map", "sydney")
   };
 }
@@ -439,6 +453,7 @@ function online(code: string) {
     const t = e.target as HTMLSelectElement;
     if (t.id === "lobby-name" && t.value.trim()) {
       setStorage("me-name", t.value.trim());
+      room.name = t.value.trim(); // so a reconnect says hello with the new name
       room.send({ t: "setName", name: t.value.trim() });
     }
     if (t.id === "round") room.send({ t: "setOptions", options: { roundMinutes: Number(t.value) } });

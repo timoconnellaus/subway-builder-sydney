@@ -234,6 +234,7 @@ export class RoomCore {
         if (!isHost || this.phase !== "lobby" || msg.id === me) return;
         this.members = this.members.filter((m) => m.id !== msg.id);
         for (const x of this.conns.values()) if (x.player === msg.id) x.player = null;
+        if (this.owner === msg.id) this.owner = me;
         break;
       }
       case "setSlot": {

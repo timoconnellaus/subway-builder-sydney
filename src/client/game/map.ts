@@ -2,7 +2,7 @@ import { Application, Assets, Container, Graphics, Sprite, Text, Texture } from 
 import { Delaunay } from "d3-delaunay";
 import { buildNetwork, sectionBetween, type MapDef, type Network, type Snapshot, type StationId } from "../../sim";
 import type { Color, PlayerId, SectionId } from "../../sim/types";
-import { COLORS, SOFT } from "../util";
+import { colorBlind, COLORS, SOFT } from "../util";
 
 const LAND = 0xebe7de;
 const WATER = 0x9cc8e8;
@@ -108,7 +108,7 @@ export class MapView {
     this.host.appendChild(this.app.canvas);
     const names = [
       "city", "parramatta", "airport", "liverpool",
-      ...(["red", "blue", "gold", "green"] as const).flatMap((c) => [`train-suburban-${c}`, `train-metro-${c}`])
+      ...(["red", "blue", "gold", "green", "neutral"] as const).flatMap((c) => [`train-suburban-${c}`, `train-metro-${c}`])
     ];
     const loaded = await Assets.load(names.map((n) => ({ alias: n, src: `/sprites/${n}.webp` })));
     if (this.destroyed) return this.app.destroy(true, { children: true });
@@ -560,11 +560,14 @@ export class MapView {
       if (!line) continue;
       seen.add(tr.id);
       const col = this.colorOf[line.owner] ?? "red";
-      const tex = this.textures[line.speed >= 3 ? `train-metro-${col}` : `train-suburban-${col}`];
+      // colour-blind palette: tint the grey train instead of using the painted one
+      const art = colorBlind() ? "neutral" : col;
+      const tex = this.textures[line.speed >= 3 ? `train-metro-${art}` : `train-suburban-${art}`];
       let ts = this.trains.get(tr.id);
       if (!ts) {
         const sprite = new Sprite(tex);
         sprite.anchor.set(0.5);
+        if (colorBlind()) sprite.tint = COLORS[col];
         this.trainLayer.addChild(sprite);
         ts = { sprite, x: 0, y: 0, rot: 0, seen: 0 };
         this.trains.set(tr.id, ts);

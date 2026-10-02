@@ -36,7 +36,9 @@ if (colorBlind()) {
   }
 }
 
-export const COLOR_NAMES: Record<Color, string> = { red: "Red", blue: "Blue", gold: "Gold", green: "Green" };
+export const COLOR_NAMES: Record<Color, string> = colorBlind()
+  ? { red: "Orange", blue: "Blue", gold: "Yellow", green: "Pink" }
+  : { red: "Red", blue: "Blue", gold: "Gold", green: "Green" };
 
 export function h<K extends keyof HTMLElementTagNameMap>(
   tag: K,

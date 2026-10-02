@@ -35,7 +35,7 @@ export interface BoardView {
 
 const TWISTS: { text: string; rules: HouseRules }[] = [
   { text: "A normal day on the rails.", rules: {} },
-  { text: "Rush hour all day: Sydney is extra busy.", rules: { demandPerMinute: 200 } },
+  { text: "Rush hour all day: the whole city is extra busy.", rules: { demandPerMinute: 200 } },
   { text: "Shoestring budget: you start with less money.", rules: { startMoney: 2000 } },
   { text: "Quick grabs: only 2 empty trains to capture.", rules: { emptyToCapture: 2 } },
   { text: "Free track: no fee for using rival track.", rules: { trackFee: 0 } },
@@ -101,5 +101,6 @@ export function dailyLabel(score: number): string {
 }
 
 export function validScore(score: unknown): score is number {
-  return typeof score === "number" && Number.isInteger(score) && score >= 0 && score < WIN_BASE && (score <= LOSS_MAX || score > WIN_BASE - 5000);
+  // no real win takes under an hour of game time
+  return typeof score === "number" && Number.isInteger(score) && score >= 0 && score <= WIN_BASE - 60 && (score <= LOSS_MAX || score > WIN_BASE - 5000);
 }

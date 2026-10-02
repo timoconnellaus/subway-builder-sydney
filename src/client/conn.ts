@@ -198,7 +198,7 @@ export class RemoteRoom implements GameConn {
   private pingTimer: ReturnType<typeof setInterval> | null = null;
   latency = 0;
 
-  constructor(public code: string, private name: string, private token: string) {
+  constructor(public code: string, public name: string, private token: string) {
     this.open();
   }
 

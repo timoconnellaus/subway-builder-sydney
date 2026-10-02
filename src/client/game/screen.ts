@@ -132,9 +132,11 @@ export class GameScreen {
     const narrow = window.innerWidth <= 760;
     const panel = this.panel.getBoundingClientRect();
     // keep what the tutorial coach points at clear of the coach card
-    const coach = this.coach.hidden ? 0 : this.coach.getBoundingClientRect().height + 8;
+    const coach = this.coach.hidden ? null : this.coach.getBoundingClientRect();
     this.map.setInsets(
-      narrow ? { right: 0, bottom: (this.panelOpen ? panel.height : 30) + coach, top: 140 } : { right: panel.width + 24, bottom: 0, top: 56 + coach }
+      narrow
+        ? { right: 0, bottom: coach ? window.innerHeight - coach.top + 8 : this.panelOpen ? panel.height : 30, top: 140 }
+        : { right: panel.width + 24, bottom: 0, top: 56 + (coach ? coach.height + 8 : 0) }
     );
   }
 
@@ -807,7 +809,9 @@ export class GameScreen {
     this.dailySent = true;
     const board = await submitScore(date, name, score);
     const host = this.overlay.querySelector("#daily-board");
-    if (host && !this.destroyed) host.innerHTML = `<p><b>Your score: ${esc(dailyLabel(score))}</b>${board?.rank ? ` · rank ${board.rank}` : ""}</p>${boardHtml(board)}`;
+    if (!host || this.destroyed) return;
+    const head = `<p><b>Your score: ${esc(dailyLabel(score))}</b>${board && typeof board !== "string" && board.rank ? ` · rank ${board.rank}` : ""}</p>`;
+    host.innerHTML = head + (typeof board === "string" ? `<p class="muted">${esc(board)}</p>` : boardHtml(board));
   }
 
   private showHelp() {

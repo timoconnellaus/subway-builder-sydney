@@ -10,7 +10,8 @@ export async function fetchBoard(date: string): Promise<BoardView | null> {
   }
 }
 
-export async function submitScore(date: string, name: string, score: number): Promise<BoardView | null> {
+/** Sends a score. Returns the board, a reason it wasn't taken, or null if the server can't be reached. */
+export async function submitScore(date: string, name: string, score: number): Promise<BoardView | string | null> {
   // remember the best score locally too, for when the server can't be reached
   if (score > (localBest(date) ?? -1)) setStorage(`daily-best:${date}`, String(score));
   try {
@@ -19,7 +20,10 @@ export async function submitScore(date: string, name: string, score: number): Pr
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ name, token: token(), score })
     });
-    return r.ok ? ((await r.json()) as BoardView) : null;
+    if (r.ok) return (await r.json()) as BoardView;
+    if (r.status === 409) return "That day's leaderboard has closed, so this game was just for practice.";
+    if (r.status === 400) return "The leaderboard couldn't take this score (check your name has letters or numbers).";
+    return null;
   } catch {
     return null;
   }
