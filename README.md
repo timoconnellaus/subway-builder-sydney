@@ -90,6 +90,14 @@ deploys (`.github/workflows/deploy.yml`). Until the secrets exist the deploy ste
 
 To keep it private, put the Worker behind Cloudflare Access (Zero Trust → Access → Applications).
 
+What gets deployed: one Worker serving the built game from `dist/`, plus two Durable Object classes:
+`GameRoom` (one per online room, ticks the game at 4 Hz and saves it) and `DailyBoard` (one per day's
+leaderboard, forgotten after two weeks). Both use SQLite-backed storage, which the Workers free plan
+includes. Migrations `v1` and `v2` in `wrangler.toml` create them on the first deploy.
+
+Playing on an iPad: open the URL in Safari, then Share → Add to Home Screen. It opens full screen and
+single-player games work offline after the first visit.
+
 ## Art
 
 Sprite sheets and the atlas are in `assets/metro-empire/`. The game uses trimmed copies in
